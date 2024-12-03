@@ -1,0 +1,32 @@
+[
+   {
+      "kontekstType": "Plan-treff-farled",
+      "id": "0c5dc043-e5b3-4349-8587-9b464d013aaa",
+      "tittel": "Farledsareal",
+      "forklarendeTekst": "Farledene (hoved- og biled) er «veisystemet» på sjøen. Det meste av trafikken på sjø går i farledene, og det er derfor viktig at det ikke planlegges for noe som hindrer sikker og effektiv ferdsel i disse områdene.",
+      "lenker": [
+         {
+            "href": "https://www.kystverket.no/sjovegen/farleder---vegen-til-sjos/",
+            "tittel": "Les mer om farleder"
+         }
+      ],
+      "dialogtekst": "Planområdet går ut i farleden",
+      "muligeTiltak": "Du bør justere planforslaget slik at det ikke overlapper med farleden. Om dette ikke lar seg gjøre, må du få vurdert hvilke virkninger planforslaget ditt har for sikker og effektiv ferdsel. Vurderingen må gjøres av en person med nautisk kompetanse. Deretter kan du ta kontakt med Kystverket, som kan vurdere om de synes dette ser greit ut eller ikke.",
+      "veiledning": "",
+      "status": "Ferdig",
+      "datasett": {
+         "tittel": "Hovedled og Biled, arealavgrensning",
+         "urlMetadata": "https://kartkatalog.geonorge.no/metadata/uuid/1e8d7811-87ea-429a-8d97-4ea6bbf6e010",
+         "bufferAvstand": null,
+         "bufferText": null,
+         "bufferMuligeTiltak": null,
+         "gmlSkjema": null,
+         "navnerom": "http://skjema.geonorge.no/SOSI/produktspesifikasjon/Farled/20210101",
+         "typeReferanse": {
+            "objekttype": "HovedledOgBiledAreal",
+            "attributt": null,
+            "kodeverdi": null
+         }
+      }
+   }
+]

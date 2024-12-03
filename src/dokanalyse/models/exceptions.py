@@ -1,0 +1,2 @@
+class DokAnalysisException(Exception):
+    pass

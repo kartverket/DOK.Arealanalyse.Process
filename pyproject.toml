@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dokanalyse"
+description = "Arealanalyse av DOK-datasett"
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "asyncio",
+    "nest-asyncio",
+    "aiohttp",
+    "async-lru",
+    "pydantic",
+    "pydash",
+    "pillow",
+    "python-socketio[client]",
+    "lxml",
+    "types-lxml",    
+    "gdal==3.9.1",
+    "shapely",
+    "PyYAML",
+    "build"
+]
+
+[tool.setuptools.package-data]
+dokanalyse = ["**/*.json", "**/*.txt"]
