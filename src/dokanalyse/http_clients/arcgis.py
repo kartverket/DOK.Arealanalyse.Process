@@ -4,7 +4,7 @@ from pydantic import HttpUrl
 from osgeo import ogr
 from ..utils.helpers.geometry import geometry_to_arcgis_geom
 
-async def query_arcgis(url: HttpUrl, layer: str, filter: str, geometry: ogr.Geometry, epsg: int, timeout: int = 20) -> tuple[int, dict]:
+async def query_arcgis(url: HttpUrl, layer: str, filter: str, geometry: ogr.Geometry, epsg: int, timeout: int = 30) -> tuple[int, dict]:
     api_url = f'{url}/{layer}/query'
     arcgis_geom = geometry_to_arcgis_geom(geometry, epsg)
 

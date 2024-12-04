@@ -5,7 +5,7 @@ from osgeo import ogr
 from ..utils.helpers.geometry import geometry_to_wkt
 from ..utils.constants import WGS84_EPSG
 
-async def query_ogc_api(base_url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, epsg: int, out_epsg: int = 4326, timeout: int = 20) -> tuple[int, dict]:
+async def query_ogc_api(base_url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> tuple[int, dict]:
     wkt_str = geometry_to_wkt(geometry, epsg)
     filter_crs = f'&filter-crs=http://www.opengis.net/def/crs/EPSG/0/{epsg}' if epsg != WGS84_EPSG else ''
     crs = f'&crs=http://www.opengis.net/def/crs/EPSG/0/{out_epsg}' if out_epsg != WGS84_EPSG else ''

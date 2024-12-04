@@ -7,7 +7,7 @@ from osgeo import ogr
 __DIR_PATH = path.dirname(path.realpath(__file__))
 
 
-async def query_wfs(url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, epsg: int, timeout: int = 20) -> tuple[int, str]:
+async def query_wfs(url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, epsg: int, timeout: int = 30) -> tuple[int, str]:
     gml_str = geometry.ExportToGML(['FORMAT=GML3'])
     request_xml = __create_wfs_request_xml(layer, geom_field, gml_str, epsg)    
 
