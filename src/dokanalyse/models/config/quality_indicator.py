@@ -1,5 +1,5 @@
-from pydantic import BaseModel, model_validator
-from typing import Optional, Self
+from pydantic import BaseModel, root_validator
+from typing import Optional, Dict
 from .quality_indicator_type import QualityIndicatorType
 from .coverage_wfs import CoverageWfs
 
@@ -14,10 +14,12 @@ class QualityIndicator(BaseModel):
     input_filter: Optional[str] = None
     wfs: Optional[CoverageWfs] = None
 
-    @model_validator(mode='after')
-    def check_coverage(self) -> Self:
-        if self.type == QualityIndicatorType.COVERAGE and self.wfs == None:
+    @root_validator(pre=False)
+    def check_coverage(cls, values: Dict) -> Dict:
+        type, wfs = values.get('type'), values.get('wfs')
+
+        if type == QualityIndicatorType.COVERAGE and wfs is None:
             raise ValueError(
                 'If the quality indicator type is "coverage", the property "wfs" must be set')
 
-        return self
+        return values

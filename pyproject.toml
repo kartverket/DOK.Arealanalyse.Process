@@ -14,7 +14,8 @@ dependencies = [
     "aiohttp",
     "cachetools",
     "async-lru",
-    "pydantic",
+    "pydantic<2.0",
+    "jsonschema",
     "pydash",
     "pillow",
     "python-socketio[client]",
@@ -22,7 +23,8 @@ dependencies = [
     "types-lxml",
     "shapely",
     "PyYAML",
-    "build"
+    "starlette",
+    "build",
 ]
 
 [tool.setuptools.package-data]

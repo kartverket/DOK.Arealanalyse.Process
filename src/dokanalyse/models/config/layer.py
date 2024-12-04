@@ -1,5 +1,5 @@
-from pydantic import BaseModel, field_validator, model_validator
-from typing import List, Optional, Self
+from pydantic import BaseModel, root_validator, validator
+from typing import List, Optional, Dict
 from ..result_status import ResultStatus
 import uuid
 
@@ -13,8 +13,7 @@ class Layer(BaseModel):
     result_status: ResultStatus
     geolett_id: Optional[uuid.UUID] = None
 
-    @field_validator('result_status')
-    @classmethod
+    @validator('result_status')
     def check_result_status(cls, value: ResultStatus) -> ResultStatus:
         valid_statuses = [
             ResultStatus.NO_HIT_GREEN,
@@ -29,10 +28,10 @@ class Layer(BaseModel):
 
         return value
 
-    @model_validator(mode='after')
-    def check_layer_type(self) -> Self:
-        if not self.wfs and not self.arcgis and not self.ogc_api:
+    @root_validator(pre=True)
+    def check_layer_type(cls, values: Dict) -> Dict:
+        if not 'wfs' in values and not 'arcgis' in values and not 'ogc_api' in values:
             raise ValueError(
-                'The layer must have either the "wfs", "arcgis" or "ogc_api" property set')
-            
-        return self
+               'The layer must have either the "wfs", "arcgis" or "ogc_api" property set')
+
+        return values
