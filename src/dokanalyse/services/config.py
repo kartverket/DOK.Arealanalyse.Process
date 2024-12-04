@@ -1,10 +1,10 @@
-import os
 import logging
 import yaml
 from pathlib import Path
 from typing import Dict, List, Tuple
 from uuid import UUID
 from pydantic import ValidationError
+from cachetools import cached, TTLCache
 from ..models.exceptions import DokAnalysisException
 from ..models.config.dataset_config import DatasetConfig
 from ..models.config.quality_config import QualityConfig
@@ -15,20 +15,25 @@ __LOGGER = logging.getLogger(__name__)
 
 
 def get_dataset_configs() -> List[DatasetConfig]:
-    return __dataset_configs
+    dataset_configs, _ = __load_config()
+
+    return dataset_configs
 
 
 def get_dataset_config(dataset_id: UUID) -> DatasetConfig:
+    dataset_configs, _ = __load_config()
+
     config = next(
-        (conf for conf in __dataset_configs if conf.dataset_id == dataset_id), None)
+        (conf for conf in dataset_configs if conf.dataset_id == dataset_id), None)
 
     return config
 
 
 def get_quality_indicator_configs(dataset_id: UUID) -> List[QualityIndicator]:
+    _, quality_configs = __load_config()
     indicators: List[QualityIndicator] = []
 
-    for config in __quality_configs:
+    for config in quality_configs:
         id: UUID = config.dataset_id
 
         if not id or id == dataset_id:
@@ -37,20 +42,28 @@ def get_quality_indicator_configs(dataset_id: UUID) -> List[QualityIndicator]:
     return indicators
 
 
-def __create_dataset_config(data: Dict) -> DatasetConfig:
-    try:
-        return DatasetConfig(**data)
-    except ValidationError as error:
-        __LOGGER.error(error)
-        return None
+@cached(cache=TTLCache(maxsize=1024, ttl=300))
+def __load_config() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
+    config_dir = get_env_var('DOKANALYSE_CONFIG_DIR')
 
+    if config_dir is None:
+        raise DokAnalysisException(
+            'The environment variable "DOKANALYSE_CONFIG_DIR" is not set')
 
-def __create_quality_config(data: Dict) -> QualityConfig:
-    try:
-        return QualityConfig(**data)
-    except ValidationError as error:
-        __LOGGER.error(error)
-        return None
+    path = Path(config_dir)
+
+    if not path.is_dir():
+        raise DokAnalysisException(
+            f'The "DOKANALYSE_CONFIG_DIR" path ({path}) is not a directory')
+
+    glob = path.glob('*.yml')
+    files = [path for path in glob if path.is_file()]
+
+    if len(files) == 0:
+        raise DokAnalysisException(
+            f'The "DOKANALYSE_CONFIG_DIR" path ({path}) contains no YAML files')
+
+    return __create_configs(files)
 
 
 def __create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[QualityConfig]]:
@@ -83,27 +96,17 @@ def __create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[Quali
     return dataset_configs, quality_configs
 
 
-def __load_config() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
-    config_dir = get_env_var('DOKANALYSE_CONFIG_DIR')
-
-    if config_dir is None:
-        raise DokAnalysisException(
-            'The environment variable "DOKANALYSE_CONFIG_DIR" is not set')
-
-    path = Path(config_dir)
-
-    if not path.is_dir():
-        raise DokAnalysisException(
-            f'The "DOKANALYSE_CONFIG_DIR" path ({path}) is not a directory')
-
-    glob = path.glob('*.yml')
-    files = [path for path in glob if path.is_file()]
-
-    if len(files) == 0:
-        raise DokAnalysisException(
-            f'The "DOKANALYSE_CONFIG_DIR" path ({path}) contains no YAML files')
-
-    return __create_configs(files)
+def __create_dataset_config(data: Dict) -> DatasetConfig:
+    try:
+        return DatasetConfig(**data)
+    except ValidationError as error:
+        __LOGGER.error(error)
+        return None
 
 
-__dataset_configs, __quality_configs = __load_config()
+def __create_quality_config(data: Dict) -> QualityConfig:
+    try:
+        return QualityConfig(**data)
+    except ValidationError as error:
+        __LOGGER.error(error)
+        return None
