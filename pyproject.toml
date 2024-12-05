@@ -16,6 +16,7 @@ dependencies = [
     "async-lru",
     "pydantic<2.0",
     "jsonschema",
+    "gdal==3.9.1",
     "pydash",
     "pillow",
     "python-socketio[client]",
