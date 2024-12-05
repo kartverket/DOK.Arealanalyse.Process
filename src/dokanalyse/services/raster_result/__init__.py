@@ -21,3 +21,6 @@ async def get_cartography_url(wms_url: str, wms_layers: List[str]) -> str:
     data_url = await create_legend(urls)
 
     return data_url
+
+
+__all__ = ['get_raster_result', 'get_cartography_url']

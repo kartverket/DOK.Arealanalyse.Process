@@ -22,7 +22,7 @@ from ..models.result_status import ResultStatus
 from ..utils.constants import DEFAULT_EPSG
 from ..utils.correlation_id_middleware import get_correlation_id
 
-__LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 async def run(data: dict, sio_client: SimpleClient) -> AnalysisResponse:
@@ -48,7 +48,7 @@ async def run(data: dict, sio_client: SimpleClient) -> AnalysisResponse:
 
     async with asyncio.TaskGroup() as tg:
         for dataset_id, should_analyze in datasets.items():
-            task = tg.create_task(run_analysis(
+            task = tg.create_task(_run_analysis(
                 dataset_id, should_analyze, geometry, DEFAULT_EPSG, orig_epsg, buffer,
                 context, include_guidance, include_quality_measurement, sio_client))
             tasks.append(task)
@@ -64,7 +64,7 @@ async def run(data: dict, sio_client: SimpleClient) -> AnalysisResponse:
     return response.to_dict()
 
 
-async def run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int,
+async def _run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int,
                        context: str, include_guidance: bool, include_quality_measurement: bool, sio_client: SimpleClient) -> Analysis:
     config = get_dataset_config(dataset_id)
 
@@ -79,14 +79,14 @@ async def run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Geo
     start = time.time()
     correlation_id = get_correlation_id()
 
-    analysis = create_analysis(
+    analysis = _create_analysis(
         dataset_id, config, geometry, epsg, orig_epsg, buffer)
 
     try:
         await analysis.run(context, include_guidance, include_quality_measurement)
     except Exception:
         err = traceback.format_exc()
-        __LOGGER.error(err)
+        _LOGGER.error(err)
         await analysis.set_default_data()
         analysis.result_status = ResultStatus.ERROR
 
@@ -100,7 +100,7 @@ async def run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Geo
     return analysis
 
 
-def create_analysis(dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> Analysis:
+def _create_analysis(dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> Analysis:
     dataset_type = get_dataset_type(config)
     
     match dataset_type:

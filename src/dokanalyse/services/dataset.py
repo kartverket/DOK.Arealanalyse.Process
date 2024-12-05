@@ -9,7 +9,7 @@ from ..services.config import get_dataset_configs
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import APP_FILES_DIR
 
-__CACHE_DAYS = 7
+_CACHE_DAYS = 7
 
 
 def get_dataset_type(config: DatasetConfig) -> Literal['wfs', 'arcgis', 'ogc_api']:
@@ -27,11 +27,11 @@ async def get_dataset_ids(data: dict, municipality_number: str) -> Dict[UUID, bo
     include_chosen_dok = data.get('includeFilterChosenDOK', True)
 
     if include_chosen_dok:
-        kartgrunnlag = await __get_kartgrunnlag(municipality_number)
+        kartgrunnlag = await _get_kartgrunnlag(municipality_number)
     else:
         kartgrunnlag = []
 
-    dataset_ids = __get_datasets_by_theme(data.get('theme'))
+    dataset_ids = _get_datasets_by_theme(data.get('theme'))
     datasets: Dict[UUID, bool] = {}
 
     for id in dataset_ids:
@@ -42,7 +42,7 @@ async def get_dataset_ids(data: dict, municipality_number: str) -> Dict[UUID, bo
     return datasets
 
 
-def __get_datasets_by_theme(theme: str) -> List[UUID]:
+def _get_datasets_by_theme(theme: str) -> List[UUID]:
     dataset_configs = get_dataset_configs()
     dataset_ids = []
 
@@ -55,16 +55,16 @@ def __get_datasets_by_theme(theme: str) -> List[UUID]:
     return dataset_ids
 
 
-async def __get_kartgrunnlag(municipality_number: str) -> List[str]:
+async def _get_kartgrunnlag(municipality_number: str) -> List[str]:
     if municipality_number is None:
         return []
 
     file_path = Path(path.join(
         APP_FILES_DIR, 'resources/dok-datasets', f'{municipality_number}.json'))
 
-    if not file_path.exists() or should_refresh_cache(file_path, __CACHE_DAYS):
+    if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        dataset_ids = await __fetch_dataset_ids(municipality_number)
+        dataset_ids = await _fetch_dataset_ids(municipality_number)
         json_object = json.dumps(dataset_ids, indent=2)
 
         with file_path.open('w', encoding='utf-8') as file:
@@ -78,25 +78,25 @@ async def __get_kartgrunnlag(municipality_number: str) -> List[str]:
         return dataset_ids
 
 
-async def __fetch_dataset_ids(municipality_number: str) -> List[str]:
-    response = await __fetch_kartgrunnlag(municipality_number)
+async def _fetch_dataset_ids(municipality_number: str) -> List[str]:
+    response = await _fetch_kartgrunnlag(municipality_number)
 
     if response is None:
         return []
 
-    contained_items = response.get('containeditems', [])
-    datasets = []
+    contained_items: List[Dict] = response.get('containeditems', [])
+    datasets: List[str] = []
 
     for dataset in contained_items:
         if dataset.get('ConfirmedDok') == 'JA' and dataset.get('dokStatus') == 'Godkjent':
-            metadata_url = dataset.get('MetadataUrl')
+            metadata_url: str = dataset.get('MetadataUrl')
             splitted = metadata_url.split('/')
             datasets.append(splitted[-1])
 
     return datasets
 
 
-async def __fetch_kartgrunnlag(municipality_number: str) -> dict:
+async def _fetch_kartgrunnlag(municipality_number: str) -> dict:
     try:
         url = f'https://register.geonorge.no/api/det-offentlige-kartgrunnlaget-kommunalt.json?municipality={
             municipality_number}'
@@ -109,3 +109,6 @@ async def __fetch_kartgrunnlag(municipality_number: str) -> dict:
                 return await response.json()
     except:
         return None
+
+
+__all__ = ['get_dataset_type',    'get_dataset_ids']

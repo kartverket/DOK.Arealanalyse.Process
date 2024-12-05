@@ -39,14 +39,14 @@ async def get_values_from_wfs(wfs_config: CoverageWfs, geometry: ogr.Geometry, e
                     feature_geoms.append(feature_geom)
 
     if len(feature_geoms) > 0:
-        hit_area_percent = __get_hit_area_percent(geometry, feature_geoms)
+        hit_area_percent = _get_hit_area_percent(geometry, feature_geoms)
 
     distinct_values = list(set(values))
-    
+
     return distinct_values, hit_area_percent
 
 
-def __get_hit_area_percent(geometry: ogr.Geometry, feature_geometries: List[ogr.Geometry]) -> float:
+def _get_hit_area_percent(geometry: ogr.Geometry, feature_geometries: List[ogr.Geometry]) -> float:
     geom_area: float = geometry.GetArea()
     hit_area: float = 0
 
@@ -62,3 +62,6 @@ def __get_hit_area_percent(geometry: ogr.Geometry, feature_geometries: List[ogr.
     percent = (hit_area / geom_area) * 100
 
     return round(percent, 2)
+
+
+__all__ = ['get_values_from_wfs']

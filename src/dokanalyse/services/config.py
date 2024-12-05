@@ -11,17 +11,17 @@ from ..models.config.quality_config import QualityConfig
 from ..models.config.quality_indicator import QualityIndicator
 from ..utils.helpers.common import get_env_var
 
-__LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 def get_dataset_configs() -> List[DatasetConfig]:
-    dataset_configs, _ = __load_config()
+    dataset_configs, _ = _load_config()
 
     return dataset_configs
 
 
 def get_dataset_config(dataset_id: UUID) -> DatasetConfig:
-    dataset_configs, _ = __load_config()
+    dataset_configs, _ = _load_config()
 
     config = next(
         (conf for conf in dataset_configs if conf.dataset_id == dataset_id), None)
@@ -30,7 +30,7 @@ def get_dataset_config(dataset_id: UUID) -> DatasetConfig:
 
 
 def get_quality_indicator_configs(dataset_id: UUID) -> List[QualityIndicator]:
-    _, quality_configs = __load_config()
+    _, quality_configs = _load_config()
     indicators: List[QualityIndicator] = []
 
     for config in quality_configs:
@@ -43,7 +43,7 @@ def get_quality_indicator_configs(dataset_id: UUID) -> List[QualityIndicator]:
 
 
 @cached(cache=TTLCache(maxsize=1024, ttl=300))
-def __load_config() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
+def _load_config() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
     config_dir = get_env_var('DOKANALYSE_CONFIG_DIR')
 
     if config_dir is None:
@@ -63,10 +63,10 @@ def __load_config() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
         raise DokAnalysisException(
             f'The "DOKANALYSE_CONFIG_DIR" path ({path}) contains no YAML files')
 
-    return __create_configs(files)
+    return _create_configs(files)
 
 
-def __create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[QualityConfig]]:
+def _create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[QualityConfig]]:
     dataset_configs: List[DatasetConfig] = []
     quality_configs: List[QualityConfig] = []
 
@@ -79,12 +79,12 @@ def __create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[Quali
                 type = result.get('type')
 
                 if type == 'dataset':
-                    config = __create_dataset_config(result)
+                    config = _create_dataset_config(result)
 
                     if config is not None:
                         dataset_configs.append(config)
                 elif type == 'quality':
-                    config = __create_quality_config(result)
+                    config = _create_quality_config(result)
 
                     if config is not None:
                         quality_configs.append(config)
@@ -96,17 +96,24 @@ def __create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[Quali
     return dataset_configs, quality_configs
 
 
-def __create_dataset_config(data: Dict) -> DatasetConfig:
+def _create_dataset_config(data: Dict) -> DatasetConfig:
     try:
         return DatasetConfig(**data)
     except ValidationError as error:
-        __LOGGER.error(error)
+        _LOGGER.error(error)
         return None
 
 
-def __create_quality_config(data: Dict) -> QualityConfig:
+def _create_quality_config(data: Dict) -> QualityConfig:
     try:
         return QualityConfig(**data)
     except ValidationError as error:
-        __LOGGER.error(error)
+        _LOGGER.error(error)
         return None
+
+
+__all__ = [
+    'get_dataset_configs',
+    'get_dataset_config',
+    'get_quality_indicator_configs'
+]

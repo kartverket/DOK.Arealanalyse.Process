@@ -1,14 +1,14 @@
-from os import path, getenv
+from os import path
 from pathlib import Path
 import json
-from typing import List
+from typing import List, Dict
 import aiohttp
 from ..utils.constants import APP_FILES_DIR
 from ..utils.helpers.common import should_refresh_cache
 
-__CACHE_DAYS = 7
+_CACHE_DAYS = 7
 
-__CODELISTS = {
+_CODELISTS = {
     'arealressurs_arealtype': 'https://register.geonorge.no/api/sosi-kodelister/fkb/ar5/5.0/arealressursarealtype.json',
     'fullstendighet_dekning': 'https://register.geonorge.no/api/sosi-kodelister/temadata/fullstendighetsdekningskart/dekningsstatus.json',
     'vegkategori': 'https://register.geonorge.no/api/sosi-kodelister/kartdata/vegkategori.json'
@@ -16,17 +16,17 @@ __CODELISTS = {
 
 
 async def get_codelist(type: str) -> List[dict] | None:
-    url = __CODELISTS.get(type)
+    url = _CODELISTS.get(type)
 
     if url is None:
         return None
 
     file_path = Path(
-        path.join(getenv('APP_FILES_DIR'), f'resources/codelists/{type}.json'))
+        path.join(APP_FILES_DIR, f'resources/codelists/{type}.json'))
 
-    if not file_path.exists() or should_refresh_cache(file_path, __CACHE_DAYS):
+    if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        codelist = await __get_codelist(url)
+        codelist = await _get_codelist(url)
 
         if codelist is None:
             return None
@@ -44,14 +44,14 @@ async def get_codelist(type: str) -> List[dict] | None:
         return codelist
 
 
-async def __get_codelist(url: str) -> List[dict]:
-    response = await __fetch_codelist(url)
+async def _get_codelist(url: str) -> List[Dict]:
+    response = await _fetch_codelist(url)
 
     if response is None:
         return None
 
-    contained_items = response.get('containeditems', [])
-    entries = []
+    contained_items: List[Dict] = response.get('containeditems', [])
+    entries: List[Dict] = []
 
     for item in contained_items:
         if item.get('status') == 'Gyldig':
@@ -64,7 +64,7 @@ async def __get_codelist(url: str) -> List[dict]:
     return entries
 
 
-async def __fetch_codelist(url: str) -> dict:
+async def _fetch_codelist(url: str) -> dict:
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
@@ -74,3 +74,6 @@ async def __fetch_codelist(url: str) -> dict:
                 return await response.json()
     except:
         return None
+
+
+__all__ = ['get_codelist']
