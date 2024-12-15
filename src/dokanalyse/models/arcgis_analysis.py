@@ -1,7 +1,7 @@
 from sys import maxsize
 import json
 from uuid import UUID
-from typing import List
+from typing import List, Dict
 from osgeo import ogr
 from .analysis import Analysis
 from .result_status import ResultStatus
@@ -16,13 +16,13 @@ class ArcGisAnalysis(Analysis):
     def __init__(self, dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
         super().__init__(dataset_id, config, geometry, epsg, orig_epsg, buffer)
 
-    async def run_queries(self) -> None:
+    async def _run_queries(self) -> None:
         first_layer = self.config.layers[0]
         geolett_data = await get_geolett_data(first_layer.geolett_id)
 
         for layer in self.config.layers:
             if layer.filter is not None:
-                self.add_run_algorithm(f'query {layer.filter}')
+                self._add_run_algorithm(f'query {layer.filter}')
 
             status_code, api_response = await query_arcgis(
                 self.config.arcgis, layer.arcgis, layer.filter, self.run_on_input_geometry, self.epsg)
@@ -34,7 +34,7 @@ class ArcGisAnalysis(Analysis):
                 self.result_status = ResultStatus.ERROR
                 break
 
-            self.add_run_algorithm(f'intersect layer {layer.arcgis}')
+            self._add_run_algorithm(f'intersect layer {layer.arcgis}')
 
             if api_response is not None:
                 response = self.__parse_response(api_response)
@@ -53,7 +53,7 @@ class ArcGisAnalysis(Analysis):
 
         self.geolett = geolett_data
 
-    async def set_distance_to_object(self) -> None:
+    async def _set_distance_to_object(self) -> None:
         buffered_geom = create_buffered_geometry(
             self.geometry, 20000, self.epsg)
         layer = self.config.layers[0]
@@ -75,20 +75,20 @@ class ArcGisAnalysis(Analysis):
                 distances.append(distance)
 
         distances.sort()
-        self.add_run_algorithm('get distance')
+        self._add_run_algorithm('get distance')
 
         if len(distances) == 0:
             self.distance_to_object = maxsize
         else:
             self.distance_to_object = distances[0]
 
-    def __parse_response(self, arcgis_response: dict) -> dict[str, List]:
+    def __parse_response(self, arcgis_response: Dict) -> Dict[str, List]:
         data = {
             'properties': [],
             'geometries': []
         }
 
-        features: List[dict] = arcgis_response.get('features', [])
+        features: List[Dict] = arcgis_response.get('features', [])
 
         for feature in features:
             data['properties'].append(
@@ -98,9 +98,9 @@ class ArcGisAnalysis(Analysis):
 
         return data
 
-    def __map_properties(self, feature: dict, mappings: List[str]) -> dict:
+    def __map_properties(self, feature: Dict, mappings: List[str]) -> Dict:
         props = {}
-        feature_props: dict = feature['properties']
+        feature_props: Dict = feature['properties']
 
         for mapping in mappings:
             props[mapping] = feature_props.get(mapping)

@@ -15,11 +15,11 @@ class EmptyAnalysis(Analysis):
         self.themes = self.config.themes
         self.run_on_dataset = await get_kartkatalog_metadata(self.dataset_id)
 
-    def add_run_algorithm(self) -> None:
+    def _add_run_algorithm(self) -> None:
         raise NotImplementedError
 
-    def run_queries(self) -> None:
+    def _run_queries(self) -> None:
         return NotImplementedError
 
-    def set_distance_to_object(self) -> None:
+    def _set_distance_to_object(self) -> None:
         return NotImplementedError

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from uuid import UUID
 from . import get_threshold_values
 from ..dok_status import get_dok_status_for_dataset
@@ -9,12 +9,12 @@ from ...models.config.quality_indicator_type import QualityIndicatorType
 
 
 async def get_dataset_quality(dataset_id: UUID, quality_indicators: List[QualityIndicator], **kwargs) -> tuple[List[QualityMeasurement], List[str]]:
-    quality_data = await __get_dataset_quality_data(dataset_id, quality_indicators, kwargs)
+    quality_data = await _get_dataset_quality_data(dataset_id, quality_indicators, kwargs)
     measurements: List[QualityMeasurement] = []
     warnings: List[str] = []
 
     for entry in quality_data:
-        value: dict
+        value: Dict
 
         for value in entry.get('values'):
             measurements.append(QualityMeasurement(entry.get('id'), entry.get(
@@ -28,13 +28,13 @@ async def get_dataset_quality(dataset_id: UUID, quality_indicators: List[Quality
     return measurements, warnings
 
 
-async def __get_dataset_quality_data(dataset_id: UUID, quality_indicators: List[QualityIndicator], data: dict[str, any]) -> List[dict]:
-    quality_measurements = await __get_dataset_quality_measurements(dataset_id)
+async def _get_dataset_quality_data(dataset_id: UUID, quality_indicators: List[QualityIndicator], data: Dict[str, any]) -> List[Dict]:
+    quality_measurements = await _get_dataset_quality_measurements(dataset_id)
 
     dataset_indicators = [
         indicator for indicator in quality_indicators if indicator.type == QualityIndicatorType.DATASET]
 
-    measurements: List[dict] = []
+    measurements: List[Dict] = []
 
     for qm in quality_measurements:
         id = qm['quality_dimension_id']
@@ -55,7 +55,7 @@ async def __get_dataset_quality_data(dataset_id: UUID, quality_indicators: List[
             (di for di in dataset_indicators if di.quality_dimension_id == id), None)
 
         if di is not None:
-            measurement['warning_text'] = __get_dataset_quality_warning_text(
+            measurement['warning_text'] = _get_dataset_quality_warning_text(
                 value, di, data)
 
         measurements.append(measurement)
@@ -63,8 +63,8 @@ async def __get_dataset_quality_data(dataset_id: UUID, quality_indicators: List[
     return measurements
 
 
-async def __get_dataset_quality_measurements(dataset_id: UUID) -> List[dict]:
-    qms: List[dict] = []
+async def _get_dataset_quality_measurements(dataset_id: UUID) -> List[Dict]:
+    qms: List[Dict] = []
 
     dok_status = await get_dok_status_for_dataset(dataset_id)
 
@@ -74,7 +74,7 @@ async def __get_dataset_quality_measurements(dataset_id: UUID) -> List[dict]:
     return qms
 
 
-def __get_dataset_quality_warning_text(value: any, quality_indicator: QualityIndicator, data: dict[str, any]) -> str:
+def _get_dataset_quality_warning_text(value: any, quality_indicator: QualityIndicator, data: Dict[str, any]) -> str:
     input_filter = quality_indicator.input_filter
 
     if input_filter is not None:
@@ -87,3 +87,6 @@ def __get_dataset_quality_warning_text(value: any, quality_indicator: QualityInd
     should_warn = value in threshold_values
 
     return quality_indicator.quality_warning_text if should_warn else None
+
+
+__all__ = ['get_dataset_quality']

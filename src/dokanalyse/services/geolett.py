@@ -5,10 +5,8 @@ import json
 import aiohttp
 from async_lru import alru_cache
 
-_LOCAL_GEOLETT_IDS = [
-    '0c5dc043-e5b3-4349-8587-9b464d013aaa'
-]
-
+_GEOLETT_API_URL = 'https://register.geonorge.no/geolett/api'
+_LOCAL_GEOLETT_IDS = ['0c5dc043-e5b3-4349-8587-9b464d013aaa']
 _CACHE_TTL = 86400 * 7
 
 
@@ -29,10 +27,8 @@ async def get_geolett_data(id: UUID) -> Dict:
 @alru_cache(maxsize=32, ttl=_CACHE_TTL)
 async def _fetch_geolett_data() -> Dict:
     try:
-        url = 'https://register.geonorge.no/geolett/api/'
-
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
+            async with session.get(_GEOLETT_API_URL) as response:
                 if response.status != 200:
                     return None
 

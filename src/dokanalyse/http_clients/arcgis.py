@@ -22,10 +22,10 @@ async def query_arcgis(url: HttpUrl, layer: str, filter: str, geometry: ogr.Geom
         'f': 'geojson'
     }
 
-    return await __query_arcgis(api_url, data, timeout)
+    return await _query_arcgis(api_url, data, timeout)
 
 
-async def __query_arcgis(url: HttpUrl, data: dict, timeout: int) -> tuple[int, dict]:
+async def _query_arcgis(url: HttpUrl, data: dict, timeout: int) -> tuple[int, dict]:
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=data, timeout=timeout) as response:
@@ -42,3 +42,6 @@ async def __query_arcgis(url: HttpUrl, data: dict, timeout: int) -> tuple[int, d
         return 408, None
     except:
         return 500, None
+
+
+__all__ = ['query_arcgis']

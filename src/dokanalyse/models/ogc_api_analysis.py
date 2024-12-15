@@ -1,6 +1,6 @@
 import json
 from sys import maxsize
-from typing import List
+from typing import List, Dict
 from uuid import UUID
 from pydash import get
 from osgeo import ogr
@@ -17,7 +17,7 @@ class OgcApiAnalysis(Analysis):
     def __init__(self, dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
         super().__init__(dataset_id, config, geometry, epsg, orig_epsg, buffer)
 
-    async def run_queries(self) -> None:
+    async def _run_queries(self) -> None:
         first_layer = self.config.layers[0]
         geolett_data = await get_geolett_data(first_layer.geolett_id)
 
@@ -32,7 +32,7 @@ class OgcApiAnalysis(Analysis):
                 self.result_status = ResultStatus.ERROR
                 break
 
-            self.add_run_algorithm(f'intersect layer {layer.ogc_api}')
+            self._add_run_algorithm(f'intersect layer {layer.ogc_api}')
 
             if api_response is not None:
                 response = self.__parse_response(api_response)
@@ -51,7 +51,7 @@ class OgcApiAnalysis(Analysis):
 
         self.geolett = geolett_data
 
-    async def set_distance_to_object(self) -> None:
+    async def _set_distance_to_object(self) -> None:
         buffered_geom = create_buffered_geometry(self.geometry, 20000, self.epsg)
         layer = self.config.layers[0]
 
@@ -71,14 +71,14 @@ class OgcApiAnalysis(Analysis):
                 distances.append(distance)
 
         distances.sort()
-        self.add_run_algorithm('get distance')
+        self._add_run_algorithm('get distance')
 
         if len(distances) == 0:
             self.distance_to_object = maxsize
         else:
             self.distance_to_object = distances[0]
 
-    def __parse_response(self, ogc_api_response) -> dict[str, List]:
+    def __parse_response(self, ogc_api_response: Dict) -> Dict[str, List]:
         data = {
             'properties': [],
             'geometries': []
@@ -92,7 +92,7 @@ class OgcApiAnalysis(Analysis):
 
         return data
 
-    def __map_properties(self, feature: dict, mappings: List[str]) -> dict:
+    def __map_properties(self, feature: Dict, mappings: List[str]) -> Dict:
         props = {}
 
         for mapping in mappings:
@@ -102,7 +102,7 @@ class OgcApiAnalysis(Analysis):
 
         return props
 
-    def __get_geometry_from_response(self, feature) -> ogr.Geometry:
+    def __get_geometry_from_response(self, feature: Dict) -> ogr.Geometry:
         json_str = json.dumps(feature['geometry'])
         geometry = geometry_from_json(json_str)
         

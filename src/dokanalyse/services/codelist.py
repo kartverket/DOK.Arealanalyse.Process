@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 from typing import List, Dict
 import aiohttp
-from ..utils.constants import APP_FILES_DIR
+from ..utils.constants import CACHE_DIR
 from ..utils.helpers.common import should_refresh_cache
 
 _CACHE_DAYS = 7
@@ -22,7 +22,7 @@ async def get_codelist(type: str) -> List[dict] | None:
         return None
 
     file_path = Path(
-        path.join(APP_FILES_DIR, f'resources/codelists/{type}.json'))
+        path.join(CACHE_DIR, f'codelists/{type}.json'))
 
     if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
         file_path.parent.mkdir(parents=True, exist_ok=True)

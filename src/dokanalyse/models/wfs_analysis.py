@@ -1,6 +1,6 @@
 from sys import maxsize
 from io import BytesIO
-from typing import List
+from typing import List, Dict
 from osgeo import ogr
 from lxml import etree as ET
 from uuid import UUID
@@ -19,13 +19,13 @@ class WfsAnalysis(Analysis):
     def __init__(self, dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
         super().__init__(dataset_id, config, geometry, epsg, orig_epsg, buffer)
 
-    async def run_queries(self) -> None:
+    async def _run_queries(self) -> None:
         first_layer = self.config.layers[0]
         geolett_data = await get_geolett_data(first_layer.geolett_id)
 
         for layer in self.config.layers:
             if layer.filter is not None:
-                self.add_run_algorithm(f'query {layer.filter}')
+                self._add_run_algorithm(f'query {layer.filter}')
 
             status_code, api_response = await query_wfs(
                 self.config.wfs, layer.wfs, self.config.geom_field, self.run_on_input_geometry, self.epsg)
@@ -37,7 +37,7 @@ class WfsAnalysis(Analysis):
                 self.result_status = ResultStatus.ERROR
                 break
 
-            self.add_run_algorithm(f'intersect {layer.wfs}')
+            self._add_run_algorithm(f'intersect {layer.wfs}')
 
             if api_response is not None:
                 response = self.__parse_response(api_response, layer)
@@ -56,7 +56,7 @@ class WfsAnalysis(Analysis):
 
         self.geolett = geolett_data
 
-    async def set_distance_to_object(self) -> None:
+    async def _set_distance_to_object(self) -> None:
         buffered_geom = create_buffered_geometry(
             self.geometry, 20000, self.epsg)
         layer = self.config.layers[0]
@@ -91,14 +91,14 @@ class WfsAnalysis(Analysis):
                 distances.append(distance)
 
         distances.sort()
-        self.add_run_algorithm('get distance')
+        self._add_run_algorithm('get distance')
 
         if len(distances) == 0:
             self.distance_to_object = maxsize
         else:
             self.distance_to_object = distances[0]
 
-    def __parse_response(self, wfs_response: str, layer: dict) -> dict[str, List]:
+    def __parse_response(self, wfs_response: str, layer: Dict) -> Dict[str, List]:
         data = {
             'properties': [],
             'geometries': []
@@ -122,13 +122,13 @@ class WfsAnalysis(Analysis):
 
         return data
 
-    def __filter_member(self, props: dict, layer: Layer) -> bool:
+    def __filter_member(self, props: Dict, layer: Layer) -> bool:
         if not layer.filter:
             return True
 
         return evaluate_condition(layer.filter, props)
 
-    def __map_properties(self, member: ET._Element) -> dict:
+    def __map_properties(self, member: ET._Element) -> Dict:
         props = {}
 
         for mapping in self.config.properties:
@@ -141,7 +141,7 @@ class WfsAnalysis(Analysis):
 
         return props
 
-    def __get_geometry_from_response(self, member) -> ogr.Geometry:
+    def __get_geometry_from_response(self, member: ET._Element) -> ogr.Geometry:
         geom_field = self.config.geom_field
         path = f'.//*[local-name() = "{geom_field}"]/*'
         geom_elem = xpath_select_one(member, path)

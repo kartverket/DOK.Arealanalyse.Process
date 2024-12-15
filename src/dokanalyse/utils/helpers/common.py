@@ -86,7 +86,7 @@ def xpath_select_one(element: ET._Element, path: str) -> any:
 
 
 def evaluate_condition(condition: str, data: dict[str, any]) -> bool:
-    parsed_condition = __parse_condition(condition)
+    parsed_condition = _parse_condition(condition)
     result = eval(parsed_condition, data.copy())
 
     if isinstance(result, (bool)):
@@ -95,15 +95,15 @@ def evaluate_condition(condition: str, data: dict[str, any]) -> bool:
     raise Exception
 
 
-def __parse_condition(condition: str) -> str:
+def _parse_condition(condition: str) -> str:
     regex = r'(?<!=|>|<)\s*=\s*(?!=)'
     condition = re.sub(regex, ' == ', condition, 0, re.MULTILINE)
 
-    return __replace_all(
+    return _replace_all(
         condition, {' AND ': ' and ', ' OR ': ' or ', ' IN ': ' in ', ' NOT ': ' not '})
 
 
-def __replace_all(text: str, replacements: dict) -> str:
+def _replace_all(text: str, replacements: dict) -> str:
     for i, j in replacements.items():
         text = text.replace(i, j)
     return text

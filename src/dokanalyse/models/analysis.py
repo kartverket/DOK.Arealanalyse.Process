@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Dict
 from uuid import UUID
 from osgeo import ogr
 from .quality_measurement import QualityMeasurement
@@ -34,22 +34,22 @@ class Analysis(ABC):
         self.epsg = epsg
         self.orig_epsg = orig_epsg
         self.geometries: List[ogr.Geometry] = []
-        self.geolett: dict = None
+        self.geolett: Dict = None
         self.title: str = None
         self.description: str = None
         self.guidance_text: str = None
-        self.guidance_uri: List[dict] = []
+        self.guidance_uri: List[Dict] = []
         self.possible_actions: List[str] = []
         self.quality_measurement: List[QualityMeasurement] = []
         self.quality_warning: List[str] = []
         self.buffer = buffer or 0
         self.input_geometry_area: ogr.Geometry = None
-        self.run_on_input_geometry_json: dict = None
+        self.run_on_input_geometry_json: Dict = None
         self.hit_area: float = None
         self.distance_to_object: int = 0
         self.raster_result: str = None
         self.cartography: str = None
-        self.data: List[dict] = []
+        self.data: List[Dict] = []
         self.themes: List[str] = None
         self.run_on_dataset: Metadata = None
         self.run_algorithm: List[str] = []
@@ -63,7 +63,7 @@ class Analysis(ABC):
         await self.__run_coverage_analysis()
 
         if self.has_coverage:
-            await self.run_queries()
+            await self._run_queries()
 
             if self.result_status == ResultStatus.TIMEOUT or self.result_status == ResultStatus.ERROR:
                 await self.set_default_data()
@@ -74,9 +74,9 @@ class Analysis(ABC):
             self.result_status = ResultStatus.NO_HIT_YELLOW
 
         if self.result_status in [ResultStatus.NO_HIT_GREEN, ResultStatus.NO_HIT_YELLOW]:
-            await self.set_distance_to_object()
+            await self._set_distance_to_object()
 
-        self.add_run_algorithm('deliver result')
+        self._add_run_algorithm('deliver result')
 
         self.run_on_input_geometry_json = create_run_on_input_geometry_json(
             self.run_on_input_geometry, self.epsg, self.orig_epsg)
@@ -89,11 +89,11 @@ class Analysis(ABC):
         if include_quality_measurement:
             await self.__set_quality_measurements(context)
 
-    def add_run_algorithm(self, algorithm) -> None:
+    def _add_run_algorithm(self, algorithm) -> None:
         self.run_algorithm.append(algorithm)
 
     async def set_default_data(self) -> None:
-        self.title = self.geolett['tittel'] if self.geolett else self.config.title
+        self.title = self.geolett.get('tittel') if self.geolett else self.config.title
         self.themes = self.config.themes
         self.run_on_dataset = await get_kartkatalog_metadata(self.dataset_id)
 
@@ -112,7 +112,7 @@ class Analysis(ABC):
             raise DokAnalysisException(
                 'A dataset can only have one coverage quality indicator')
 
-        self.add_run_algorithm('check coverage')
+        self._add_run_algorithm('check coverage')
         measurements, warning, has_coverage = await get_coverage_quality(quality_indicators[0], self.run_on_input_geometry, self.epsg)
 
         self.quality_measurement.extend(measurements)
@@ -122,12 +122,12 @@ class Analysis(ABC):
             self.quality_warning.append(warning)
 
     def __set_input_geometry(self) -> None:
-        self.add_run_algorithm('set input_geometry')
+        self._add_run_algorithm('set input_geometry')
 
         if self.buffer > 0:
             buffered_geom = create_buffered_geometry(
                 self.geometry, self.buffer, self.epsg)
-            self.add_run_algorithm('add buffer')
+            self._add_run_algorithm('add buffer')
             self.run_on_input_geometry = buffered_geom
         else:
             self.run_on_input_geometry = self.geometry.Clone()
@@ -160,16 +160,18 @@ class Analysis(ABC):
 
     def __set_guidance_data(self) -> None:
         if self.result_status != ResultStatus.NO_HIT_GREEN:
-            self.description = self.geolett['forklarendeTekst']
-            self.guidance_text = self.geolett['dialogtekst']
+            self.description = self.geolett.get('forklarendeTekst')
+            self.guidance_text = self.geolett.get('dialogtekst')
 
-        for link in self.geolett['lenker']:
+        for link in self.geolett.get('lenker', []):
             self.guidance_uri.append({
                 'href': link['href'],
                 'title': link['tittel']
             })
 
-        for line in self.geolett['muligeTiltak'].splitlines():
+        possible_actions: str = self.geolett.get('muligeTiltak', '')
+         
+        for line in possible_actions.splitlines():
             self.possible_actions.append(line.lstrip('- '))
 
     async def __set_quality_measurements(self, context) -> None:
@@ -198,7 +200,7 @@ class Analysis(ABC):
 
         return qms
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict:
         sorted_qms = self.__sort_quality_measurements()
 
         return {
@@ -224,9 +226,9 @@ class Analysis(ABC):
         }
 
     @abstractmethod
-    async def run_queries(self) -> None:
+    async def _run_queries(self) -> None:
         pass
 
     @abstractmethod
-    def set_distance_to_object(self) -> None:
+    def _set_distance_to_object(self) -> None:
         pass

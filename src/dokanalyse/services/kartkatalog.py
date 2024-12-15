@@ -6,7 +6,7 @@ from typing import Dict
 import aiohttp
 from ..models.metadata import Metadata
 from ..utils.helpers.common import should_refresh_cache
-from ..utils.constants import APP_FILES_DIR
+from ..utils.constants import CACHE_DIR
 
 _CACHE_DAYS = 2
 
@@ -25,7 +25,7 @@ async def get_kartkatalog_metadata(dataset_id: UUID) -> Metadata:
 
 async def _get_kartkatalog_metadata(dataset_id: UUID) -> Dict:
     file_path = Path(
-        path.join(APP_FILES_DIR, f'resources/kartkatalog/{dataset_id}.json'))
+        path.join(CACHE_DIR, f'kartkatalog/{dataset_id}.json'))
 
     if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
         file_path.parent.mkdir(parents=True, exist_ok=True)

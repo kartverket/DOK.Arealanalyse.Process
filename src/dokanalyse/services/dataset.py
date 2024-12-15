@@ -7,7 +7,7 @@ import aiohttp
 from ..models.config.dataset_config import DatasetConfig
 from ..services.config import get_dataset_configs
 from ..utils.helpers.common import should_refresh_cache
-from ..utils.constants import APP_FILES_DIR
+from ..utils.constants import CACHE_DIR
 
 _CACHE_DAYS = 7
 
@@ -60,7 +60,7 @@ async def _get_kartgrunnlag(municipality_number: str) -> List[str]:
         return []
 
     file_path = Path(path.join(
-        APP_FILES_DIR, 'resources/dok-datasets', f'{municipality_number}.json'))
+        CACHE_DIR, 'dok-datasets', f'{municipality_number}.json'))
 
     if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
         file_path.parent.mkdir(parents=True, exist_ok=True)

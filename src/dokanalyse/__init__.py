@@ -1,6 +1,9 @@
+from typing import Dict
+import asyncio
 from osgeo import ogr, osr
+from pygeoapi.process.base import BaseProcessor, ProcessorExecuteError
 from .services import analyses
-from .models.analysis_response import AnalysisResponse
+from .utils.helpers.request import request_is_valid
 from .utils.socket_io import get_client
 from .utils import logger
 
@@ -163,13 +166,25 @@ PROCESS_METADATA = {
 }
 
 
-async def execute(data: dict) -> AnalysisResponse:
-    sio_client = get_client()
+class DokanalyseProcessor(BaseProcessor):
+    def __init__(self, processor_def):
+        super().__init__(processor_def, PROCESS_METADATA)
 
-    try:
-        outputs = await analyses.run(data, sio_client)
-    finally:
-        if sio_client:
-            sio_client.disconnect()
+    def execute(self, data: Dict, outputs=None) -> tuple[str, Dict]:
+        mimetype = 'application/json'
 
-    return outputs
+        if not request_is_valid(data):
+            raise ProcessorExecuteError('Invalid payload')
+
+        sio_client = get_client()
+
+        try:
+            outputs = asyncio.run(analyses.run(data, sio_client))
+        finally:
+            if sio_client:
+                sio_client.disconnect()
+                
+        return mimetype, outputs or None
+
+    def __repr__(self) -> str:
+        return f'<DokanalyseProcessor> {self.name}'

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from osgeo import ogr
 from . import get_threshold_values
 from ..coverage import get_values_from_wfs
@@ -8,7 +8,7 @@ from ...models.config.quality_indicator import QualityIndicator
 
 
 async def get_coverage_quality(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> tuple[List[QualityMeasurement], str, bool]:
-    quality_data, has_coverage = await __get_coverage_quality_data(quality_indicator, geometry, epsg)
+    quality_data, has_coverage = await _get_coverage_quality_data(quality_indicator, geometry, epsg)
 
     if quality_data is None:
         return [], None, False
@@ -24,20 +24,20 @@ async def get_coverage_quality(quality_indicator: QualityIndicator, geometry: og
     return measurements, warning, has_coverage
 
 
-async def __get_coverage_quality_data(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> tuple[dict[str, any], bool]:
-    values, hit_area_percent = await __get_values_from_web_service(quality_indicator, geometry, epsg)
+async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> tuple[Dict[str, any], bool]:
+    values, hit_area_percent = await _get_values_from_web_service(quality_indicator, geometry, epsg)
 
     if len(values) == 0:
         return None, False
 
     codelist = await get_codelist('fullstendighet_dekning')
-    meas_values: List[dict] = []
+    meas_values: List[Dict] = []
 
     for value in values:
         meas_value = 'Nei' if value in [
             'ikkeKartlagt', 'ikkeRelevant'] else 'Ja'
 
-        comment = __get_label_from_codelist(value, codelist)
+        comment = _get_label_from_codelist(value, codelist)
 
         meas_values.append({
             'value': meas_value,
@@ -48,13 +48,13 @@ async def __get_coverage_quality_data(quality_indicator: QualityIndicator, geome
         'id': quality_indicator.quality_dimension_id,
         'name': quality_indicator.quality_dimension_name,
         'values': meas_values,
-        'warning_text': __get_warning_text(quality_indicator, values, hit_area_percent)
+        'warning_text': _get_warning_text(quality_indicator, values, hit_area_percent)
     }
 
-    return measurement, __has_coverage(values)
+    return measurement, _has_coverage(values)
 
 
-async def __get_values_from_web_service(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> tuple[List[str], float]:
+async def _get_values_from_web_service(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> tuple[List[str], float]:
     if quality_indicator.wfs is not None:
         return await get_values_from_wfs(quality_indicator.wfs, geometry, epsg)
 
@@ -63,7 +63,7 @@ async def __get_values_from_web_service(quality_indicator: QualityIndicator, geo
     return [], 0
 
 
-def __get_warning_text(quality_indicator: QualityIndicator, values: List[str], hit_area_percent: float) -> str:
+def _get_warning_text(quality_indicator: QualityIndicator, values: List[str], hit_area_percent: float) -> str:
     threshold_values = get_threshold_values(quality_indicator)
 
     should_warn = any(value for value in values if any(
@@ -81,7 +81,7 @@ def __get_warning_text(quality_indicator: QualityIndicator, values: List[str], h
     return warning_text
 
 
-def __has_coverage(values: List[str]) -> bool:
+def _has_coverage(values: List[str]) -> bool:
     if 'ikkeKartlagt' in values:
         has_other_values = any(
             value != 'ikkeKartlagt' for value in values)
@@ -90,7 +90,7 @@ def __has_coverage(values: List[str]) -> bool:
     return True
 
 
-def __get_label_from_codelist(value: str, codelist: List[dict]) -> str:
+def _get_label_from_codelist(value: str, codelist: List[Dict]) -> str:
     if codelist is None or len(codelist) == 0:
         return None
 
@@ -98,3 +98,6 @@ def __get_label_from_codelist(value: str, codelist: List[dict]) -> str:
         (entry for entry in codelist if entry['value'] == value), None)
 
     return result.get('label') if result is not None else None
+
+
+__all__ = ['get_coverage_quality']

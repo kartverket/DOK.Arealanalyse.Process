@@ -4,7 +4,9 @@ from math import pi
 from re import search
 from shapely import wkt
 from shapely.wkt import dumps
-from ..constants import DEFAULT_EPSG, EARTH_RADIUS, WGS84_EPSG
+from ..constants import DEFAULT_EPSG, WGS84_EPSG
+
+EARTH_RADIUS = 6371008.8
 
 
 def geometry_from_gml(gml_str: str) -> ogr.Geometry:

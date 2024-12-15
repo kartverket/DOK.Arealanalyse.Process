@@ -1,17 +1,17 @@
-from typing import List
+from typing import List, Dict
 from . import get_threshold_values
 from ...models.quality_measurement import QualityMeasurement
 from ...models.config.quality_indicator import QualityIndicator
 from ...models.config.quality_indicator_type import QualityIndicatorType
 
 
-def get_object_quality(quality_indicators: List[QualityIndicator], data: List[dict]) -> tuple[List[QualityMeasurement], List[str]]:
-    quality_data = __get_object_quality_data(quality_indicators, data)
+def get_object_quality(quality_indicators: List[QualityIndicator], data: List[Dict]) -> tuple[List[QualityMeasurement], List[str]]:
+    quality_data = _get_object_quality_data(quality_indicators, data)
     measurements: List[QualityMeasurement] = []
     warnings: List[str] = []
 
     for entry in quality_data:
-        value: dict
+        value: Dict
 
         for value in entry.get('values'):
             measurements.append(QualityMeasurement(entry.get('id'), entry.get(
@@ -25,19 +25,19 @@ def get_object_quality(quality_indicators: List[QualityIndicator], data: List[di
     return measurements, warnings
 
 
-def __get_object_quality_data(quality_indicators: List[QualityIndicator], data: List[dict]) -> List[dict]:
+def _get_object_quality_data(quality_indicators: List[QualityIndicator], data: List[Dict]) -> List[Dict]:
     if data is None or len(data) == 0:
         return []
 
     object_indicators = [
         indicator for indicator in quality_indicators if indicator.type == QualityIndicatorType.OBJECT]
 
-    measurements: List[dict] = []
+    measurements: List[Dict] = []
 
     for oi in object_indicators:
         prop = oi.property
         threshold_values = get_threshold_values(oi)
-        values: List[dict] = []
+        values: List[Dict] = []
 
         for entry in data:
             values.append({
@@ -58,3 +58,6 @@ def __get_object_quality_data(quality_indicators: List[QualityIndicator], data: 
         })
 
     return measurements
+
+
+__all__ = ['get_object_quality']

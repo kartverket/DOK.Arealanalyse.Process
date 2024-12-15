@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Self, Dict
 from ..utils.helpers.common import parse_date_string
 
 
@@ -12,7 +12,7 @@ class Metadata:
         self.updated = updated
         self.dataset_description_uri = dataset_description_uri
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict:
         return {
             'datasetId': self.dataset_id,
             'title': self.title,
@@ -23,7 +23,7 @@ class Metadata:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> Self:
+    def from_dict(cls, data: Dict) -> Self:
         dataset_id = data.get('datasetId')
         title = data.get('title')
         description = data.get('description')

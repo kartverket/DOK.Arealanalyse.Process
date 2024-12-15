@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 import aiohttp
 from ..utils.helpers.common import should_refresh_cache
-from ..utils.constants import APP_FILES_DIR
+from ..utils.constants import CACHE_DIR
 
 _CACHE_DAYS = 7
 _API_URL = 'https://register.geonorge.no/api/dok-statusregisteret.json'
@@ -38,7 +38,7 @@ async def get_dok_status_for_dataset(dataset_id: UUID) -> Dict:
 
 async def get_dok_status() -> List[Dict]:
     file_path = Path(
-        path.join(APP_FILES_DIR, 'resources/dok-status.json'))
+        path.join(CACHE_DIR, 'dok-status.json'))
 
     if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
         file_path.parent.mkdir(parents=True, exist_ok=True)
