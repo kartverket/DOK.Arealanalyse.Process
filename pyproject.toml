@@ -24,7 +24,7 @@ dependencies = [
     "types-lxml",
     "shapely",
     "PyYAML",
-    "starlette",
+    "flask_http_middleware",
     "build",
 ]
 

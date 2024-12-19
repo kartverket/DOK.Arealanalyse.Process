@@ -8,8 +8,8 @@ from ..models.metadata import Metadata
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR
 
+_API_BASE_URL = 'https://kartkatalog.geonorge.no/api/getdata'
 _CACHE_DAYS = 2
-
 
 async def get_kartkatalog_metadata(dataset_id: UUID) -> Metadata:
     if dataset_id is None:
@@ -68,7 +68,7 @@ def _map_response(dataset_id: UUID, response: Dict) -> Dict:
 
 async def _fetch_kartkatalog_metadata(dataset_id: UUID) -> Dict:
     try:
-        url = f'https://kartkatalog.geonorge.no/api/getdata/{str(dataset_id)}'
+        url = f'{_API_BASE_URL}/{str(dataset_id)}'
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:

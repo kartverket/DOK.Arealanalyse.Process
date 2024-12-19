@@ -1,26 +1,25 @@
 from contextvars import ContextVar
-from starlette.types import ASGIApp, Scope, Send, Receive
-from starlette.datastructures import Headers
+from flask_http_middleware import BaseHTTPMiddleware
 
-CORRELATION_ID_HEADER_NAME = 'x-correlation-id'
+_CORRELATION_ID_HEADER_NAME = 'x-correlation-id'
 
 _correlation_id_ctx_var: ContextVar[str] = ContextVar(
-    CORRELATION_ID_HEADER_NAME, default=None)
+    _CORRELATION_ID_HEADER_NAME, default=None)
 
 
 def get_correlation_id() -> str:
     return _correlation_id_ctx_var.get()
 
 
-class CorrelationIdMiddleware:
-    def __init__(self, app: ASGIApp) -> None:
-        self.app = app
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    def __init__(self):
+        super().__init__()
 
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        headers = Headers(scope=scope)
-        header = headers.get('x-correlation-id')
+    def dispatch(self, request, call_next):
+        header = request.headers.get(_CORRELATION_ID_HEADER_NAME)
         correlation_id = _correlation_id_ctx_var.set(header)
 
-        await self.app(scope, receive, send)
-
+        response = call_next(request)
         _correlation_id_ctx_var.reset(correlation_id)
+
+        return response

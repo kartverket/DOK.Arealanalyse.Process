@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from osgeo import ogr
 from . import get_threshold_values
 from ..coverage import get_values_from_wfs
@@ -7,7 +7,7 @@ from ...models.quality_measurement import QualityMeasurement
 from ...models.config.quality_indicator import QualityIndicator
 
 
-async def get_coverage_quality(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> tuple[List[QualityMeasurement], str, bool]:
+async def get_coverage_quality(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> Tuple[List[QualityMeasurement], str, bool]:
     quality_data, has_coverage = await _get_coverage_quality_data(quality_indicator, geometry, epsg)
 
     if quality_data is None:
@@ -24,7 +24,7 @@ async def get_coverage_quality(quality_indicator: QualityIndicator, geometry: og
     return measurements, warning, has_coverage
 
 
-async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> tuple[Dict[str, any], bool]:
+async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> Tuple[Dict[str, any], bool]:
     values, hit_area_percent = await _get_values_from_web_service(quality_indicator, geometry, epsg)
 
     if len(values) == 0:
@@ -54,11 +54,11 @@ async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geomet
     return measurement, _has_coverage(values)
 
 
-async def _get_values_from_web_service(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> tuple[List[str], float]:
+async def _get_values_from_web_service(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float]:
     if quality_indicator.wfs is not None:
         return await get_values_from_wfs(quality_indicator.wfs, geometry, epsg)
 
-    # TODO: Add support for ArcGIS and OGC Features
+    # TODO: Add support for ArcGIS and OGC Features API
 
     return [], 0
 

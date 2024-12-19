@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import aiohttp
 from lxml import etree as ET
 from osgeo import ogr, osr
@@ -7,7 +7,7 @@ from ..http_clients.wfs import query_wfs
 _WFS_URL = 'https://wfs.geonorge.no/skwms1/wfs.administrative_enheter'
 
 
-async def get_municipality(geometry: ogr.Geometry, epsg: int) -> tuple[str, str]:
+async def get_municipality(geometry: ogr.Geometry, epsg: int) -> Tuple[str, str]:
     municipality = await _get_municipality_from_rest_api(geometry, epsg)
 
     if municipality is not None:
@@ -16,14 +16,14 @@ async def get_municipality(geometry: ogr.Geometry, epsg: int) -> tuple[str, str]
     return await _get_municipality_from_wfs(geometry, epsg)
 
 
-async def _get_municipality_from_rest_api(geometry: ogr.Geometry, epsg: int) -> tuple[str, str]:
+async def _get_municipality_from_rest_api(geometry: ogr.Geometry, epsg: int) -> Tuple[str, str]:
     centroid: ogr.Geometry = geometry.Centroid()
     point: List[float] = centroid.GetPoint(0)
 
     return await _fetch_municipality(point[0], point[1], epsg)
 
 
-async def _get_municipality_from_wfs(geometry: ogr.Geometry, epsg: int) -> tuple[str, str]:
+async def _get_municipality_from_wfs(geometry: ogr.Geometry, epsg: int) -> Tuple[str, str]:
     centroid: ogr.Geometry = geometry.Centroid()
     spatial_ref: osr.SpatialReference = geometry.GetSpatialReference()
     centroid.AssignSpatialReference(spatial_ref)
@@ -45,7 +45,7 @@ async def _get_municipality_from_wfs(geometry: ogr.Geometry, epsg: int) -> tuple
     return municipality_number, municipality_name
 
 
-async def _fetch_municipality(x: float, y: float, epsg: int) -> tuple[str, str]:
+async def _fetch_municipality(x: float, y: float, epsg: int) -> Tuple[str, str]:
     try:
         url = f'https://api.kartverket.no/kommuneinfo/v1/punkt?nord={y}&ost={x}&koordsys={epsg}&filtrer=kommunenummer,kommunenavn'
 

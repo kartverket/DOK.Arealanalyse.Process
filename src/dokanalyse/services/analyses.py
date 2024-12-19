@@ -1,7 +1,7 @@
 import time
 import logging
 import traceback
-from typing import List
+from typing import List, Dict
 from uuid import UUID
 import asyncio
 from socketio import SimpleClient
@@ -25,7 +25,7 @@ from ..utils.correlation_id_middleware import get_correlation_id
 _LOGGER = logging.getLogger(__name__)
 
 
-async def run(data: dict, sio_client: SimpleClient) -> AnalysisResponse:
+async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     geo_json = data.get('inputGeometry')
     geometry = create_input_geometry(geo_json)
     orig_epsg = get_epsg(geo_json)

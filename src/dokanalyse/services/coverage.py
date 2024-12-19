@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import List
+from typing import List, Tuple
 from lxml import etree as ET
 from osgeo import ogr
 from ..models.config.coverage_wfs import CoverageWfs
@@ -8,7 +8,7 @@ from ..utils.helpers.common import xpath_select_one
 from ..utils.helpers.geometry import geometry_from_gml
 
 
-async def get_values_from_wfs(wfs_config: CoverageWfs, geometry: ogr.Geometry, epsg: int) -> tuple[List[str], float]:
+async def get_values_from_wfs(wfs_config: CoverageWfs, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float]:
     _, response = await query_wfs(wfs_config.url, wfs_config.layer, wfs_config.geom_field, geometry, epsg)
 
     if response is None:

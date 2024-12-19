@@ -15,7 +15,7 @@ _CODELISTS = {
 }
 
 
-async def get_codelist(type: str) -> List[dict] | None:
+async def get_codelist(type: str) -> List[Dict] | None:
     url = _CODELISTS.get(type)
 
     if url is None:
@@ -64,7 +64,7 @@ async def _get_codelist(url: str) -> List[Dict]:
     return entries
 
 
-async def _fetch_codelist(url: str) -> dict:
+async def _fetch_codelist(url: str) -> Dict:
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:

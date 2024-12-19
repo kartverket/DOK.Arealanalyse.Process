@@ -7,8 +7,9 @@ import aiohttp
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR
 
-_CACHE_DAYS = 7
 _API_URL = 'https://register.geonorge.no/api/dok-statusregisteret.json'
+
+_CACHE_DAYS = 7
 
 _CATEGEORY_MAPPINGS = {
     'BuildingMatter': ('egnethet_byggesak', 'Byggesak'),

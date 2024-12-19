@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Tuple
 import asyncio
 from osgeo import ogr, osr
 from pygeoapi.process.base import BaseProcessor, ProcessorExecuteError
@@ -6,6 +6,7 @@ from .services import analyses
 from .utils.helpers.request import request_is_valid
 from .utils.socket_io import get_client
 from .utils import logger
+from .utils.correlation_id_middleware import get_correlation_id
 
 logger.setup()
 
@@ -170,7 +171,7 @@ class DokanalyseProcessor(BaseProcessor):
     def __init__(self, processor_def):
         super().__init__(processor_def, PROCESS_METADATA)
 
-    def execute(self, data: Dict, outputs=None) -> tuple[str, Dict]:
+    def execute(self, data: Dict, outputs=None) -> Tuple[str, Dict]:
         mimetype = 'application/json'
 
         if not request_is_valid(data):

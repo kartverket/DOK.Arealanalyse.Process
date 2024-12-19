@@ -10,7 +10,7 @@ from ...models.fact_part import FactPart
 
 _DATASET_ID = '900206a8-686f-4591-9394-327eb02d0899'
 _LAYER_NAME = 'veglenke'
-_BASE_URL = 'https://ogcapitest.kartverket.no/rest/services/forenklet_elveg_2_0/collections'
+_API_BASE_URL = 'https://ogcapitest.kartverket.no/rest/services/forenklet_elveg_2_0/collections'
 
 
 async def get_roads(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> FactPart:
@@ -21,7 +21,7 @@ async def get_roads(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: i
 
 
 async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict]:
-    _, response = await query_ogc_api(_BASE_URL, _LAYER_NAME, 'senterlinje', geometry, epsg, epsg)
+    _, response = await query_ogc_api(_API_BASE_URL, _LAYER_NAME, 'senterlinje', geometry, epsg, epsg)
 
     if response is None:
         return None
