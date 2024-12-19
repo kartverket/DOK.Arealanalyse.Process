@@ -95,7 +95,7 @@ async def _run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Ge
 
     if correlation_id and sio_client:
         sio_client.emit('dataset_analyzed_api', {
-            'dataset': dataset_id, 'recipient': correlation_id})
+            'dataset': str(dataset_id), 'recipient': correlation_id})
 
     return analysis
 
