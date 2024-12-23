@@ -9,6 +9,7 @@ from ..services.config import get_dataset_configs
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR
 
+_API_BASE_URL = 'https://register.geonorge.no/api/det-offentlige-kartgrunnlaget-kommunalt.json?municipality='
 _CACHE_DAYS = 7
 
 
@@ -98,8 +99,7 @@ async def _fetch_dataset_ids(municipality_number: str) -> List[str]:
 
 async def _fetch_kartgrunnlag(municipality_number: str) -> dict:
     try:
-        url = f'https://register.geonorge.no/api/det-offentlige-kartgrunnlaget-kommunalt.json?municipality={
-            municipality_number}'
+        url = _API_BASE_URL + municipality_number
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as response:
