@@ -24,8 +24,7 @@ dependencies = [
     "types-lxml",
     "shapely",
     "PyYAML",
-    "flask_http_middleware",
-    "build",
+    "flask_http_middleware"
 ]
 
 [project.optional-dependencies]

@@ -91,7 +91,7 @@ async def _run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Ge
         analysis.result_status = ResultStatus.ERROR
 
     end = time.time()
-    print(f'{dataset_id} - {config.name}: {round(end - start, 2)} sek.')
+    _LOGGER.info(f'Dataset analyzed: {dataset_id} - {config.name}: {round(end - start, 2)} sec.')
 
     if correlation_id and sio_client:
         sio_client.emit('dataset_analyzed_api', {
