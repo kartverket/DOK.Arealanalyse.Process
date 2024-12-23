@@ -23,8 +23,8 @@ class Layer(BaseModel):
         ]
 
         if value not in valid_statuses:
-            raise ValueError(
-                f'The layer\'s result_status must be either {', '.join(list(map(lambda status: status.value, valid_statuses)))}')
+            raise ValueError('The layer\'s result_status must be either ' + 
+                             ', '.join(list(map(lambda status: status.value, valid_statuses))))
 
         return value
 

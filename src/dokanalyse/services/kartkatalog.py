@@ -53,8 +53,7 @@ def _map_response(dataset_id: UUID, response: Dict) -> Dict:
     description = response.get('Abstract')
     owner = response.get('ContactOwner', {}).get('Organization')
     updated = response.get('DateUpdated')
-    dataset_description_uri = f'https://kartkatalog.geonorge.no/metadata/{
-        str(dataset_id)}'
+    dataset_description_uri = 'https://kartkatalog.geonorge.no/metadata/' + str(dataset_id)
 
     return {
         'datasetId': str(dataset_id),

@@ -10,8 +10,7 @@ def get_env_var(var_name) -> str:
     try:
         return environ[var_name]
     except KeyError:
-        raise DokAnalysisException(f'The environment variable "{
-                                   var_name}" is not set')
+        raise DokAnalysisException('The environment variable ' + var_name + ' is not set')
 
 
 def from_camel_case(value):
