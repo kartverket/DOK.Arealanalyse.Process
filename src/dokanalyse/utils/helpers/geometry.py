@@ -1,4 +1,5 @@
 import json
+from typing import Dict
 from osgeo import ogr, osr
 from math import pi
 from re import search
@@ -6,7 +7,7 @@ from shapely import wkt
 from shapely.wkt import dumps
 from ..constants import DEFAULT_EPSG, WGS84_EPSG
 
-EARTH_RADIUS = 6371008.8
+_EARTH_RADIUS = 6371008.8
 
 
 def geometry_from_gml(gml_str: str) -> ogr.Geometry:
@@ -52,7 +53,7 @@ def geometry_to_arcgis_geom(geometry: ogr.Geometry, epsg: int) -> str:
     return json.dumps(arcgis_geom)
 
 
-def create_input_geometry(geo_json: dict) -> ogr.Geometry:
+def create_input_geometry(geo_json: Dict) -> ogr.Geometry:
     epsg = get_epsg(geo_json)
     geometry = ogr.CreateGeometryFromJson(str(geo_json))
 
@@ -85,13 +86,13 @@ def transform_geometry(geometry: ogr.Geometry, src_epsg: int, dest_epsg: int) ->
 
 
 def length_to_degrees(distance: float) -> float:
-    radians = distance / EARTH_RADIUS
+    radians = distance / _EARTH_RADIUS
     degrees = radians % (2 * pi)
 
     return degrees * 180 / pi
 
 
-def create_run_on_input_geometry_json(geometry: ogr.Geometry, epsg: int, orig_epsg: int) -> dict:
+def create_run_on_input_geometry_json(geometry: ogr.Geometry, epsg: int, orig_epsg: int) -> Dict:
     geom = geometry
 
     if epsg != orig_epsg:
@@ -105,7 +106,7 @@ def create_run_on_input_geometry_json(geometry: ogr.Geometry, epsg: int, orig_ep
     return geo_json
 
 
-def get_epsg(geo_json: dict) -> int:
+def get_epsg(geo_json: Dict) -> int:
     crs = geo_json.get('crs', {}).get('properties', {}).get('name')
 
     if crs is None:
@@ -120,7 +121,7 @@ def get_epsg(geo_json: dict) -> int:
     return WGS84_EPSG
 
 
-def add_geojson_crs(geojson: dict, epsg: int) -> None:
+def add_geojson_crs(geojson: Dict, epsg: int) -> None:
     if epsg is None or epsg == WGS84_EPSG:
         return
 
@@ -130,3 +131,17 @@ def add_geojson_crs(geojson: dict, epsg: int) -> None:
             'name': 'urn:ogc:def:crs:EPSG::' + str(epsg)
         }
     }
+
+
+__all__ = [
+    'geometry_from_gml', 
+    'geometry_from_json',
+    'geometry_to_wkt',
+    'geometry_to_arcgis_geom',
+    'create_input_geometry',
+    'create_buffered_geometry',
+    'length_to_degrees',
+    'create_run_on_input_geometry_json',
+    'get_epsg',
+    'add_geojson_crs'
+]

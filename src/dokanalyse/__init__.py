@@ -6,7 +6,7 @@ from .services import analyses
 from .utils.helpers.request import request_is_valid
 from .utils.socket_io import get_client
 from .utils import logger
-from .utils.correlation_id_middleware import get_correlation_id
+
 
 logger.setup()
 
@@ -184,7 +184,7 @@ class DokanalyseProcessor(BaseProcessor):
         finally:
             if sio_client:
                 sio_client.disconnect()
-                
+
         return mimetype, outputs or None
 
     def __repr__(self) -> str:

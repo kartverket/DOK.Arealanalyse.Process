@@ -19,27 +19,29 @@ class ArcGisAnalysis(Analysis):
     async def _run_queries(self) -> None:
         first_layer = self.config.layers[0]
         geolett_data = await get_geolett_data(first_layer.geolett_id)
+        self._add_run_algorithm(f'query {self.config.arcgis}')             
 
         for layer in self.config.layers:
             if layer.filter is not None:
-                self._add_run_algorithm(f'query {layer.filter}')
+                self._add_run_algorithm(f'add filter {layer.filter}')
 
             status_code, api_response = await query_arcgis(
                 self.config.arcgis, layer.arcgis, layer.filter, self.run_on_input_geometry, self.epsg)
 
             if status_code == 408:
                 self.result_status = ResultStatus.TIMEOUT
+                self._add_run_algorithm(f'intersects layer {layer.arcgis} (Timeout)')     
                 break
             elif status_code != 200:
                 self.result_status = ResultStatus.ERROR
+                self._add_run_algorithm(f'intersects layer {layer.arcgis} (Error)')
                 break
 
-            self._add_run_algorithm(f'intersect layer {layer.arcgis}')
-
-            if api_response is not None:
+            if api_response:
                 response = self.__parse_response(api_response)
 
                 if len(response['properties']) > 0:
+                    self._add_run_algorithm(f'intersects layer {layer.arcgis} (True)')
                     geolett_data = await get_geolett_data(layer.geolett_id)
 
                     self.data = response['properties']
@@ -50,6 +52,8 @@ class ArcGisAnalysis(Analysis):
                         self.config.wms, layer.wms)
                     self.result_status = layer.result_status
                     break
+
+                self._add_run_algorithm(f'intersects layer {layer.arcgis} (False)')
 
         self.geolett = geolett_data
 
@@ -75,7 +79,7 @@ class ArcGisAnalysis(Analysis):
                 distances.append(distance)
 
         distances.sort()
-        self._add_run_algorithm('get distance')
+        self._add_run_algorithm('get distance to nearest object')
 
         if len(distances) == 0:
             self.distance_to_object = maxsize

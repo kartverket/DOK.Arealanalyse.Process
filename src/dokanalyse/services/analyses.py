@@ -21,6 +21,7 @@ from ..models.analysis_response import AnalysisResponse
 from ..models.result_status import ResultStatus
 from ..utils.constants import DEFAULT_EPSG
 from ..utils.correlation_id_middleware import get_correlation_id
+from uuid import UUID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,9 +34,11 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     context = data.get('context')
     include_guidance = data.get('includeGuidance', False)
     include_quality_measurement = data.get('includeQualityMeasurement', False)
+    include_facts = data.get('includeFacts', True)
     municipality_number, municipality_name = await get_municipality(geometry, DEFAULT_EPSG)
 
     datasets = await get_dataset_ids(data, municipality_number)
+    #datasets = {UUID('fbb95c67-623f-430a-9fa5-9cfcea8366b3'): True}
     correlation_id = get_correlation_id()
 
     if correlation_id and sio_client:
@@ -53,7 +56,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
                 context, include_guidance, include_quality_measurement, sio_client))
             tasks.append(task)
 
-    fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer)
+    fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer) if include_facts else None
 
     response = AnalysisResponse.create(
         geo_json, geometry, DEFAULT_EPSG, orig_epsg, buffer, fact_sheet, municipality_number, municipality_name)
@@ -65,14 +68,15 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
 
 
 async def _run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int,
-                       context: str, include_guidance: bool, include_quality_measurement: bool, sio_client: SimpleClient) -> Analysis:
+                        context: str, include_guidance: bool, include_quality_measurement: bool, sio_client: SimpleClient) -> Analysis:
     config = get_dataset_config(dataset_id)
 
     if config is None:
         return None
 
     if not should_analyze:
-        analysis = EmptyAnalysis(config.dataset_id, config, ResultStatus.NOT_RELEVANT)
+        analysis = EmptyAnalysis(
+            config.dataset_id, config, ResultStatus.NOT_RELEVANT)
         await analysis.run()
         return analysis
 
@@ -102,7 +106,7 @@ async def _run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Ge
 
 def _create_analysis(dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> Analysis:
     dataset_type = get_dataset_type(config)
-    
+
     match dataset_type:
         case 'arcgis':
             return ArcGisAnalysis(dataset_id, config, geometry, epsg, orig_epsg, buffer)
@@ -112,3 +116,6 @@ def _create_analysis(dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geom
             return WfsAnalysis(dataset_id, config, geometry, epsg, orig_epsg, buffer)
         case _:
             return None
+
+
+__all__ = ['run']

@@ -31,3 +31,6 @@ def setup() -> None:
 
     logging.root.setLevel(logging.INFO)
     logging.root.addHandler(handler)
+
+
+__all__ = ['setup']

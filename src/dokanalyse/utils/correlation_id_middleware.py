@@ -23,3 +23,6 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         _correlation_id_ctx_var.reset(correlation_id)
 
         return response
+
+
+__all__ = ['CorrelationIdMiddleware', 'get_correlation_id']

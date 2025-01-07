@@ -1,11 +1,15 @@
 from os import path
+import logging
+from typing import Tuple
 from pydantic import HttpUrl
 import aiohttp
 import asyncio
 from osgeo import ogr
 
+_LOGGER = logging.getLogger(__name__)
 
-async def query_wfs(url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, epsg: int, timeout: int = 30) -> tuple[int, str]:
+
+async def query_wfs(url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, epsg: int, timeout: int = 30) -> Tuple[int, str]:
     gml_str = geometry.ExportToGML(['FORMAT=GML3'])
     request_xml = _create_wfs_request_xml(layer, geom_field, gml_str, epsg)
 
@@ -22,7 +26,7 @@ def _create_wfs_request_xml(layer: str, geom_field: str, gml_str: str, epsg: int
     return file_text.format(layer=layer,  geom_field=geom_field, geometry=gml_str, epsg=epsg).encode('utf-8')
 
 
-async def _query_wfs(url: HttpUrl, xml_body: str, timeout: int) -> tuple[int, str]:
+async def _query_wfs(url: HttpUrl, xml_body: str, timeout: int) -> Tuple[int, str]:
     url = f'{url}?service=WFS&version=2.0.0'
     headers = {'Content-Type': 'application/xml'}
 
@@ -35,7 +39,8 @@ async def _query_wfs(url: HttpUrl, xml_body: str, timeout: int) -> tuple[int, st
                 return 200, await response.text()
     except asyncio.TimeoutError:
         return 408, None
-    except:
+    except Exception as err:
+        _LOGGER.error(err)        
         return 500, None
 
 

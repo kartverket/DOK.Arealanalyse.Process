@@ -1,11 +1,10 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://skjema.geonorge.no/jsonschema/no.geonorge.dokanalyse.AnalysisInput.v0.1.schema.json",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "no.geonorge.dokanalyse.v1.input.schema.json",
     "title": "AnalysisInput",
     "type": "object",
     "properties": {
         "inputGeometry": {
-            "description": "Området en ønsker å analysere mot. Kan feks være en eiendom eller planområde.",
             "oneOf": [
                 {
                     "$ref": "http://geojson.org/schema/Polygon.json"
@@ -16,7 +15,6 @@
             ]
         },
         "requestedBuffer": {
-            "description": "Antall meter som legges på inputGeometry som buffer i analysen. Kan utelates og avgjøres av analysen hva som er fornuftig buffer.",
             "type": "integer"
         },
         "theme": {
@@ -38,6 +36,9 @@
             "type": "boolean"
         },
         "includeFilterChosenDOK": {
+            "type": "boolean"
+        },
+        "includeFacts": {
             "type": "boolean"
         }
     },

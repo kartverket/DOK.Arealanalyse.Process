@@ -111,9 +111,10 @@ class Analysis(ABC):
         elif len(coverage_indicators) > 1:
             raise DokAnalysisException(
                 'A dataset can only have one coverage quality indicator')
-
-        self._add_run_algorithm('check coverage')
-        measurements, warning, has_coverage = await get_coverage_quality(quality_indicators[0], self.run_on_input_geometry, self.epsg)
+        
+        ci = coverage_indicators[0]
+        self._add_run_algorithm(f'check coverage {ci.wfs.url} ({ci.wfs.layer})')
+        measurements, warning, has_coverage = await get_coverage_quality(ci, self.run_on_input_geometry, self.epsg)
 
         self.quality_measurement.extend(measurements)
         self.has_coverage = has_coverage
@@ -127,7 +128,7 @@ class Analysis(ABC):
         if self.buffer > 0:
             buffered_geom = create_buffered_geometry(
                 self.geometry, self.buffer, self.epsg)
-            self._add_run_algorithm('add buffer')
+            self._add_run_algorithm(f'add buffer ({self.buffer})')
             self.run_on_input_geometry = buffered_geom
         else:
             self.run_on_input_geometry = self.geometry.Clone()
@@ -156,6 +157,7 @@ class Analysis(ABC):
             if geom_type == ogr.wkbPolygon or geom_type == ogr.wkbMultiPolygon:
                 hit_area += intersection.GetArea()
 
+        self._add_run_algorithm('calculate hit area')
         self.hit_area = round(hit_area, 2)
 
     def __set_guidance_data(self) -> None:
