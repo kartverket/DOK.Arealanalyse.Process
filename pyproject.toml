@@ -20,6 +20,7 @@ dependencies = [
     "pydash",
     "pillow",
     "python-socketio[client]",
+    "azure-storage-blob",
     "lxml",
     "types-lxml",
     "shapely",

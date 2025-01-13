@@ -6,15 +6,17 @@ from .quality_measurement import QualityMeasurement
 from .metadata import Metadata
 from .exceptions import DokAnalysisException
 from .result_status import ResultStatus
+from .map_image_payload import MapImagePayload
 from .config.dataset_config import DatasetConfig
 from .config.quality_indicator_type import QualityIndicatorType
 from ..utils.helpers.common import keys_to_camel_case
-from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json
+from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json, create_feature_collection
 from ..services.config import get_quality_indicator_configs
 from ..services.kartkatalog import get_kartkatalog_metadata
 from ..services.quality.coverage_quality import get_coverage_quality
 from ..services.quality.dataset_quality import get_dataset_quality
 from ..services.quality.object_quality import get_object_quality
+from ..services.map_image import create_map_image
 
 _QMS_SORT_ORDER = [
     'fullstendighet_dekning',
@@ -47,7 +49,9 @@ class Analysis(ABC):
         self.run_on_input_geometry_json: Dict = None
         self.hit_area: float = None
         self.distance_to_object: int = 0
-        self.raster_result: str = None
+        self.raster_result_map: str = None
+        self.raster_result_image: str = None
+        self.raster_result_image_bytes: bytes = None
         self.cartography: str = None
         self.data: List[Dict] = []
         self.themes: List[str] = None
@@ -81,7 +85,7 @@ class Analysis(ABC):
         self.run_on_input_geometry_json = create_run_on_input_geometry_json(
             self.run_on_input_geometry, self.epsg, self.orig_epsg)
 
-        await self.set_default_data()       
+        await self.set_default_data()
 
         if include_guidance and self.geolett is not None:
             self.__set_guidance_data()
@@ -89,11 +93,17 @@ class Analysis(ABC):
         if include_quality_measurement:
             await self.__set_quality_measurements(context)
 
+        if self.raster_result_map:
+            payload = self.__create_map_image_payload()
+            _, result = await create_map_image(payload)
+            self.raster_result_image_bytes = result
+
     def _add_run_algorithm(self, algorithm) -> None:
         self.run_algorithm.append(algorithm)
 
     async def set_default_data(self) -> None:
-        self.title = self.geolett.get('tittel') if self.geolett else self.config.title
+        self.title = self.geolett.get(
+            'tittel') if self.geolett else self.config.title
         self.themes = self.config.themes
         self.run_on_dataset = await get_kartkatalog_metadata(self.dataset_id)
 
@@ -111,9 +121,10 @@ class Analysis(ABC):
         elif len(coverage_indicators) > 1:
             raise DokAnalysisException(
                 'A dataset can only have one coverage quality indicator')
-        
+
         ci = coverage_indicators[0]
-        self._add_run_algorithm(f'check coverage {ci.wfs.url} ({ci.wfs.layer})')
+        self._add_run_algorithm(
+            f'check coverage {ci.wfs.url} ({ci.wfs.layer})')
         measurements, warning, has_coverage = await get_coverage_quality(ci, self.run_on_input_geometry, self.epsg)
 
         self.quality_measurement.extend(measurements)
@@ -172,7 +183,7 @@ class Analysis(ABC):
             })
 
         possible_actions: str = self.geolett.get('muligeTiltak', '')
-         
+
         for line in possible_actions.splitlines():
             self.possible_actions.append(line.lstrip('- '))
 
@@ -183,7 +194,8 @@ class Analysis(ABC):
             return
 
         dataset_qms, dataset_warnings = await get_dataset_quality(self.dataset_id, quality_indicators, context=context, themes=self.themes)
-        object_qms, object_warnings = get_object_quality(quality_indicators, self.data)
+        object_qms, object_warnings = get_object_quality(
+            quality_indicators, self.data)
 
         self.quality_measurement.extend(dataset_qms)
         self.quality_measurement.extend(object_qms)
@@ -202,6 +214,27 @@ class Analysis(ABC):
 
         return qms
 
+    def __create_map_image_payload(self) -> MapImagePayload:
+        wmts = {
+            'url': 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml',
+            'layer': 'topograatone'
+        }
+
+        geometries = [self.geometry]
+
+        if self.buffer > 0:
+            geometries.append(self.run_on_input_geometry)
+
+        feature_collection = create_feature_collection(geometries)
+
+        styling = {
+            'stroke-color': '#d33333',
+            'stroke-line-dash': [8, 8],
+            'stroke-width': 2
+        }
+
+        return MapImagePayload(1280, 720, wmts, [self.raster_result_map], feature_collection, styling)
+
     def to_dict(self) -> Dict:
         sorted_qms = self.__sort_quality_measurements()
 
@@ -214,7 +247,10 @@ class Analysis(ABC):
             'hitArea': self.hit_area,
             'resultStatus': self.result_status,
             'distanceToObject': self.distance_to_object,
-            'rasterResult': self.raster_result,
+            'rasterResult': {
+                'imageUri': self.raster_result_image,
+                'mapUri': self.raster_result_map
+            },
             'cartography': self.cartography,
             'data': list(map(lambda entry: keys_to_camel_case(entry), self.data)),
             'themes': self.themes,

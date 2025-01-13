@@ -8,6 +8,7 @@ class DatasetConfig(BaseModel):
     dataset_id: Optional[uuid.UUID] = None
     name: Optional[str] = None
     title: Optional[str] = None
+    disabled: Optional[bool] = False
     wfs: Optional[HttpUrl] = None
     arcgis: Optional[HttpUrl] = None
     ogc_api: Optional[HttpUrl] = None

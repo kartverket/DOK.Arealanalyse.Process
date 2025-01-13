@@ -9,7 +9,7 @@ from .result_status import ResultStatus
 from .config.dataset_config import DatasetConfig
 from .config.layer import Layer
 from ..services.geolett import get_geolett_data
-from ..services.raster_result import get_raster_result, get_cartography_url
+from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.common import parse_string, evaluate_condition, xpath_select_one
 from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_gml
 from ..http_clients.wfs import query_wfs
@@ -49,7 +49,7 @@ class WfsAnalysis(Analysis):
 
                     self.geometries = response['geometries']
                     self.data = response['properties']
-                    self.raster_result = get_raster_result(
+                    self.raster_result_map = get_wms_url(
                         self.config.wms, layer.wms)
                     self.cartography = await get_cartography_url(
                         self.config.wms, layer.wms)

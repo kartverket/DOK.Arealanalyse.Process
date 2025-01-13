@@ -42,7 +42,7 @@ def get_quality_indicator_configs(dataset_id: UUID) -> List[QualityIndicator]:
     return indicators
 
 
-@cached(cache=TTLCache(maxsize=1024, ttl=300))
+@cached(cache=TTLCache(maxsize=1024, ttl=120))
 def _load_config() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
     config_dir = get_env_var('DOKANALYSE_CONFIG_DIR')
 

@@ -7,7 +7,7 @@ from .analysis import Analysis
 from .result_status import ResultStatus
 from .config.dataset_config import DatasetConfig
 from ..services.geolett import get_geolett_data
-from ..services.raster_result import get_raster_result, get_cartography_url
+from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_json
 from ..http_clients.arcgis import query_arcgis
 
@@ -46,7 +46,7 @@ class ArcGisAnalysis(Analysis):
 
                     self.data = response['properties']
                     self.geometries = response['geometries']
-                    self.raster_result = get_raster_result(
+                    self.raster_result_map = get_wms_url(
                         self.config.wms, layer.wms)
                     self.cartography = await get_cartography_url(
                         self.config.wms, layer.wms)

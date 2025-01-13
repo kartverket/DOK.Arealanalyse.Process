@@ -1,3 +1,5 @@
+import logging
+import time
 import json
 from typing import List, Dict
 from osgeo import ogr
@@ -8,9 +10,12 @@ from ...utils.helpers.geometry import geometry_from_json
 from ...utils.helpers.common import from_camel_case
 from ...models.fact_part import FactPart
 
+_LOGGER = logging.getLogger(__name__)
+
 _DATASET_ID = '900206a8-686f-4591-9394-327eb02d0899'
 _LAYER_NAME = 'veglenke'
 _API_BASE_URL = 'https://ogcapitest.kartverket.no/rest/services/forenklet_elveg_2_0/collections'
+_TIMEOUT = 10
 
 
 async def get_roads(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> FactPart:
@@ -21,10 +26,17 @@ async def get_roads(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: i
 
 
 async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict]:
-    _, response = await query_ogc_api(_API_BASE_URL, _LAYER_NAME, 'senterlinje', geometry, epsg, epsg)
+    start = time.time()
+    status, response = await query_ogc_api(_API_BASE_URL, _LAYER_NAME, 'senterlinje', geometry, epsg, epsg, _TIMEOUT)
+    end = time.time()
 
     if response is None:
+        _LOGGER.error(
+            f'Fact sheet: Could not get roads from Elveg OGC API (status {status})')
         return None
+
+    _LOGGER.info(f'Fact sheet: Got roads from Elveg OGC API: {
+                 round(end - start, 2)} sec.')
 
     return await _map_response(response)
 

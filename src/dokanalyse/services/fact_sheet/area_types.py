@@ -1,9 +1,13 @@
+import logging
+import time
 from typing import Dict
 from osgeo import ogr
 from ..codelist import get_codelist
 from ..kartkatalog import get_kartkatalog_metadata
 from ...models.fact_part import FactPart
 from ...utils.constants import AR5_FGDB_PATH
+
+_LOGGER = logging.getLogger(__name__)
 
 _DATASET_ID = '166382b4-82d6-4ea9-a68e-6fd0c87bf788'
 _LAYER_NAME = 'fkb_ar5_omrade'
@@ -13,8 +17,12 @@ async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buff
     if not AR5_FGDB_PATH:
         return None
 
+    start = time.time()
     dataset = await get_kartkatalog_metadata(_DATASET_ID)
     data = await _get_data(geometry)
+    end = time.time()
+
+    _LOGGER.info(f'Fact sheet: Got area types from FKB AR5: {round(end - start, 2)} sec.')
 
     return FactPart(geometry, epsg, orig_epsg, buffer, dataset, [f'intersect {_LAYER_NAME}'], data)
 

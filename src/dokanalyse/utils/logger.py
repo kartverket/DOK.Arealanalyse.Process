@@ -32,5 +32,7 @@ def setup() -> None:
     logging.root.setLevel(logging.INFO)
     logging.root.addHandler(handler)
 
+    logger = logging.getLogger('azure')
+    logger.setLevel(logging.WARNING)
 
 __all__ = ['setup']

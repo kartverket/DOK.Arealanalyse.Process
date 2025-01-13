@@ -109,6 +109,7 @@ def _replace_all(text: str, replacements: dict) -> str:
 
 
 __all__ = [
+    'background_tasks',
     'get_env_var', 
     'from_camel_case',
     'to_camel_case',

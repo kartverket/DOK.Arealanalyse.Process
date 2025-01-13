@@ -1,5 +1,5 @@
 import json
-from typing import Dict
+from typing import Dict, List
 from osgeo import ogr, osr
 from math import pi
 from re import search
@@ -70,6 +70,35 @@ def create_buffered_geometry(geometry: ogr.Geometry, distance: int, epsg: int) -
     return geometry.Buffer(computed_buffer, 10)
 
 
+def create_feature_collection(geometries: List[ogr.Geometry]) -> Dict:
+    first_geom = geometries[0]
+    sr: osr.SpatialReference = first_geom.GetSpatialReference()
+    epsg = sr.GetAuthorityCode(None)
+    features: List[Dict] = []
+    
+    for geometry in geometries:
+        feature = create_feature(geometry)
+        features.append(feature)
+
+    feature_collection = {
+        'type': 'FeatureCollection',
+        'features': features
+    }
+
+    add_geojson_crs(feature_collection, epsg)
+
+    return feature_collection
+
+
+def create_feature(geometry: ogr.Geometry) -> Dict:
+    json_str = geometry.ExportToJson()
+
+    return {
+        'type': 'Feature',
+        'geometry': json.loads(json_str)
+    }
+
+
 def transform_geometry(geometry: ogr.Geometry, src_epsg: int, dest_epsg: int) -> ogr.Geometry:
     source = osr.SpatialReference()
     source.ImportFromEPSG(src_epsg)
@@ -134,12 +163,14 @@ def add_geojson_crs(geojson: Dict, epsg: int) -> None:
 
 
 __all__ = [
-    'geometry_from_gml', 
+    'geometry_from_gml',
     'geometry_from_json',
     'geometry_to_wkt',
     'geometry_to_arcgis_geom',
     'create_input_geometry',
     'create_buffered_geometry',
+    'create_feature_collection',
+    'create_feature'
     'length_to_degrees',
     'create_run_on_input_geometry_json',
     'get_epsg',

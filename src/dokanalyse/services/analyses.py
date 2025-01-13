@@ -2,7 +2,7 @@ import time
 import logging
 import traceback
 from typing import List, Dict
-from uuid import UUID
+from uuid import UUID, uuid4
 import asyncio
 from socketio import SimpleClient
 from osgeo import ogr
@@ -10,6 +10,7 @@ from .dataset import get_dataset_ids, get_dataset_type
 from .fact_sheet import create_fact_sheet
 from .municipality import get_municipality
 from ..services.config import get_dataset_config
+from ..services.blob_storage import create_container, upload_image
 from ..utils.helpers.geometry import create_input_geometry, get_epsg
 from ..models.config.dataset_config import DatasetConfig
 from ..models.analysis import Analysis
@@ -21,7 +22,6 @@ from ..models.analysis_response import AnalysisResponse
 from ..models.result_status import ResultStatus
 from ..utils.constants import DEFAULT_EPSG
 from ..utils.correlation_id_middleware import get_correlation_id
-from uuid import UUID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +38,6 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     municipality_number, municipality_name = await get_municipality(geometry, DEFAULT_EPSG)
 
     datasets = await get_dataset_ids(data, municipality_number)
-    #datasets = {UUID('fbb95c67-623f-430a-9fa5-9cfcea8366b3'): True}
     correlation_id = get_correlation_id()
 
     if correlation_id and sio_client:
@@ -56,13 +55,21 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
                 context, include_guidance, include_quality_measurement, sio_client))
             tasks.append(task)
 
-    fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer) if include_facts else None
+    fact_sheet = None
 
+    if include_facts:
+        if correlation_id and sio_client:
+            sio_client.emit('create_fact_sheet_api', {'recipient': correlation_id})
+
+        fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer)
+        
     response = AnalysisResponse.create(
         geo_json, geometry, DEFAULT_EPSG, orig_epsg, buffer, fact_sheet, municipality_number, municipality_name)
 
     for task in tasks:
         response.result_list.append(task.result())
+
+    await _upload_binaries(response)
 
     return response.to_dict()
 
@@ -95,7 +102,8 @@ async def _run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Ge
         analysis.result_status = ResultStatus.ERROR
 
     end = time.time()
-    _LOGGER.info(f'Dataset analyzed: {dataset_id} - {config.name}: {round(end - start, 2)} sec.')
+    _LOGGER.info(f'Dataset analyzed: {
+                 dataset_id} - {config.name}: {round(end - start, 2)} sec.')
 
     if correlation_id and sio_client:
         sio_client.emit('dataset_analyzed_api', {
@@ -116,6 +124,48 @@ def _create_analysis(dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geom
             return WfsAnalysis(dataset_id, config, geometry, epsg, orig_epsg, buffer)
         case _:
             return None
+
+
+async def _upload_binaries(response: AnalysisResponse):
+    map_images: Dict[str, bytes] = {}
+
+    if response.fact_sheet and response.fact_sheet.raster_result_image_bytes:
+        map_images['fact_sheet'] = response.fact_sheet.raster_result_image_bytes
+
+    for analysis in response.result_list:
+        if analysis.raster_result_image_bytes:
+            map_images[str(analysis.dataset_id)] = analysis.raster_result_image_bytes
+
+    if not map_images:
+        return
+
+    container_name = str(uuid4())
+    await create_container(container_name)
+
+    tasks: List[asyncio.Task[str]] = []
+
+    async with asyncio.TaskGroup() as tg:
+        for key, value in map_images.items():
+            blob_name = f'{str(uuid4())}.png'
+            task = tg.create_task(upload_image(
+                value, container_name, blob_name), name=key)
+            tasks.append(task)
+
+    for task in tasks:
+        task_name = task.get_name()
+
+        if task_name == 'fact_sheet':
+            response.fact_sheet.raster_result_image = task.result()
+            continue
+
+        analysis = _find_analysis(response.result_list, task_name)
+
+        if analysis:
+            analysis.raster_result_image = task.result()
+
+
+def _find_analysis(analyses: List[Analysis], dataset_id: str) -> Analysis:
+    return next((analysis for analysis in analyses if str(analysis.dataset_id) == dataset_id), None)
 
 
 __all__ = ['run']

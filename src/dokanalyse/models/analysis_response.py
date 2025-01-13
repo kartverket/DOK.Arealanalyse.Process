@@ -21,20 +21,19 @@ class AnalysisResponse():
         result_list = list(
             map(lambda analysis: analysis.to_dict(), self.result_list))
 
-        fact_list = list(
-            map(lambda fact_part: fact_part.to_dict(), self.fact_sheet.fact_list)) if self.fact_sheet else None
-
-        return {
+        data = {
             'resultList': result_list,
             'inputGeometry': self.input_geometry,
             'inputGeometryArea': self.input_geometry_area,
-            'factSheetRasterResult': self.fact_sheet.raster_result if self.fact_sheet else None,
-            'factSheetCartography': self.fact_sheet.cartography if self.fact_sheet else None,
-            'factList': fact_list,
             'municipalityNumber': self.municipality_number,
             'municipalityName': self.municipality_name,
             'report': self.report
         }
+
+        if self.fact_sheet:
+            data = data | self.fact_sheet.to_dict()
+
+        return data
 
     @classmethod
     def create(cls, geo_json: Dict, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int, fact_sheet: FactSheet, municipality_number: str, municipality_name: str):
