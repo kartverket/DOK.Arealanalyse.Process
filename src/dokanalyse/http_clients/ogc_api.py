@@ -12,12 +12,11 @@ _LOGGER = logging.getLogger(__name__)
 
 async def query_ogc_api(base_url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
     wkt_str = geometry_to_wkt(geometry, epsg)
-    filter_crs = f'&filter-crs=http://www.opengis.net/def/crs/EPSG/0/{
-        epsg}' if epsg != WGS84_EPSG else ''
-    crs = f'&crs=http://www.opengis.net/def/crs/EPSG/0/{
-        out_epsg}' if out_epsg != WGS84_EPSG else ''
-    url = f'{base_url}/{layer}/items?filter-lang=cql2-text{
-        filter_crs}{crs}&filter=S_INTERSECTS({geom_field},{wkt_str})'
+    # autopep8: off
+    filter_crs = f'&filter-crs=http://www.opengis.net/def/crs/EPSG/0/{epsg}' if epsg != WGS84_EPSG else ''
+    crs = f'&crs=http://www.opengis.net/def/crs/EPSG/0/{out_epsg}' if out_epsg != WGS84_EPSG else ''
+    url = f'{base_url}/{layer}/items?filter-lang=cql2-text{filter_crs}{crs}&filter=S_INTERSECTS({geom_field},{wkt_str})'
+    # autopep8: on
 
     return await _query_ogc_api(url, timeout)
 
@@ -33,7 +32,7 @@ async def _query_ogc_api(url: str, timeout: int) -> Tuple[int, Dict]:
     except asyncio.TimeoutError:
         return 408, None
     except Exception as err:
-        _LOGGER.error(err) 
+        _LOGGER.error(err)
         return 500, None
 
 

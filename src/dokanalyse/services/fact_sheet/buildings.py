@@ -35,7 +35,9 @@ async def get_buildings(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffe
     data = await _get_data(geometry, epsg)
     end = time.time()
 
+    # autopep8: off
     _LOGGER.info(f'Fact sheet: Got buildings from Matrikkel WFS: {round(end - start, 2)} sec.')
+    # autopep8: on
 
     return FactPart(geometry, epsg, orig_epsg, buffer, dataset, [f'intersect {_LAYER_NAME}'], data)
 

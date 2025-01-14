@@ -35,8 +35,9 @@ async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict]:
             f'Fact sheet: Could not get roads from Elveg OGC API (status {status})')
         return None
 
-    _LOGGER.info(f'Fact sheet: Got roads from Elveg OGC API: {
-                 round(end - start, 2)} sec.')
+    # autopep8: off
+    _LOGGER.info(f'Fact sheet: Got roads from Elveg OGC API: {round(end - start, 2)} sec.')
+    # autopep8: on
 
     return await _map_response(response)
 

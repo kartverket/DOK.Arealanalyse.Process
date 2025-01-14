@@ -22,7 +22,9 @@ async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buff
     data = await _get_data(geometry)
     end = time.time()
 
+    # autopep8: off
     _LOGGER.info(f'Fact sheet: Got area types from FKB AR5: {round(end - start, 2)} sec.')
+    # autopep8: on
 
     return FactPart(geometry, epsg, orig_epsg, buffer, dataset, [f'intersect {_LAYER_NAME}'], data)
 

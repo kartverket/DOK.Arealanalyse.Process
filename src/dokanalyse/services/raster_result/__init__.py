@@ -12,8 +12,9 @@ async def get_cartography_url(wms_url: str, wms_layers: List[str]) -> str:
     urls = []
 
     for wms_layer in wms_layers:
-        url = f'{wms_url}?service=WMS&version=1.3.0&request=GetLegendGraphic&sld_version=1.1.0&layer={
-            wms_layer.strip()}&format=image/png'
+        # autopep8: off
+        url = f'{wms_url}?service=WMS&version=1.3.0&request=GetLegendGraphic&sld_version=1.1.0&layer={wms_layer.strip()}&format=image/png'
+        # autopep8: on
         urls.append(url)
 
     if len(urls) == 1:

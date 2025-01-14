@@ -59,10 +59,11 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
 
     if include_facts:
         if correlation_id and sio_client:
-            sio_client.emit('create_fact_sheet_api', {'recipient': correlation_id})
+            sio_client.emit('create_fact_sheet_api', {
+                            'recipient': correlation_id})
 
         fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer)
-        
+
     response = AnalysisResponse.create(
         geo_json, geometry, DEFAULT_EPSG, orig_epsg, buffer, fact_sheet, municipality_number, municipality_name)
 
@@ -102,8 +103,10 @@ async def _run_analysis(dataset_id: UUID, should_analyze: bool, geometry: ogr.Ge
         analysis.result_status = ResultStatus.ERROR
 
     end = time.time()
-    _LOGGER.info(f'Dataset analyzed: {
-                 dataset_id} - {config.name}: {round(end - start, 2)} sec.')
+
+    # autopep8: off
+    _LOGGER.info(f'Dataset analyzed: {dataset_id} - {config.name}: {round(end - start, 2)} sec.')
+    # autopep8: on
 
     if correlation_id and sio_client:
         sio_client.emit('dataset_analyzed_api', {
@@ -134,7 +137,8 @@ async def _upload_binaries(response: AnalysisResponse):
 
     for analysis in response.result_list:
         if analysis.raster_result_image_bytes:
-            map_images[str(analysis.dataset_id)] = analysis.raster_result_image_bytes
+            map_images[str(analysis.dataset_id)
+                       ] = analysis.raster_result_image_bytes
 
     if not map_images:
         return
