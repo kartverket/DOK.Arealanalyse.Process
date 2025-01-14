@@ -6,11 +6,11 @@ from .quality_measurement import QualityMeasurement
 from .metadata import Metadata
 from .exceptions import DokAnalysisException
 from .result_status import ResultStatus
-from .map_image_payload import MapImagePayload
 from .config.dataset_config import DatasetConfig
 from .config.quality_indicator_type import QualityIndicatorType
 from ..utils.helpers.common import keys_to_camel_case
-from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json, create_feature_collection
+from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json
+from ..utils.helpers.map_image import create_payload_for_analysis
 from ..services.config import get_quality_indicator_configs
 from ..services.kartkatalog import get_kartkatalog_metadata
 from ..services.quality.coverage_quality import get_coverage_quality
@@ -94,7 +94,7 @@ class Analysis(ABC):
             await self.__set_quality_measurements(context)
 
         if self.raster_result_map:
-            payload = self.__create_map_image_payload()
+            payload = create_payload_for_analysis(self.geometry, self.buffer, self.raster_result_map)
             _, result = await create_map_image(payload)
             self.raster_result_image_bytes = result
 
@@ -213,27 +213,6 @@ class Analysis(ABC):
                 qms.extend(result)
 
         return qms
-
-    def __create_map_image_payload(self) -> MapImagePayload:
-        wmts = {
-            'url': 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml',
-            'layer': 'topograatone'
-        }
-
-        geometries = [self.geometry]
-
-        if self.buffer > 0:
-            geometries.append(self.run_on_input_geometry)
-
-        feature_collection = create_feature_collection(geometries)
-
-        styling = {
-            'stroke-color': '#d33333',
-            'stroke-line-dash': [8, 8],
-            'stroke-width': 2
-        }
-
-        return MapImagePayload(1280, 720, wmts, [self.raster_result_map], feature_collection, styling)
 
     def to_dict(self) -> Dict:
         sorted_qms = self.__sort_quality_measurements()

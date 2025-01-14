@@ -70,16 +70,7 @@ def create_buffered_geometry(geometry: ogr.Geometry, distance: int, epsg: int) -
     return geometry.Buffer(computed_buffer, 10)
 
 
-def create_feature_collection(geometries: List[ogr.Geometry]) -> Dict:
-    first_geom = geometries[0]
-    sr: osr.SpatialReference = first_geom.GetSpatialReference()
-    epsg = sr.GetAuthorityCode(None)
-    features: List[Dict] = []
-    
-    for geometry in geometries:
-        feature = create_feature(geometry)
-        features.append(feature)
-
+def create_feature_collection(features: List[Dict], epsg: int = 4326) -> Dict:
     feature_collection = {
         'type': 'FeatureCollection',
         'features': features
@@ -90,12 +81,13 @@ def create_feature_collection(geometries: List[ogr.Geometry]) -> Dict:
     return feature_collection
 
 
-def create_feature(geometry: ogr.Geometry) -> Dict:
+def create_feature(geometry: ogr.Geometry, properties: Dict = {}) -> Dict:
     json_str = geometry.ExportToJson()
 
     return {
         'type': 'Feature',
-        'geometry': json.loads(json_str)
+        'geometry': json.loads(json_str),
+        'properties': properties
     }
 
 
@@ -150,6 +142,13 @@ def get_epsg(geo_json: Dict) -> int:
     return WGS84_EPSG
 
 
+def get_epsg_from_geometry(geometry: ogr.Geometry):
+    sr: osr.SpatialReference = geometry.GetSpatialReference()
+    epsg: int = sr.GetAuthorityCode(None)
+
+    return epsg or 4326
+
+
 def add_geojson_crs(geojson: Dict, epsg: int) -> None:
     if epsg is None or epsg == WGS84_EPSG:
         return
@@ -174,5 +173,6 @@ __all__ = [
     'length_to_degrees',
     'create_run_on_input_geometry_json',
     'get_epsg',
+    'get_epsg_from_geometry',
     'add_geojson_crs'
 ]

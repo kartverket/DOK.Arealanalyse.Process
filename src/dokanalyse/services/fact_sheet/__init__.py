@@ -4,10 +4,10 @@ from osgeo import ogr
 from .area_types import get_area_types
 from .buildings import get_buildings
 from .roads import get_roads
-from ...utils.helpers.geometry import create_buffered_geometry, create_feature_collection
+from ...utils.helpers.geometry import create_buffered_geometry
+from ...utils.helpers.map_image import create_payload_for_fact_sheet
 from ...utils.constants import DEFAULT_EPSG
 from ...models.fact_sheet import FactSheet
-from ...models.map_image_payload import MapImagePayload
 from ...services.map_image import create_map_image
 
 
@@ -34,8 +34,8 @@ async def _run_tasks(geometry: ogr.Geometry, orig_epsg: int, buffer: int) -> Lis
                 input_geom, DEFAULT_EPSG, orig_epsg, buffer)),
             tg.create_task(get_buildings(
                 input_geom, DEFAULT_EPSG, orig_epsg, buffer)),
-            tg.create_task(get_roads(
-                input_geom, DEFAULT_EPSG, orig_epsg, buffer)),
+            # tg.create_task(get_roads(
+            #     input_geom, DEFAULT_EPSG, orig_epsg, buffer)),
             tg.create_task(_create_raster_result(
                 geometry, buffer), name='raster_result')
         ]
@@ -44,34 +44,10 @@ async def _run_tasks(geometry: ogr.Geometry, orig_epsg: int, buffer: int) -> Lis
 
 
 async def _create_raster_result(geometry: ogr.Geometry, buffer: int):
-    payload = _create_map_image_payload(geometry, buffer)
+    payload = create_payload_for_fact_sheet(geometry, buffer)
     _, image = await create_map_image(payload)
 
     return image
-
-
-def _create_map_image_payload(geometry: ogr.Geometry, buffer: int) -> MapImagePayload:
-    wmts = {
-        'url': 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml',
-        'layer': 'topo'
-    }
-
-    geometries = [geometry]
-
-    if buffer > 0:
-        buffered_geometry = create_buffered_geometry(
-            geometry, buffer, DEFAULT_EPSG)
-        geometries.append(buffered_geometry)
-
-    feature_collection = create_feature_collection(geometries)
-
-    styling = {
-        'stroke-color': '#d33333',
-        'stroke-line-dash': [8, 8],
-        'stroke-width': 2
-    }
-
-    return MapImagePayload(1280, 720, wmts, None, feature_collection, styling)
 
 
 __all__ = ['create_fact_sheet']

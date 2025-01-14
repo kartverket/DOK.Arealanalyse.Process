@@ -98,7 +98,9 @@ def _create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[Qualit
 
 def _create_dataset_config(data: Dict) -> DatasetConfig:
     try:
-        return DatasetConfig(**data)
+        config = DatasetConfig(**data)
+
+        return config if not config.disabled else None
     except ValidationError as error:
         _LOGGER.error(error)
         return None

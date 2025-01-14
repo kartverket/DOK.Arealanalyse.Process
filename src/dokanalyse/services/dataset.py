@@ -48,9 +48,6 @@ def _get_datasets_by_theme(theme: str) -> List[UUID]:
     dataset_ids = []
 
     for config in dataset_configs:
-        if config.disabled:
-            continue
-        
         themes = list(map(lambda theme: theme.lower(), config.themes))
 
         if theme is None or theme.lower() in themes:

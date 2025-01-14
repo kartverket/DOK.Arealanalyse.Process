@@ -13,7 +13,7 @@ class AnalysisResponse():
         self.input_geometry_area = input_geometry_area
         self.municipality_number = municipality_number
         self.municipality_name = municipality_name
-        self.fact_sheet = fact_sheet
+        self.fact_sheet = fact_sheet or FactSheet()
         self.result_list = []
         self.report = None
 
@@ -30,8 +30,7 @@ class AnalysisResponse():
             'report': self.report
         }
 
-        if self.fact_sheet:
-            data = data | self.fact_sheet.to_dict()
+        data = data | self.fact_sheet.to_dict()
 
         return data
 
