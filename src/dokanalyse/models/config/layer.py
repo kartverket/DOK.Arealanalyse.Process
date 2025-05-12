@@ -11,7 +11,8 @@ class Layer(BaseModel):
     wms: List[str]
     filter: Optional[str] = None
     result_status: ResultStatus
-    geolett_id: Optional[uuid.UUID] = None
+    planning_guidance_id: Optional[uuid.UUID] = None
+    building_guidance_id: Optional[uuid.UUID] = None
 
     @validator('result_status')
     def check_result_status(cls, value: ResultStatus) -> ResultStatus:

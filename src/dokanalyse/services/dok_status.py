@@ -27,11 +27,11 @@ _VALUE_MAPPINGS = {
 }
 
 
-async def get_dok_status_for_dataset(dataset_id: UUID) -> Dict:
+async def get_dok_status_for_dataset(metadata_id: UUID) -> Dict:
     dok_status_all = await get_dok_status()
 
     for dok_status in dok_status_all:
-        if dok_status.get('dataset_id') == str(dataset_id):
+        if dok_status.get('dataset_id') == str(metadata_id):
             return dok_status
 
     return None

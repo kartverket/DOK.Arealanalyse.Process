@@ -6,8 +6,8 @@ from ..services.kartkatalog import get_kartkatalog_metadata
 
 
 class EmptyAnalysis(Analysis):
-    def __init__(self, dataset_id: UUID, config: DatasetConfig, result_status: ResultStatus):
-        super().__init__(dataset_id, config, None, None, None, 0)
+    def __init__(self, config_id: UUID, config: DatasetConfig, result_status: ResultStatus):
+        super().__init__(config_id, config, None, None, None, 0)
         self.result_status = result_status
 
     async def run(self):

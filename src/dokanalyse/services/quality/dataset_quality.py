@@ -4,12 +4,13 @@ from . import get_threshold_values
 from ..dok_status import get_dok_status_for_dataset
 from ...utils.helpers.common import evaluate_condition
 from ...models.quality_measurement import QualityMeasurement
+from ...models.config import DatasetConfig
 from ...models.config.quality_indicator import QualityIndicator
 from ...models.config.quality_indicator_type import QualityIndicatorType
 
 
-async def get_dataset_quality(dataset_id: UUID, quality_indicators: List[QualityIndicator], **kwargs) -> tuple[List[QualityMeasurement], List[str]]:
-    quality_data = await _get_dataset_quality_data(dataset_id, quality_indicators, kwargs)
+async def get_dataset_quality(config: DatasetConfig, quality_indicators: List[QualityIndicator], **kwargs) -> tuple[List[QualityMeasurement], List[str]]:
+    quality_data = await _get_dataset_quality_data(config, quality_indicators, kwargs)
     measurements: List[QualityMeasurement] = []
     warnings: List[str] = []
 
@@ -28,8 +29,8 @@ async def get_dataset_quality(dataset_id: UUID, quality_indicators: List[Quality
     return measurements, warnings
 
 
-async def _get_dataset_quality_data(dataset_id: UUID, quality_indicators: List[QualityIndicator], data: Dict[str, any]) -> List[Dict]:
-    quality_measurements = await _get_dataset_quality_measurements(dataset_id)
+async def _get_dataset_quality_data(config: DatasetConfig, quality_indicators: List[QualityIndicator], data: Dict[str, any]) -> List[Dict]:
+    quality_measurements = await _get_dataset_quality_measurements(config.metadata_id)
 
     dataset_indicators = [
         indicator for indicator in quality_indicators if indicator.type == QualityIndicatorType.DATASET]
@@ -63,10 +64,10 @@ async def _get_dataset_quality_data(dataset_id: UUID, quality_indicators: List[Q
     return measurements
 
 
-async def _get_dataset_quality_measurements(dataset_id: UUID) -> List[Dict]:
+async def _get_dataset_quality_measurements(metadata_id: UUID) -> List[Dict]:
     qms: List[Dict] = []
 
-    dok_status = await get_dok_status_for_dataset(dataset_id)
+    dok_status = await get_dok_status_for_dataset(metadata_id)
 
     if dok_status is not None:
         qms.extend(dok_status.get('suitability'))

@@ -18,23 +18,23 @@ def get_dataset_configs() -> List[DatasetConfig]:
     return dataset_configs
 
 
-def get_dataset_config(dataset_id: UUID) -> DatasetConfig:
+def get_dataset_config(config_id: UUID) -> DatasetConfig:
     dataset_configs, _ = _load_config()
 
     config = next(
-        (conf for conf in dataset_configs if conf.dataset_id == dataset_id), None)
+        (conf for conf in dataset_configs if conf.config_id == config_id), None)
 
     return config
 
 
-def get_quality_indicator_configs(dataset_id: UUID) -> List[QualityIndicator]:
+def get_quality_indicator_configs(config_id: UUID) -> List[QualityIndicator]:
     _, quality_configs = _load_config()
     indicators: List[QualityIndicator] = []
 
     for config in quality_configs:
-        id: UUID = config.dataset_id
+        id: UUID = config.config_id
 
-        if not id or id == dataset_id:
+        if not id or id == config_id:
             indicators.extend(config.indicators)
 
     return indicators

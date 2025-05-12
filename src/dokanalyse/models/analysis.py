@@ -29,15 +29,15 @@ _QMS_SORT_ORDER = [
 
 
 class Analysis(ABC):
-    def __init__(self, dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
-        self.dataset_id = dataset_id
+    def __init__(self, config_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
+        self.config_id = config_id
         self.config = config
         self.geometry = geometry
         self.run_on_input_geometry: ogr.Geometry = None
         self.epsg = epsg
         self.orig_epsg = orig_epsg
         self.geometries: List[ogr.Geometry] = []
-        self.geolett: Dict = None
+        self.guidance_data: Dict = None
         self.title: str = None
         self.description: str = None
         self.guidance_text: str = None
@@ -68,7 +68,7 @@ class Analysis(ABC):
         await self.__run_coverage_analysis()
 
         if self.has_coverage:
-            await self._run_queries()
+            await self._run_queries(context)
 
             if self.result_status == ResultStatus.TIMEOUT or self.result_status == ResultStatus.ERROR:
                 await self.set_default_data()
@@ -88,7 +88,7 @@ class Analysis(ABC):
 
         await self.set_default_data()
 
-        if include_guidance and self.geolett is not None:
+        if include_guidance and self.guidance_data is not None:
             self.__set_guidance_data()
 
         if include_quality_measurement:
@@ -104,13 +104,13 @@ class Analysis(ABC):
         self.run_algorithm.append(algorithm)
 
     async def set_default_data(self) -> None:
-        self.title = self.geolett.get(
-            'tittel') if self.geolett else self.config.title
+        self.title = self.guidance_data.get(
+            'tittel') if self.guidance_data else self.config.title
         self.themes = self.config.themes
         self.run_on_dataset = await get_kartkatalog_metadata(self.config.metadata_id)
 
     async def __run_coverage_analysis(self) -> None:
-        quality_indicators = get_quality_indicator_configs(self.dataset_id)
+        quality_indicators = get_quality_indicator_configs(self.config_id)
 
         if len(quality_indicators) == 0:
             return
@@ -176,27 +176,27 @@ class Analysis(ABC):
 
     def __set_guidance_data(self) -> None:
         if self.result_status != ResultStatus.NO_HIT_GREEN:
-            self.description = self.geolett.get('forklarendeTekst')
-            self.guidance_text = self.geolett.get('dialogtekst')
+            self.description = self.guidance_data.get('forklarendeTekst')
+            self.guidance_text = self.guidance_data.get('dialogtekst')
 
-        for link in self.geolett.get('lenker', []):
+        for link in self.guidance_data.get('lenker', []):
             self.guidance_uri.append({
                 'href': link['href'],
                 'title': link['tittel']
             })
 
-        possible_actions: str = self.geolett.get('muligeTiltak', '')
+        possible_actions: str = self.guidance_data.get('muligeTiltak', '')
 
         for line in possible_actions.splitlines():
             self.possible_actions.append(line.lstrip('- '))
 
     async def __set_quality_measurements(self, context) -> None:
-        quality_indicators = get_quality_indicator_configs(self.dataset_id)
+        quality_indicators = get_quality_indicator_configs(self.config_id)
 
         if len(quality_indicators) == 0:
             return
 
-        dataset_qms, dataset_warnings = await get_dataset_quality(self.dataset_id, quality_indicators, context=context, themes=self.themes)
+        dataset_qms, dataset_warnings = await get_dataset_quality(self.config, quality_indicators, context=context, themes=self.themes)
         object_qms, object_warnings = get_object_quality(
             quality_indicators, self.data)
 
@@ -246,7 +246,7 @@ class Analysis(ABC):
         }
 
     @abstractmethod
-    async def _run_queries(self) -> None:
+    async def _run_queries(self, context: str) -> None:
         pass
 
     @abstractmethod

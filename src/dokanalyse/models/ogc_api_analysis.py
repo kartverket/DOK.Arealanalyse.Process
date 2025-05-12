@@ -7,19 +7,22 @@ from osgeo import ogr
 from .analysis import Analysis
 from .result_status import ResultStatus
 from .config.dataset_config import DatasetConfig
-from ..services.geolett import get_geolett_data
+from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_json, transform_geometry
 from ..http_clients.ogc_api import query_ogc_api
 
 
 class OgcApiAnalysis(Analysis):
-    def __init__(self, dataset_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
-        super().__init__(dataset_id, config, geometry, epsg, orig_epsg, buffer)
+    def __init__(self, config_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
+        super().__init__(config_id, config, geometry, epsg, orig_epsg, buffer)
 
-    async def _run_queries(self) -> None:
+    async def _run_queries(self, context: str) -> None:
         first_layer = self.config.layers[0]
-        geolett_data = await get_geolett_data(first_layer.geolett_id)
+
+        guidance_id = first_layer.building_guidance_id if context == 'Byggesak' else first_layer.planning_guidance_id
+        guidance_data = await get_guidance_data(guidance_id)
+
         self._add_run_algorithm(f'query {self.config.ogc_api}')
 
         for layer in self.config.layers:
@@ -46,7 +49,9 @@ class OgcApiAnalysis(Analysis):
                 if len(response['properties']) > 0:
                     self._add_run_algorithm(
                         f'intersects layer {layer.ogc_api} (True)')
-                    geolett_data = await get_geolett_data(layer.geolett_id)
+
+                    guidance_id = layer.building_guidance_id if context == 'Byggesak' else layer.planning_guidance_id
+                    guidance_data = await get_guidance_data(guidance_id)
 
                     self.data = response['properties']
                     self.geometries = response['geometries']
@@ -60,7 +65,7 @@ class OgcApiAnalysis(Analysis):
                 self._add_run_algorithm(
                     f'intersects layer {layer.ogc_api} (False)')
 
-        self.geolett = geolett_data
+        self.guidance_data = guidance_data
 
     async def _set_distance_to_object(self) -> None:
         buffered_geom = create_buffered_geometry(
