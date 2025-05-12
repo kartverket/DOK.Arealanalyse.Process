@@ -4,7 +4,7 @@ import json
 from uuid import UUID
 from typing import List, Dict, Literal
 import aiohttp
-from ..models.config.dataset_config import DatasetConfig
+from ..models.config import DatasetConfig
 from ..services.config import get_dataset_configs
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR

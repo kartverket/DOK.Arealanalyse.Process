@@ -7,7 +7,6 @@ from .utils.helpers.request import request_is_valid
 from .utils.socket_io import get_client
 from .utils import logger
 
-
 logger.setup()
 
 osr.UseExceptions()
@@ -90,6 +89,14 @@ PROCESS_METADATA = {
             },
             'minOccurs': 0,
             'maxOccurs': 1
+        },
+        'includeFactSheet': {
+            'title': 'Inkluder faktainformasjon',
+            'schema': {
+                'type': 'boolean'
+            },
+            'minOccurs': 0,
+            'maxOccurs': 1
         }
     },
     'outputs': {
@@ -161,7 +168,8 @@ PROCESS_METADATA = {
             'theme': 'Natur',
             'includeGuidance': True,
             'includeQualityMeasurement': True,
-            'includeFilterChosenDOK': True
+            'includeFilterChosenDOK': True,
+            'includeFactSheet': True
         }
     }
 }

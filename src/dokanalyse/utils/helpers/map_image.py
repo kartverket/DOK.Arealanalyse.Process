@@ -25,7 +25,7 @@ def create_payload_for_analysis(geometry: ogr.Geometry, buffer: int, wms_url: st
             'style': {
                 'stroke-color': '#d33333',
                 'stroke-line-dash': [8, 8],
-                'stroke-width': 3
+                'stroke-width': 2
             }
         },
         {
@@ -61,7 +61,7 @@ def create_payload_for_fact_sheet(geometry: ogr.Geometry, buffer: int) -> MapIma
             'style': {
                 'stroke-color': '#d33333',
                 'stroke-line-dash': [8, 8],
-                'stroke-width': 3
+                'stroke-width': 2
             }
         },
         {

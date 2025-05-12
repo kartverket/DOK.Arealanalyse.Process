@@ -6,9 +6,7 @@ from uuid import UUID
 from pydantic import ValidationError
 from cachetools import cached, TTLCache
 from ..models.exceptions import DokAnalysisException
-from ..models.config.dataset_config import DatasetConfig
-from ..models.config.quality_config import QualityConfig
-from ..models.config.quality_indicator import QualityIndicator
+from ..models.config import DatasetConfig, QualityConfig, QualityIndicator
 from ..utils.helpers.common import get_env_var
 
 _LOGGER = logging.getLogger(__name__)

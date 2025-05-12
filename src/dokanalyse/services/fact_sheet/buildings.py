@@ -1,5 +1,6 @@
 import logging
 import time
+from uuid import UUID
 from collections import Counter
 from typing import List
 from lxml import etree as ET
@@ -11,7 +12,7 @@ from ...models.fact_part import FactPart
 
 _LOGGER = logging.getLogger(__name__)
 
-_DATASET_ID = '24d7e9d1-87f6-45a0-b38e-3447f8d7f9a1'
+_METADATA_ID = UUID('24d7e9d1-87f6-45a0-b38e-3447f8d7f9a1')
 _LAYER_NAME = 'Bygning'
 _WFS_URL = 'https://wfs.geonorge.no/skwms1/wfs.matrikkelen-bygningspunkt'
 _TIMEOUT = 10
@@ -31,7 +32,7 @@ _BUILDING_CATEGORIES = {
 
 async def get_buildings(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> FactPart:
     start = time.time()
-    dataset = await get_kartkatalog_metadata(_DATASET_ID)
+    dataset = await get_kartkatalog_metadata(_METADATA_ID)
     data = await _get_data(geometry, epsg)
     end = time.time()
 

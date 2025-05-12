@@ -1,5 +1,6 @@
 import logging
 import time
+from uuid import UUID
 from typing import Dict
 from osgeo import ogr
 from ..codelist import get_codelist
@@ -9,7 +10,7 @@ from ...utils.constants import AR5_FGDB_PATH
 
 _LOGGER = logging.getLogger(__name__)
 
-_DATASET_ID = '166382b4-82d6-4ea9-a68e-6fd0c87bf788'
+_METADATA_ID = UUID('166382b4-82d6-4ea9-a68e-6fd0c87bf788')
 _LAYER_NAME = 'fkb_ar5_omrade'
 
 
@@ -18,7 +19,7 @@ async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buff
         return None
 
     start = time.time()
-    dataset = await get_kartkatalog_metadata(_DATASET_ID)
+    dataset = await get_kartkatalog_metadata(_METADATA_ID)
     data = await _get_data(geometry)
     end = time.time()
 

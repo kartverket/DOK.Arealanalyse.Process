@@ -3,11 +3,13 @@ from .fact_part import FactPart
 
 
 class FactSheet:
-    raster_result_map: str = None
-    raster_result_image: str = None
-    raster_result_image_bytes: bytes = None
-    cartography: str = None
-    fact_list: List[FactPart] = []
+    def __init__(self):
+        self.raster_result_image: str = None
+        self.raster_result_map: str = None
+        self.raster_result_image: str = None
+        self.raster_result_image_bytes: bytes = None
+        self.cartography: str = None
+        self.fact_list: List[FactPart] = []
 
     def to_dict(self) -> Dict:
         fact_list = list(

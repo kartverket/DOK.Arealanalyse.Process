@@ -20,7 +20,7 @@ class OgcApiAnalysis(Analysis):
     async def _run_queries(self) -> None:
         first_layer = self.config.layers[0]
         geolett_data = await get_geolett_data(first_layer.geolett_id)
-        self._add_run_algorithm(f'query {self.config.ogc_api}')        
+        self._add_run_algorithm(f'query {self.config.ogc_api}')
 
         for layer in self.config.layers:
             if layer.filter is not None:
@@ -31,18 +31,21 @@ class OgcApiAnalysis(Analysis):
 
             if status_code == 408:
                 self.result_status = ResultStatus.TIMEOUT
-                self._add_run_algorithm(f'intersects layer {layer.ogc_api} (Timeout)')                
+                self._add_run_algorithm(
+                    f'intersects layer {layer.ogc_api} (Timeout)')
                 break
             elif status_code != 200:
                 self.result_status = ResultStatus.ERROR
-                self._add_run_algorithm(f'intersects layer {layer.ogc_api} (Error)')                
+                self._add_run_algorithm(
+                    f'intersects layer {layer.ogc_api} (Error)')
                 break
 
             if api_response:
                 response = self.__parse_response(api_response)
 
                 if len(response['properties']) > 0:
-                    self._add_run_algorithm(f'intersects layer {layer.ogc_api} (True)')     
+                    self._add_run_algorithm(
+                        f'intersects layer {layer.ogc_api} (True)')
                     geolett_data = await get_geolett_data(layer.geolett_id)
 
                     self.data = response['properties']
@@ -53,13 +56,15 @@ class OgcApiAnalysis(Analysis):
                         self.config.wms, layer.wms)
                     self.result_status = layer.result_status
                     break
-                
-                self._add_run_algorithm(f'intersects layer {layer.ogc_api} (False)')
+
+                self._add_run_algorithm(
+                    f'intersects layer {layer.ogc_api} (False)')
 
         self.geolett = geolett_data
 
     async def _set_distance_to_object(self) -> None:
-        buffered_geom = create_buffered_geometry(self.geometry, 20000, self.epsg)
+        buffered_geom = create_buffered_geometry(
+            self.geometry, 20000, self.epsg)
         layer = self.config.layers[0]
 
         _, response = await query_ogc_api(self.config.ogc_api, layer.ogc_api, self.config.geom_field, buffered_geom, self.epsg)
@@ -74,7 +79,8 @@ class OgcApiAnalysis(Analysis):
             feature_geom = self.__get_geometry_from_response(feature)
 
             if feature_geom is not None:
-                distance = round(self.run_on_input_geometry.Distance(feature_geom))
+                distance = round(
+                    self.run_on_input_geometry.Distance(feature_geom))
                 distances.append(distance)
 
         distances.sort()
@@ -112,6 +118,5 @@ class OgcApiAnalysis(Analysis):
     def __get_geometry_from_response(self, feature: Dict) -> ogr.Geometry:
         json_str = json.dumps(feature['geometry'])
         geometry = geometry_from_json(json_str)
-        
+
         return transform_geometry(geometry, 4326, 25833)
-        

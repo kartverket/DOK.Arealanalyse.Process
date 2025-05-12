@@ -6,6 +6,7 @@ from .layer import Layer
 
 class DatasetConfig(BaseModel):
     dataset_id: Optional[uuid.UUID] = None
+    metadata_id: Optional[uuid.UUID] = None
     name: Optional[str] = None
     title: Optional[str] = None
     disabled: Optional[bool] = False

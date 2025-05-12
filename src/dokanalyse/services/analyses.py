@@ -12,14 +12,8 @@ from .municipality import get_municipality
 from ..services.config import get_dataset_config
 from ..services.blob_storage import create_container, upload_image
 from ..utils.helpers.geometry import create_input_geometry, get_epsg
-from ..models.config.dataset_config import DatasetConfig
-from ..models.analysis import Analysis
-from ..models.arcgis_analysis import ArcGisAnalysis
-from ..models.empty_analysis import EmptyAnalysis
-from ..models.ogc_api_analysis import OgcApiAnalysis
-from ..models.wfs_analysis import WfsAnalysis
-from ..models.analysis_response import AnalysisResponse
-from ..models.result_status import ResultStatus
+from ..models.config import DatasetConfig
+from ..models import Analysis, ArcGisAnalysis, OgcApiAnalysis, WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus
 from ..utils.constants import DEFAULT_EPSG
 from ..utils.correlation_id_middleware import get_correlation_id
 
@@ -40,7 +34,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     datasets = await get_dataset_ids(data, municipality_number)
     correlation_id = get_correlation_id()
 
-    if correlation_id and sio_client:
+    if datasets and correlation_id and sio_client:
         to_analyze = {key: value for (
             key, value) in datasets.items() if value == True}
         sio_client.emit('datasets_counted_api', {'count': len(

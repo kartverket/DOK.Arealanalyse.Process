@@ -13,7 +13,7 @@ class EmptyAnalysis(Analysis):
     async def run(self):
         self.title = self.geolett['tittel'] if self.geolett else self.config.title
         self.themes = self.config.themes
-        self.run_on_dataset = await get_kartkatalog_metadata(self.dataset_id)
+        self.run_on_dataset = await get_kartkatalog_metadata(self.config.metadata_id)
 
     def _add_run_algorithm(self) -> None:
         raise NotImplementedError

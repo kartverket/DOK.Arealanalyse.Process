@@ -20,7 +20,7 @@ class AnalysisResponse():
     def to_dict(self) -> Dict:
         result_list = list(
             map(lambda analysis: analysis.to_dict(), self.result_list))
-
+               
         data = {
             'resultList': result_list,
             'inputGeometry': self.input_geometry,

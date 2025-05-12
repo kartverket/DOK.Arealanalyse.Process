@@ -2,7 +2,7 @@ from io import BytesIO
 from typing import List, Tuple
 from lxml import etree as ET
 from osgeo import ogr
-from ..models.config.coverage_wfs import CoverageWfs
+from ..models.config import CoverageWfs
 from ..http_clients.wfs import query_wfs
 from ..utils.helpers.common import xpath_select_one
 from ..utils.helpers.geometry import geometry_from_gml
