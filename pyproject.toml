@@ -34,3 +34,6 @@ gdal-362 = ["gdal==3.6.2"]
 
 [tool.setuptools.package-data]
 dokanalyse = ["**/*.json", "**/*.txt"]
+
+[tool.setuptools]
+license-files = []
