@@ -1,18 +1,19 @@
 from io import BytesIO
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from lxml import etree as ET
 from osgeo import ogr
-from ..models.config import CoverageWfs
+from ..models.config import CoverageService
 from ..http_clients.wfs import query_wfs
+from ..http_clients.arcgis import query_arcgis
 from ..utils.helpers.common import xpath_select_one
 from ..utils.helpers.geometry import geometry_from_gml
 
 
-async def get_values_from_wfs(wfs_config: CoverageWfs, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float]:
+async def get_values_from_wfs(wfs_config: CoverageService, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
     _, response = await query_wfs(wfs_config.url, wfs_config.layer, wfs_config.geom_field, geometry, epsg)
 
     if response is None:
-        return [], 0
+        return [], 0, []
 
     source = BytesIO(response.encode('utf-8'))
     context = ET.iterparse(source, huge_tree=True)
@@ -43,7 +44,34 @@ async def get_values_from_wfs(wfs_config: CoverageWfs, geometry: ogr.Geometry, e
 
     distinct_values = list(set(values))
 
-    return distinct_values, hit_area_percent
+    return distinct_values, hit_area_percent, []
+
+
+async def get_values_from_arcgis(arcgis_config: CoverageService, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
+    _, response = await query_arcgis(arcgis_config.url, arcgis_config.layer, None, geometry, epsg)
+
+    if response is None:
+        return [], 0, []
+
+    features: List[Dict] = response.get('features')
+
+    if len(features) == 0:
+        return [], 0, []
+
+    values: List[str] = []
+    data: List[Dict] = []
+
+    for feature in features:
+        value = feature.get('properties').get(arcgis_config.property)
+        values.append(value)
+
+        if len(arcgis_config.properties) > 0:
+            props = _map_arcgis_properties(feature, arcgis_config.properties)
+            data.append(props)
+
+    distinct_values = list(set(values))
+
+    return distinct_values, 0, data
 
 
 def _get_hit_area_percent(geometry: ogr.Geometry, feature_geometries: List[ogr.Geometry]) -> float:
@@ -62,6 +90,16 @@ def _get_hit_area_percent(geometry: ogr.Geometry, feature_geometries: List[ogr.G
     percent = (hit_area / geom_area) * 100
 
     return round(percent, 2)
+
+
+def _map_arcgis_properties(feature: Dict, mappings: List[str]) -> Dict:
+    props = {}
+    feature_props: Dict = feature['properties']
+
+    for mapping in mappings:
+        props[mapping] = feature_props.get(mapping)
+
+    return props
 
 
 __all__ = ['get_values_from_wfs']

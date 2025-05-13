@@ -2,10 +2,10 @@ from typing import List, Dict
 
 
 class MapImagePayload:
-    def __init__(self, width: int, height: int, wmts: Dict, wms: List[str], features: Dict, styling: Dict):
+    def __init__(self, width: int, height: int, base_map: Dict, wms: List[str], features: Dict, styling: Dict):
         self.width = width
         self.height = height
-        self.wmts = wmts or None
+        self.base_map = base_map or None
         self.wms = wms or []
         self.features = features
         self.styling = styling or {}
@@ -14,7 +14,7 @@ class MapImagePayload:
         return {
             'width': self.width,
             'height': self.height,
-            'wmts': self.wmts,
+            'baseMap': self.base_map,
             'wms': self.wms,
             'features': self.features,
             'styling': self.styling

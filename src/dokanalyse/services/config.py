@@ -35,7 +35,9 @@ def get_quality_indicator_configs(config_id: UUID) -> List[QualityIndicator]:
         id: UUID = config.config_id
 
         if not id or id == config_id:
-            indicators.extend(config.indicators)
+            for indicator in config.indicators:
+                if not indicator.disabled:
+                    indicators.append(indicator)
 
     return indicators
 
@@ -106,7 +108,7 @@ def _create_dataset_config(data: Dict) -> DatasetConfig:
 
 def _create_quality_config(data: Dict) -> QualityConfig:
     try:
-        return QualityConfig(**data)
+        return QualityConfig(**data)        
     except ValidationError as error:
         _LOGGER.error(error)
         return None

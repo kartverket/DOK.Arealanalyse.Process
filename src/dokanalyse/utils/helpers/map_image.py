@@ -1,14 +1,21 @@
 from osgeo import ogr
 from .geometry import create_feature, create_feature_collection, create_buffered_geometry
-from ..constants import DEFAULT_EPSG
+from ..constants import DEFAULT_EPSG, MAP_IMAGE_BASE_MAP
 from ...models.map_image_payload import MapImagePayload
 
 
 def create_payload_for_analysis(geometry: ogr.Geometry, buffer: int, wms_url: str) -> MapImagePayload:
-    wmts = {
-        'url': 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml',
-        'layer': 'topograatone'
-    }
+    base_map = {}
+
+    if MAP_IMAGE_BASE_MAP == 'WMTS':
+        base_map['wmts'] = {
+            'url': 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml',
+            'layer': 'topograatone'
+        }
+    else:
+        base_map['osm'] = {
+            'grayscale': True
+        }
 
     features = [create_feature(geometry)]
 
@@ -37,14 +44,21 @@ def create_payload_for_analysis(geometry: ogr.Geometry, buffer: int, wms_url: st
         }
     ]
 
-    return MapImagePayload(1280, 720, wmts, [wms_url], feature_collection, styling)
+    return MapImagePayload(1280, 720, base_map, [wms_url], feature_collection, styling)
 
 
 def create_payload_for_fact_sheet(geometry: ogr.Geometry, buffer: int) -> MapImagePayload:
-    wmts = {
-        'url': 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml',
-        'layer': 'topo'
-    }
+    base_map = {}
+
+    if MAP_IMAGE_BASE_MAP == 'WMTS':
+        base_map['wmts'] = {
+            'url': 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml',
+            'layer': 'topo'
+        }
+    else:
+        base_map['osm'] = {
+            'grayscale': False
+        }
 
     features = [create_feature(geometry)]
 
@@ -73,7 +87,7 @@ def create_payload_for_fact_sheet(geometry: ogr.Geometry, buffer: int) -> MapIma
         }
     ]
 
-    return MapImagePayload(1280, 548, wmts, None, feature_collection, styling)
+    return MapImagePayload(1280, 548, base_map, None, feature_collection, styling)
 
 
 __all__ = ['create_payload_for_analysis', 'create_payload_for_fact_sheet']

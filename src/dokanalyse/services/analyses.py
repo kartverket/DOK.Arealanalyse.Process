@@ -31,8 +31,8 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     include_facts = data.get('includeFacts', True)
     municipality_number, municipality_name = await get_municipality(geometry, DEFAULT_EPSG)
 
-    datasets = await get_config_ids(data, municipality_number)
-    #datasets = {UUID('41c10b72-a5ca-460f-b1f2-f27376719703'): True}
+    #datasets = await get_config_ids(data, municipality_number)
+    datasets = {UUID('c74656bb-267d-4546-aa14-6323070d06c7'): True}
     correlation_id = get_correlation_id()
 
     if datasets and correlation_id and sio_client:
@@ -65,7 +65,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     for task in tasks:
         response.result_list.append(task.result())
 
-    #await _upload_binaries(response)
+    await _upload_binaries(response)
 
     return response.to_dict()
 

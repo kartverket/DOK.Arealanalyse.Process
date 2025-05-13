@@ -17,6 +17,7 @@ from ..services.kartkatalog import get_kartkatalog_metadata
 from ..services.quality.coverage_quality import get_coverage_quality
 from ..services.quality.dataset_quality import get_dataset_quality
 from ..services.quality.object_quality import get_object_quality
+from ..services.guidance_data import get_guidance_data
 from ..services.map_image import create_map_image
 
 _QMS_SORT_ORDER = [
@@ -65,7 +66,7 @@ class Analysis(ABC):
     async def run(self, context, include_guidance, include_quality_measurement) -> None:
         self.__set_input_geometry()
 
-        await self.__run_coverage_analysis()
+        await self.__run_coverage_analysis(context)
 
         if self.has_coverage:
             await self._run_queries(context)
@@ -109,7 +110,7 @@ class Analysis(ABC):
         self.themes = self.config.themes
         self.run_on_dataset = await get_kartkatalog_metadata(self.config.metadata_id)
 
-    async def __run_coverage_analysis(self) -> None:
+    async def __run_coverage_analysis(self, context) -> None:
         quality_indicators = get_quality_indicator_configs(self.config_id)
 
         if len(quality_indicators) == 0:
@@ -125,10 +126,19 @@ class Analysis(ABC):
                 'A dataset can only have one coverage quality indicator')
 
         ci = coverage_indicators[0]
+        coverage_svc = ci.wfs if ci.wfs else ci.arcgis
 
-        self._add_run_algorithm(f'check coverage {ci.wfs.url}')
-        measurements, warning, has_coverage = await get_coverage_quality(ci, self.run_on_input_geometry, self.epsg)
-        self._add_run_algorithm(f'intersects layer {ci.wfs.layer} ({has_coverage})')
+        self._add_run_algorithm(f'check coverage {coverage_svc.url}')
+        measurements, warning, has_coverage, data = await get_coverage_quality(ci, self.run_on_input_geometry, self.epsg)
+        self._add_run_algorithm(
+            f'intersects layer {coverage_svc.layer} ({has_coverage})')
+
+        if not has_coverage:
+            self.data = data
+            guidance_id = coverage_svc.building_guidance_id if context == 'Byggesak' else coverage_svc.planning_guidance_id
+
+            if guidance_id:
+                self.guidance_data = await get_guidance_data(guidance_id)
 
         self.quality_measurement.extend(measurements)
         self.has_coverage = has_coverage
@@ -197,8 +207,10 @@ class Analysis(ABC):
             return
 
         dataset_qms, dataset_warnings = await get_dataset_quality(self.config, quality_indicators, context=context, themes=self.themes)
-        object_qms, object_warnings = get_object_quality(
-            quality_indicators, self.data)
+        object_qms, object_warnings = [], []
+
+        if self.has_coverage:
+            object_qms, object_warnings = get_object_quality(quality_indicators, self.data)
 
         self.quality_measurement.extend(dataset_qms)
         self.quality_measurement.extend(object_qms)

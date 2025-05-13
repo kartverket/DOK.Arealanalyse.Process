@@ -36,18 +36,21 @@ class WfsAnalysis(Analysis):
 
             if status_code == 408:
                 self.result_status = ResultStatus.TIMEOUT
-                self._add_run_algorithm(f'intersects layer {layer.wfs} (Timeout)')
+                self._add_run_algorithm(
+                    f'intersects layer {layer.wfs} (Timeout)')
                 break
             elif status_code != 200:
                 self.result_status = ResultStatus.ERROR
-                self._add_run_algorithm(f'intersects layer {layer.wfs} (Error)')
+                self._add_run_algorithm(
+                    f'intersects layer {layer.wfs} (Error)')
                 break
 
             if api_response:
                 response = self.__parse_response(api_response, layer)
 
                 if len(response['properties']) > 0:
-                    self._add_run_algorithm(f'intersects layer {layer.wfs} (True)')
+                    self._add_run_algorithm(
+                        f'intersects layer {layer.wfs} (True)')
 
                     guidance_id = layer.building_guidance_id if context == 'Byggesak' else layer.planning_guidance_id
                     guidance_data = await get_guidance_data(guidance_id)
@@ -61,7 +64,8 @@ class WfsAnalysis(Analysis):
                     self.result_status = layer.result_status
                     break
 
-                self._add_run_algorithm(f'intersects layer {layer.wfs} (False)')            
+                self._add_run_algorithm(
+                    f'intersects layer {layer.wfs} (False)')
 
         self.guidance_data = guidance_data
 
@@ -70,37 +74,19 @@ class WfsAnalysis(Analysis):
             self.geometry, 20000, self.epsg)
         layer = self.config.layers[0]
 
-        _, response = await query_wfs(self.config.wfs, layer.wfs, self.config.geom_field, buffered_geom, self.epsg)
+        _, api_response = await query_wfs(self.config.wfs, layer.wfs, self.config.geom_field, buffered_geom, self.epsg)
 
-        if response is None:
+        if api_response is None:
             self.distance_to_object = maxsize
             return
 
-        # a = self.__parse_response(response, layer)
-        # print(a)
-
-        source = BytesIO(response.encode('utf-8'))
-        context = ET.iterparse(source, huge_tree=True)
+        response = self.__parse_response(api_response, layer)
+        geometries: List[ogr.Geometry] = response.get('geometries')
         distances = []
 
-        for _, elem in context:
-            localname = ET.QName(elem).localname
-
-            if localname != self.config.geom_field:
-                continue
-
-            geom_elem = xpath_select_one(elem, './*')
-
-            if geom_elem is None:
-                continue
-
-            gml_str = ET.tostring(geom_elem, encoding='unicode')
-            feature_geom = geometry_from_gml(gml_str)
-
-            if feature_geom:
-                distance = round(
-                    self.run_on_input_geometry.Distance(feature_geom))
-                distances.append(distance)
+        for geom in geometries:
+            distance = round(self.run_on_input_geometry.Distance(geom))
+            distances.append(distance)
 
         distances.sort()
         self._add_run_algorithm('get distance to nearest object')
