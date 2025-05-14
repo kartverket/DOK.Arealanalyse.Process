@@ -33,16 +33,24 @@ async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geomet
     codelist = await get_codelist('fullstendighet_dekning')
     meas_values: List[Dict] = []
 
-    for value in values:
-        meas_value = 'Nei' if value in [
-            'ikkeKartlagt', 'ikkeRelevant'] else 'Ja'
-
-        comment = _get_label_from_codelist(value, codelist)
+    if len(values) == 0 and quality_indicator.warning_threshold is None:
+        comment = _get_label_from_codelist('ikkeKartlagt', codelist)
 
         meas_values.append({
-            'value': meas_value,
+            'value': 'Nei',
             'comment': comment
         })
+    else:
+        for value in values:
+            meas_value = 'Nei' if value in [
+                'ikkeKartlagt', 'ikkeRelevant'] else 'Ja'
+
+            comment = _get_label_from_codelist(value, codelist)
+
+            meas_values.append({
+                'value': meas_value,
+                'comment': comment
+            })
 
     measurement = {
         'id': quality_indicator.quality_dimension_id,
@@ -51,7 +59,9 @@ async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geomet
         'warning_text': _get_warning_text(quality_indicator, values, hit_area_percent)
     }
 
-    return measurement, _has_coverage(values) and quality_indicator.warning_threshold is not None, data
+    has_coverage = _has_coverage(values, quality_indicator.warning_threshold)
+
+    return measurement, has_coverage, data
 
 
 async def _get_values_from_web_service(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
@@ -60,7 +70,7 @@ async def _get_values_from_web_service(quality_indicator: QualityIndicator, geom
 
     if quality_indicator.arcgis:
         return await get_values_from_arcgis(quality_indicator.arcgis, geometry, epsg)
-    
+
     # TODO: Add support for OGC Features API
 
     return [], 0
@@ -70,7 +80,10 @@ def _get_warning_text(quality_indicator: QualityIndicator, values: List[str], hi
     threshold_values = get_threshold_values(quality_indicator)
 
     should_warn = any(value for value in values if any(
-        t_value for t_value in threshold_values if t_value == value)) or quality_indicator.warning_threshold is None
+        t_value for t_value in threshold_values if t_value == value))
+
+    should_warn = should_warn or len(
+        values) == 0 and quality_indicator.warning_threshold is None
 
     warning_text = None
 
@@ -84,7 +97,10 @@ def _get_warning_text(quality_indicator: QualityIndicator, values: List[str], hi
     return warning_text
 
 
-def _has_coverage(values: List[str]) -> bool:
+def _has_coverage(values: List[str], warning_threshold: str) -> bool:
+    if len(values) == 0 and warning_threshold is None:
+        return False
+    
     if 'ikkeKartlagt' in values:
         has_other_values = any(
             value != 'ikkeKartlagt' for value in values)
