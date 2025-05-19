@@ -28,7 +28,7 @@ async def get_roads(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: i
 
 async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict]:
     start = time.time()
-    status, response = await query_ogc_api(_API_BASE_URL, _LAYER_NAME, 'senterlinje', geometry, epsg, epsg, _TIMEOUT)
+    status, response = await query_ogc_api(_API_BASE_URL, _LAYER_NAME, 'senterlinje', geometry, None, epsg, epsg, _TIMEOUT)
     end = time.time()
 
     if response is None:
