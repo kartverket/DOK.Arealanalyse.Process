@@ -1,5 +1,4 @@
-from .coverage_wfs import CoverageWfs
-from .coverage_arcgis import CoverageArcGis
+from .coverage_geojson import CoverageGeoJson
 from .coverage_service import CoverageService
 from .dataset_config import DatasetConfig
 from .layer import Layer

@@ -70,6 +70,9 @@ async def _get_values_from_web_service(quality_indicator: QualityIndicator, geom
 
     if quality_indicator.arcgis:
         return await get_values_from_arcgis(quality_indicator.arcgis, geometry, epsg)
+    
+    if quality_indicator.geojson:
+        return await get_values_from_arcgis(quality_indicator.arcgis, geometry, epsg)
 
     # TODO: Add support for OGC Features API
 

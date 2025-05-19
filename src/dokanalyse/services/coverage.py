@@ -2,7 +2,7 @@ from io import BytesIO
 from typing import List, Tuple, Dict
 from lxml import etree as ET
 from osgeo import ogr
-from ..models.config import CoverageService
+from ..models.config import CoverageService, CoverageGeoJson
 from ..http_clients.wfs import query_wfs
 from ..http_clients.arcgis import query_arcgis
 from ..utils.helpers.common import xpath_select_one
@@ -73,6 +73,33 @@ async def get_values_from_arcgis(arcgis_config: CoverageService, geometry: ogr.G
 
     return distinct_values, 0, data
 
+
+async def get_values_from_geojson(geojson_config: CoverageGeoJson, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
+    pass
+    # _, response = await query_arcgis(arcgis_config.url, arcgis_config.layer, None, geometry, epsg)
+
+    # if response is None:
+    #     return [], 0, []
+
+    # features: List[Dict] = response.get('features')
+
+    # if len(features) == 0:
+    #     return [], 0, []
+
+    # values: List[str] = []
+    # data: List[Dict] = []
+
+    # for feature in features:
+    #     value = feature.get('properties').get(arcgis_config.property)
+    #     values.append(value)
+
+    #     if len(arcgis_config.properties) > 0:
+    #         props = _map_arcgis_properties(feature, arcgis_config.properties)
+    #         data.append(props)
+
+    # distinct_values = list(set(values))
+
+    # return distinct_values, 0, data
 
 def _get_hit_area_percent(geometry: ogr.Geometry, feature_geometries: List[ogr.Geometry]) -> float:
     geom_area: float = geometry.GetArea()
