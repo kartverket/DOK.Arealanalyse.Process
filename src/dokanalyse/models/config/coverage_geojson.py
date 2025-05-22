@@ -1,11 +1,8 @@
-from typing import List
-from pydantic import BaseModel, AnyUrl
-import uuid
+from typing import Union
+from pydantic import BaseModel, FileUrl, HttpUrl
+from .coverage_base_service import CoverageBaseService
 
 
-class CoverageGeoJson(BaseModel):
-    url: AnyUrl
-    property: str
-    planning_guidance_id: uuid.UUID = None
-    building_guidance_id: uuid.UUID = None
-    properties: List[str] = []    
+class CoverageGeoJson(CoverageBaseService):
+    url: Union[FileUrl, HttpUrl]
+    layer: str = '0'

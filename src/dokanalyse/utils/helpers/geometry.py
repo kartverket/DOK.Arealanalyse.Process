@@ -142,11 +142,11 @@ def get_epsg(geo_json: Dict) -> int:
     return WGS84_EPSG
 
 
-def get_epsg_from_geometry(geometry: ogr.Geometry):
+def get_epsg_from_geometry(geometry: ogr.Geometry) -> int:
     sr: osr.SpatialReference = geometry.GetSpatialReference()
-    epsg: int = sr.GetAuthorityCode(None)
+    epsg: str = sr.GetAuthorityCode(None)
 
-    return epsg or 4326
+    return int(epsg) or 4326
 
 
 def add_geojson_crs(geojson: Dict, epsg: int) -> None:

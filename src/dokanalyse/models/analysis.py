@@ -4,13 +4,12 @@ from uuid import UUID
 from osgeo import ogr
 from .quality_measurement import QualityMeasurement
 from .metadata import Metadata
-from .exceptions import DokAnalysisException
 from .result_status import ResultStatus
-from .config.dataset_config import DatasetConfig
-from .config.quality_indicator_type import QualityIndicatorType
+from .config import DatasetConfig
 from ..utils.helpers.common import keys_to_camel_case
 from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json
 from ..utils.helpers.map_image import create_payload_for_analysis
+from ..utils.helpers.quality import get_coverage_indicator, get_coverage_service_config_data
 from ..utils.constants import MAP_IMAGE_API_URL
 from ..services.config import get_quality_indicator_configs
 from ..services.kartkatalog import get_kartkatalog_metadata
@@ -112,30 +111,22 @@ class Analysis(ABC):
 
     async def __run_coverage_analysis(self, context) -> None:
         quality_indicators = get_quality_indicator_configs(self.config_id)
-
-        if len(quality_indicators) == 0:
+        ci = get_coverage_indicator(quality_indicators)
+        
+        if not ci:
             return
 
-        coverage_indicators = [
-            indicator for indicator in quality_indicators if indicator.type == QualityIndicatorType.COVERAGE]
+        coverage_svc = get_coverage_service_config_data(ci)
 
-        if len(coverage_indicators) == 0:
-            return
-        elif len(coverage_indicators) > 1:
-            raise DokAnalysisException(
-                'A dataset can only have one coverage quality indicator')
-
-        ci = coverage_indicators[0]
-        coverage_svc = ci.wfs if ci.wfs else ci.arcgis
-
-        self._add_run_algorithm(f'check coverage {coverage_svc.url}')
+        self._add_run_algorithm(f'check coverage {coverage_svc.get('url')}')
         measurements, warning, has_coverage, data = await get_coverage_quality(ci, self.run_on_input_geometry, self.epsg)
         self._add_run_algorithm(
-            f'intersects layer {coverage_svc.layer} ({has_coverage})')
+            f'intersects layer {coverage_svc.get('layer')} ({has_coverage})')
 
         if not has_coverage:
             self.data = data
-            guidance_id = coverage_svc.building_guidance_id if context == 'Byggesak' else coverage_svc.planning_guidance_id
+            guidance_id = coverage_svc.get(
+                'building_guidance_id') if context == 'Byggesak' else coverage_svc.get('planning_guidance_id')
 
             if guidance_id:
                 self.guidance_data = await get_guidance_data(guidance_id)
@@ -210,7 +201,8 @@ class Analysis(ABC):
         object_qms, object_warnings = [], []
 
         if self.has_coverage:
-            object_qms, object_warnings = get_object_quality(quality_indicators, self.data)
+            object_qms, object_warnings = get_object_quality(
+                quality_indicators, self.data)
 
         self.quality_measurement.extend(dataset_qms)
         self.quality_measurement.extend(object_qms)

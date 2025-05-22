@@ -1,13 +1,9 @@
-from typing import List, Optional
-from pydantic import BaseModel, HttpUrl
-import uuid
+from typing import Optional
+from pydantic import HttpUrl
+from .coverage_base_service import CoverageBaseService
 
 
-class CoverageService(BaseModel):
+class CoverageService(CoverageBaseService):
     url: HttpUrl
     layer: str
     geom_field: Optional[str] = None
-    property: str
-    planning_guidance_id: uuid.UUID = None
-    building_guidance_id: uuid.UUID = None
-    properties: List[str] = []    

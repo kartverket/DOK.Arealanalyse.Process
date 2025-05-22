@@ -1,8 +1,7 @@
 from pydantic import BaseModel, root_validator
 from typing import Optional, Dict
 from .quality_indicator_type import QualityIndicatorType
-from .coverage_service import CoverageService
-from .coverage_geojson import CoverageGeoJson
+from . import CoverageService, CoverageGeoJson
 
 class QualityIndicator(BaseModel):
     type: QualityIndicatorType

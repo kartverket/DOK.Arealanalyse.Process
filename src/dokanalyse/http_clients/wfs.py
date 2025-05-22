@@ -29,7 +29,7 @@ def _create_wfs_request_xml(layer: str, geom_field: str, gml_str: str, epsg: int
 async def _query_wfs(url: HttpUrl, xml_body: str, timeout: int) -> Tuple[int, str]:
     url = f'{url}?service=WFS&version=2.0.0'
     headers = {'Content-Type': 'application/xml'}
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=xml_body, headers=headers, timeout=timeout) as response:

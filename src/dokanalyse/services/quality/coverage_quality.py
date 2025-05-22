@@ -1,7 +1,7 @@
 from typing import List, Dict, Tuple
 from osgeo import ogr
 from . import get_threshold_values
-from ..coverage import get_values_from_wfs, get_values_from_arcgis
+from ..coverage import get_values_from_wfs, get_values_from_arcgis, get_values_from_geojson
 from ..codelist import get_codelist
 from ...models.quality_measurement import QualityMeasurement
 from ...models.config.quality_indicator import QualityIndicator
@@ -43,7 +43,7 @@ async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geomet
     else:
         for value in values:
             meas_value = 'Nei' if value in [
-                'ikkeKartlagt', 'ikkeRelevant'] else 'Ja'
+                'ikkeKartlagt', 'Ikke kartlagt', 'ikkeRelevant', 'Ikke relevant'] else 'Ja'
 
             comment = _get_label_from_codelist(value, codelist)
 
@@ -70,9 +70,9 @@ async def _get_values_from_web_service(quality_indicator: QualityIndicator, geom
 
     if quality_indicator.arcgis:
         return await get_values_from_arcgis(quality_indicator.arcgis, geometry, epsg)
-    
+
     if quality_indicator.geojson:
-        return await get_values_from_arcgis(quality_indicator.arcgis, geometry, epsg)
+        return await get_values_from_geojson(quality_indicator.geojson, geometry, epsg)
 
     # TODO: Add support for OGC Features API
 
@@ -88,10 +88,12 @@ def _get_warning_text(quality_indicator: QualityIndicator, values: List[str], hi
     should_warn = should_warn or len(
         values) == 0 and quality_indicator.warning_threshold is None
 
+    not_relevant = 'ikkeRelevant' in values or 'Ikke relevant' in values
+    should_warn = should_warn or not_relevant
     warning_text = None
 
     if should_warn:
-        warning_text: str = quality_indicator.quality_warning_text
+        warning_text: str = quality_indicator.quality_warning_text if not not_relevant else 'Området er ikke relevant for datasettet'
 
         if 0 < hit_area_percent < 100:
             hit_area = str(hit_area_percent).replace('.', ',')
@@ -103,10 +105,13 @@ def _get_warning_text(quality_indicator: QualityIndicator, values: List[str], hi
 def _has_coverage(values: List[str], warning_threshold: str) -> bool:
     if len(values) == 0 and warning_threshold is None:
         return False
-    
-    if 'ikkeKartlagt' in values:
+
+    has_value = any(value in ['ikkeKartlagt', 'Ikke kartlagt',
+                    'ikkeRelevant', 'Ikke relevant'] for value in values)
+
+    if has_value:
         has_other_values = any(
-            value != 'ikkeKartlagt' for value in values)
+            value not in ['ikkeKartlagt', 'Ikke kartlagt', 'ikkeRelevant', 'Ikke relevant'] for value in values)
         return has_other_values
 
     return True
