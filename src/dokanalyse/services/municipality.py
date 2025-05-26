@@ -2,7 +2,7 @@ from typing import List, Dict, Tuple
 import aiohttp
 from lxml import etree as ET
 from osgeo import ogr, osr
-from ..http_clients.wfs import query_wfs
+from ..drivers.wfs import query_wfs
 
 _WFS_URL = 'https://wfs.geonorge.no/skwms1/wfs.administrative_enheter'
 

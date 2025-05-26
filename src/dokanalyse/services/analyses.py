@@ -32,7 +32,6 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     municipality_number, municipality_name = await get_municipality(geometry, DEFAULT_EPSG)
 
     datasets = await get_config_ids(data, municipality_number)
-    # datasets = {UUID('b9e77f46-5635-4689-beca-4992be6405c6'): True}
     correlation_id = get_correlation_id()
 
     if datasets and correlation_id and sio_client:

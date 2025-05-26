@@ -1,4 +1,5 @@
 from .coverage_geojson import CoverageGeoJson
+from .coverage_gpkg import CoverageGeoPackage
 from .coverage_service import CoverageService
 from .coverage_base_service import CoverageBaseService
 from .dataset_config import DatasetConfig

@@ -2,7 +2,7 @@ import os
 from urllib.parse import urlparse
 from typing import Dict, List
 from pydantic import FileUrl
-from ...models.config import QualityIndicator, QualityIndicatorType, CoverageBaseService, CoverageService, CoverageGeoJson
+from ...models.config import QualityIndicator, QualityIndicatorType, CoverageBaseService, CoverageService, CoverageGeoJson, CoverageGeoPackage
 from ...models.exceptions import DokAnalysisException
 
 
@@ -31,6 +31,8 @@ def get_coverage_service_config_data(coverage_indicator: QualityIndicator) -> Di
         coverage_svc = coverage_indicator.arcgis
     elif coverage_indicator.geojson:
         coverage_svc = coverage_indicator.geojson
+    elif coverage_indicator.gpkg:
+        coverage_svc = coverage_indicator.gpkg
 
     if not coverage_svc:
         return None
@@ -43,7 +45,7 @@ def get_coverage_service_config_data(coverage_indicator: QualityIndicator) -> Di
     if isinstance(coverage_svc, CoverageService):
         data['url'] = coverage_svc.url
         data['layer'] = coverage_svc.layer
-    elif isinstance(coverage_svc, CoverageGeoJson):
+    elif isinstance(coverage_svc, CoverageGeoJson) or isinstance(coverage_svc, CoverageGeoPackage):
         data['layer'] = coverage_svc.layer
 
         if isinstance(coverage_svc.url, FileUrl):

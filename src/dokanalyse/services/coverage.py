@@ -1,12 +1,13 @@
 import json
 from io import BytesIO
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Union
 from lxml import etree as ET
 from osgeo import ogr
-from ..models.config import CoverageService, CoverageGeoJson
-from ..http_clients.wfs import query_wfs
-from ..http_clients.arcgis import query_arcgis
-from ..http_clients.geojson import query_geojson
+from ..models.config import CoverageService, CoverageGeoJson, CoverageGeoPackage
+from ..drivers.wfs import query_wfs
+from ..drivers.arcgis import query_arcgis
+from ..drivers.geojson import query_geojson
+from ..drivers.geopackage import query_geopackage
 from ..utils.helpers.common import xpath_select_one, parse_string
 from ..utils.helpers.geometry import geometry_from_gml, geometry_from_json
 
@@ -81,8 +82,11 @@ async def get_values_from_arcgis(config: CoverageService, geometry: ogr.Geometry
     return distinct_values, 0, data
 
 
-async def get_values_from_geojson(config: CoverageGeoJson, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
-    response = await query_geojson(config.url, None, geometry, epsg)
+async def get_values_from_geojson(config: Union[CoverageGeoJson, CoverageGeoPackage], geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
+    if isinstance(config, CoverageGeoJson):
+        response = await query_geojson(config.url, config.filter, geometry, epsg)
+    else:
+        response = await query_geopackage(config.url, config.filter, geometry, epsg)
 
     if response is None:
         return [], 0, []

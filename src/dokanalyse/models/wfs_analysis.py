@@ -12,7 +12,7 @@ from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.common import parse_string, evaluate_condition, xpath_select_one
 from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_gml
-from ..http_clients.wfs import query_wfs
+from ..drivers.wfs import query_wfs
 
 
 class WfsAnalysis(Analysis):

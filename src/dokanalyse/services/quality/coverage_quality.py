@@ -73,10 +73,13 @@ async def _get_values_from_web_service(quality_indicator: QualityIndicator, geom
 
     if quality_indicator.geojson:
         return await get_values_from_geojson(quality_indicator.geojson, geometry, epsg)
+    
+    if quality_indicator.gpkg:
+        return await get_values_from_geojson(quality_indicator.gpkg, geometry, epsg)
 
     # TODO: Add support for OGC Features API
 
-    return [], 0
+    return [], 0, []
 
 
 def _get_warning_text(quality_indicator: QualityIndicator, values: List[str], hit_area_percent: float) -> str:
