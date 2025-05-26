@@ -118,10 +118,10 @@ class Analysis(ABC):
 
         coverage_svc = get_coverage_service_config_data(ci)
 
-        self._add_run_algorithm(f'check coverage {coverage_svc.get('url')}')
+        self._add_run_algorithm(f'check coverage {coverage_svc.get("url")}')
         measurements, warning, has_coverage, data = await get_coverage_quality(ci, self.run_on_input_geometry, self.epsg)
         self._add_run_algorithm(
-            f'intersects layer {coverage_svc.get('layer')} ({has_coverage})')
+            f'intersects layer {coverage_svc.get("layer")} ({has_coverage})')
 
         if not has_coverage:
             self.data = data
