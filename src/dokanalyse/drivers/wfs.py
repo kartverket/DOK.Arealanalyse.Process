@@ -1,6 +1,8 @@
 from os import path
 import logging
 from typing import Tuple
+from io import BytesIO
+from lxml import etree as ET
 from pydantic import HttpUrl
 import aiohttp
 import asyncio
@@ -33,15 +35,31 @@ async def _query_wfs(url: HttpUrl, xml_body: str, timeout: int) -> Tuple[int, st
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=xml_body, headers=headers, timeout=timeout) as response:
-                if response.status != 200:
-                    return response.status, None
+                if response.status == 200:
+                    return 200, await response.text()
 
-                return 200, await response.text()
+                if response.status == 400:
+                    _log_error_response(await response.text())
+
+                return response.status, None
     except asyncio.TimeoutError:
         return 408, None
     except Exception as err:
-        _LOGGER.error(err)        
+        _LOGGER.error(err)
         return 500, None
+
+
+def _log_error_response(response: str) -> None:
+    source = BytesIO(response.encode('utf-8'))
+    context = ET.iterparse(source)
+
+    for _, elem in context:
+        localname = ET.QName(elem).localname
+
+        if localname != 'ExceptionText':
+            continue
+
+        _LOGGER.error(elem.text)
 
 
 __all__ = ['query_wfs']
