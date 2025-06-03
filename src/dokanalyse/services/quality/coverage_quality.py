@@ -42,8 +42,13 @@ async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geomet
         })
     else:
         for value in values:
+            if value == 'Ikke kartlagt':
+                value = 'ikkeKartlagt'
+            elif value == 'Ikke relevant':
+                value = 'ikkeRelevant'
+
             meas_value = 'Nei' if value in [
-                'ikkeKartlagt', 'Ikke kartlagt', 'ikkeRelevant', 'Ikke relevant'] else 'Ja'
+                'ikkeKartlagt', 'ikkeRelevant'] else 'Ja'
 
             comment = _get_label_from_codelist(value, codelist)
 
@@ -91,12 +96,12 @@ def _get_warning_text(quality_indicator: QualityIndicator, values: List[str], hi
     should_warn = should_warn or len(
         values) == 0 and quality_indicator.warning_threshold is None
 
-    not_relevant = 'ikkeRelevant' in values or 'Ikke relevant' in values
-    should_warn = should_warn or not_relevant
+    # not_relevant = 'ikkeRelevant' in values or 'Ikke relevant' in values
+    # should_warn = should_warn or not_relevant
     warning_text = None
 
     if should_warn:
-        warning_text: str = quality_indicator.quality_warning_text if not not_relevant else 'Området er ikke relevant for datasettet'
+        warning_text: str = quality_indicator.quality_warning_text
 
         if 0 < hit_area_percent < 100:
             hit_area = str(hit_area_percent).replace('.', ',')

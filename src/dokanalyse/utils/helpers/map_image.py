@@ -14,7 +14,7 @@ def create_payload_for_analysis(geometry: ogr.Geometry, buffer: int, wms_url: st
         }
     else:
         base_map['osm'] = {
-            'grayscale': False
+            'grayscale': True
         }
 
     features = [create_feature(geometry)]
