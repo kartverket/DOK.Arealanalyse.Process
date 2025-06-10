@@ -4,12 +4,12 @@ from typing import List, Tuple, Dict, Union
 from lxml import etree as ET
 from osgeo import ogr
 from ..models.config import CoverageService, CoverageGeoJson, CoverageGeoPackage
-from ..drivers.wfs import query_wfs
-from ..drivers.arcgis import query_arcgis
-from ..drivers.geojson import query_geojson
-from ..drivers.geopackage import query_geopackage
+from ..adapters.wfs import query_wfs
+from ..adapters.arcgis import query_arcgis
+from ..adapters.geojson import query_geojson
+from ..adapters.geopackage import query_geopackage
 from ..utils.helpers.common import xpath_select_one, parse_string
-from ..utils.helpers.geometry import geometry_from_gml, geometry_from_json
+from ..utils.helpers.geometry import geometry_from_gml
 
 
 async def get_values_from_wfs(config: CoverageService, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
@@ -107,9 +107,7 @@ async def get_values_from_geojson(config: Union[CoverageGeoJson, CoverageGeoPack
 
         if value in ['ikkeKartlagt', 'Ikke kartlagt']:
             feature_geom = feature.get('geometry')
-            json_str = json.dumps(feature_geom)
-            geom = geometry_from_json(json_str)
-            feature_geoms.append(geom)
+            feature_geoms.append(feature_geom)
 
         if len(config.properties) > 0:
             props = _map_geojson_properties(feature, config.properties)

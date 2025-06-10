@@ -10,7 +10,7 @@ from .config.dataset_config import DatasetConfig
 from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_json, transform_geometry
-from ..drivers.ogc_api import query_ogc_api
+from ..adapters.ogc_api import query_ogc_api
 
 
 class OgcApiAnalysis(Analysis):

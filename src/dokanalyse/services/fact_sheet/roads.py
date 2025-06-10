@@ -5,7 +5,7 @@ from uuid import UUID
 from typing import List, Dict
 from osgeo import ogr
 from ..codelist import get_codelist
-from ...drivers.ogc_api import query_ogc_api
+from ...adapters.ogc_api import query_ogc_api
 from ...services.kartkatalog import get_kartkatalog_metadata
 from ...utils.helpers.geometry import geometry_from_json
 from ...utils.helpers.common import from_camel_case

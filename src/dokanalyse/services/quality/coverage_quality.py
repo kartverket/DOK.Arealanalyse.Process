@@ -3,12 +3,13 @@ from osgeo import ogr
 from . import get_threshold_values
 from ..coverage import get_values_from_wfs, get_values_from_arcgis, get_values_from_geojson
 from ..codelist import get_codelist
+from ...models.coverage_quality_response import CoverageQualityResponse
 from ...models.quality_measurement import QualityMeasurement
 from ...models.config.quality_indicator import QualityIndicator
 
 
-async def get_coverage_quality(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> Tuple[List[QualityMeasurement], str, bool, List[Dict]]:
-    quality_data, has_coverage, data = await _get_coverage_quality_data(quality_indicator, geometry, epsg)
+async def get_coverage_quality(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> CoverageQualityResponse:
+    quality_data, has_coverage, is_relevant, data = await _get_coverage_quality_data(quality_indicator, geometry, epsg)
 
     if quality_data is None:
         return [], None, False, []
@@ -19,12 +20,12 @@ async def get_coverage_quality(quality_indicator: QualityIndicator, geometry: og
         measurements.append(QualityMeasurement(quality_data.get('id'), quality_data.get(
             'name'), value.get('value'), value.get('comment')))
 
-    warning = quality_data.get('warning_text')
+    warning_text = quality_data.get('warning_text')
 
-    return measurements, warning, has_coverage, data
+    return CoverageQualityResponse(measurements, warning_text, has_coverage, is_relevant, data)
 
 
-async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> Tuple[Dict[str, any], bool, List[Dict]]:
+async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> Tuple[Dict[str, any], bool, bool, List[Dict]]:
     values, hit_area_percent, data = await _get_values_from_web_service(quality_indicator, geometry, epsg)
 
     if len(values) == 0 and quality_indicator.warning_threshold is not None:
@@ -65,8 +66,9 @@ async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geomet
     }
 
     has_coverage = _has_coverage(values, quality_indicator.warning_threshold)
+    is_relevant = _is_relevant(values)
 
-    return measurement, has_coverage, data
+    return measurement, has_coverage, is_relevant, data
 
 
 async def _get_values_from_web_service(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
@@ -78,7 +80,7 @@ async def _get_values_from_web_service(quality_indicator: QualityIndicator, geom
 
     if quality_indicator.geojson:
         return await get_values_from_geojson(quality_indicator.geojson, geometry, epsg)
-    
+
     if quality_indicator.gpkg:
         return await get_values_from_geojson(quality_indicator.gpkg, geometry, epsg)
 
@@ -96,8 +98,6 @@ def _get_warning_text(quality_indicator: QualityIndicator, values: List[str], hi
     should_warn = should_warn or len(
         values) == 0 and quality_indicator.warning_threshold is None
 
-    # not_relevant = 'ikkeRelevant' in values or 'Ikke relevant' in values
-    # should_warn = should_warn or not_relevant
     warning_text = None
 
     if should_warn:
@@ -120,6 +120,21 @@ def _has_coverage(values: List[str], warning_threshold: str) -> bool:
     if has_value:
         has_other_values = any(
             value not in ['ikkeKartlagt', 'Ikke kartlagt', 'ikkeRelevant', 'Ikke relevant'] for value in values)
+        return has_other_values
+
+    return True
+
+
+def _is_relevant(values: List[str]) -> bool:
+    if len(values) == 0:
+        return True
+
+    has_value = any(value in ['ikkeRelevant', 'Ikke relevant']
+                    for value in values)
+
+    if has_value:
+        has_other_values = any(
+            value not in ['ikkeRelevant', 'Ikke relevant'] for value in values)
         return has_other_values
 
     return True

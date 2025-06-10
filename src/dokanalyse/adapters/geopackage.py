@@ -1,15 +1,14 @@
 import logging
 import os
-import json
 from urllib.parse import urlparse
-from typing import List, Dict, Tuple, Union
+from typing import Dict, Tuple, Union
 from pydantic import HttpUrl, FileUrl
 from pathlib import Path
-from osgeo import ogr, osr
+from osgeo import ogr
 import asyncio
 import aiohttp
 import aiofiles
-from ..utils.helpers.geometry import transform_geometry, create_feature_collection
+from .gdal import query_gdal
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import APP_FILES_DIR
 
@@ -23,34 +22,7 @@ async def query_geopackage(url: Union[HttpUrl, FileUrl], filter: str, geometry: 
     if not Path(file_path).exists():
         return None
 
-    driver: ogr.Driver = ogr.GetDriverByName('GPKG')
-    data_source: ogr.DataSource = driver.Open(file_path)
-    layer: ogr.Layer = data_source.GetLayer(0)
-
-    sr: osr.SpatialReference = layer.GetSpatialRef()
-    auth_code: str = sr.GetAuthorityCode(None)
-    gpkg_epsg = int(auth_code)
-
-    if gpkg_epsg != epsg:
-        input_geometry = transform_geometry(geometry, epsg, gpkg_epsg)
-    else:
-        input_geometry = geometry
-
-    layer.SetSpatialFilter(input_geometry)
-
-    if filter:
-        layer.SetAttributeFilter(filter)
-
-    feature: ogr.Feature
-    features: List[Dict] = []
-
-    for feature in layer:
-        json_str = feature.ExportToJson()
-        features.append(json.loads(json_str))
-
-    response = create_feature_collection(features, gpkg_epsg)
-
-    return response
+    return query_gdal('GPKG', file_path, filter, geometry, epsg)
 
 
 async def _get_file_path(url: Union[HttpUrl, FileUrl], timeout: int) -> str:

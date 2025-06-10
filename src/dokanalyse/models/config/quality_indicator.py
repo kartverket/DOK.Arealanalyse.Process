@@ -8,8 +8,8 @@ class QualityIndicator(BaseModel):
     type: QualityIndicatorType
     quality_dimension_id: str
     quality_dimension_name: str
-    quality_warning_text: str
-    warning_threshold: Optional[str]
+    quality_warning_text: Optional[str] = None
+    warning_threshold: Optional[str] = None
     property: Optional[str] = None
     input_filter: Optional[str] = None
     wfs: Optional[CoverageService] = None

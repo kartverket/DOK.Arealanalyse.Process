@@ -9,7 +9,7 @@ from .config.dataset_config import DatasetConfig
 from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_json
-from ..drivers.arcgis import query_arcgis
+from ..adapters.arcgis import query_arcgis
 
 
 class ArcGisAnalysis(Analysis):

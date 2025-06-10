@@ -46,13 +46,11 @@ def get_coverage_service_config_data(coverage_indicator: QualityIndicator) -> Di
         data['url'] = coverage_svc.url
         data['layer'] = coverage_svc.layer
     elif isinstance(coverage_svc, CoverageGeoJson) or isinstance(coverage_svc, CoverageGeoPackage):
+        parsed = urlparse(coverage_svc.url)
+        filename = os.path.basename(parsed.path)
+        
+        data['url'] = filename.lower()
         data['layer'] = coverage_svc.layer
-
-        if isinstance(coverage_svc.url, FileUrl):
-            parsed = urlparse(coverage_svc.url)
-            data['url'] = os.path.basename(parsed.path)
-        else:
-            data['url'] = coverage_svc.url
 
     return data
 

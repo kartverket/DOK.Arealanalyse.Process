@@ -61,6 +61,7 @@ class Analysis(ABC):
         self.result_status: ResultStatus = ResultStatus.NO_HIT_GREEN
         self.coverage_statuses: List[str] = []
         self.has_coverage: bool = True
+        self.is_relevant = True
 
     async def run(self, context, include_guidance, include_quality_measurement) -> None:
         self.__set_input_geometry()
@@ -75,10 +76,12 @@ class Analysis(ABC):
                 return
 
             self.__set_geometry_areas()
+        elif not self.is_relevant:
+            self.result_status = ResultStatus.NO_HIT_GREEN
         else:
             self.result_status = ResultStatus.NO_HIT_YELLOW
 
-        if self.result_status in [ResultStatus.NO_HIT_GREEN, ResultStatus.NO_HIT_YELLOW]:
+        if self.result_status in [ResultStatus.NO_HIT_GREEN, ResultStatus.NO_HIT_YELLOW] and self.is_relevant:
             await self._set_distance_to_object()
 
         self._add_run_algorithm('deliver result')
@@ -119,23 +122,24 @@ class Analysis(ABC):
         coverage_svc = get_coverage_service_config_data(ci)
 
         self._add_run_algorithm(f'check coverage {coverage_svc.get("url")}')
-        measurements, warning, has_coverage, data = await get_coverage_quality(ci, self.run_on_input_geometry, self.epsg)
+        response = await get_coverage_quality(ci, self.run_on_input_geometry, self.epsg)
         self._add_run_algorithm(
-            f'intersects layer {coverage_svc.get("layer")} ({has_coverage})')
+            f'intersects layer {coverage_svc.get("layer")} ({response.has_coverage})')
 
-        if not has_coverage:
-            self.data = data
+        if not response.has_coverage:
+            self.data = response.data
             guidance_id = coverage_svc.get(
                 'building_guidance_id') if context == 'Byggesak' else coverage_svc.get('planning_guidance_id')
 
             if guidance_id:
                 self.guidance_data = await get_guidance_data(guidance_id)
 
-        self.quality_measurement.extend(measurements)
-        self.has_coverage = has_coverage
+        self.quality_measurement.extend(response.quality_measurements)
+        self.has_coverage = response.has_coverage
+        self.is_relevant = response.is_relevant
 
-        if warning is not None:
-            self.quality_warning.append(warning)
+        if response.warning_text is not None:
+            self.quality_warning.append(response.warning_text)
 
     def __set_input_geometry(self) -> None:
         self._add_run_algorithm('set input_geometry')
