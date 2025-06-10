@@ -1,7 +1,7 @@
 import time
 import logging
 import traceback
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from uuid import UUID, uuid4
 import asyncio
 from socketio import SimpleClient
@@ -10,6 +10,7 @@ from .dataset import get_config_ids, get_dataset_type
 from .fact_sheet import create_fact_sheet
 from .municipality import get_municipality
 from ..services.config import get_dataset_config
+from ..services.map_image2 import generate_map_images
 from ..services.blob_storage import create_container, upload_image
 from ..utils.helpers.geometry import create_input_geometry, get_epsg
 from ..models.config import DatasetConfig
@@ -64,7 +65,11 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     for task in tasks:
         response.result_list.append(task.result())
 
-    await _upload_binaries(response)
+    analyses_with_map_image = [
+        analysis for analysis in response.result_list if analysis.raster_result_map]
+    map_images = generate_map_images(analyses_with_map_image, fact_sheet)
+
+    await _upload_binaries(response, map_images)
 
     return response.to_dict()
 
@@ -123,7 +128,38 @@ def _create_analysis(config_id: UUID, config: DatasetConfig, geometry: ogr.Geome
             return None
 
 
-async def _upload_binaries(response: AnalysisResponse):
+async def _upload_binaries(response: AnalysisResponse, map_images: List[Tuple[UUID, bytes | None]]):
+    filtered = [map_image for map_image in map_images if map_image[1]]
+
+    if not filtered:
+        return
+
+    container_name = str(uuid4())
+    await create_container(container_name)
+
+    tasks: List[asyncio.Task[str]] = []
+
+    async with asyncio.TaskGroup() as tg:
+        for key, value in filtered:
+            blob_name = f'{str(uuid4())}.png'
+            task = tg.create_task(upload_image(
+                value, container_name, blob_name), name=key)
+            tasks.append(task)
+
+    for task in tasks:
+        task_name = task.get_name()
+
+        if task_name == 'fact_sheet':
+            response.fact_sheet.raster_result_image = task.result()
+            continue
+
+        analysis = _find_analysis(response.result_list, task_name)
+
+        if analysis:
+            analysis.raster_result_image = task.result()
+
+
+async def _upload_binaries2(response: AnalysisResponse):
     map_images: Dict[str, bytes] = {}
 
     if response.fact_sheet and response.fact_sheet.raster_result_image_bytes:

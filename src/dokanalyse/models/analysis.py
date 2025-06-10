@@ -97,11 +97,11 @@ class Analysis(ABC):
         if include_quality_measurement:
             await self.__set_quality_measurements(context)
 
-        if self.raster_result_map and MAP_IMAGE_API_URL:
-            payload = create_payload_for_analysis(
-                self.geometry, self.buffer, self.raster_result_map)
-            _, result = await create_map_image(payload)
-            self.raster_result_image_bytes = result
+        # if self.raster_result_map and MAP_IMAGE_API_URL:
+        #     payload = create_payload_for_analysis(
+        #         self.geometry, self.buffer, self.raster_result_map)
+        #     _, result = await create_map_image(payload)
+        #     self.raster_result_image_bytes = result
 
     def _add_run_algorithm(self, algorithm) -> None:
         self.run_algorithm.append(algorithm)

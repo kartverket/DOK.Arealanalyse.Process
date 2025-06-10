@@ -13,6 +13,9 @@ from ...services.map_image import create_map_image
 
 async def create_fact_sheet(geometry: ogr.Geometry, orig_epsg: int, buffer: int) -> FactSheet:
     fact_sheet = FactSheet()
+    fact_sheet.geometry = geometry
+    fact_sheet.buffer = buffer
+
     tasks = await _run_tasks(geometry, orig_epsg, buffer)
 
     for task in tasks:

@@ -19,14 +19,21 @@ dependencies = [
     "pydantic<2.0",
     "jsonschema",
     "pydash",
-    "pillow",
+    "geopandas",
+    "matplotlib",
+    "cartopy",
+    "scipy",
+    "OWSLib",
+    "pyproj",
+    "contextily",
+    "Pillow",
     "python-socketio[client]",
     "azure-storage-blob",
     "lxml",
     "types-lxml",
     "shapely",
     "PyYAML",
-    "flask_http_middleware"
+    "flask_http_middleware",
 ]
 
 [project.optional-dependencies]

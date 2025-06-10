@@ -1,10 +1,11 @@
 from typing import List, Dict
 from .fact_part import FactPart
-
+from osgeo import ogr
 
 class FactSheet:
     def __init__(self):
-        self.raster_result_image: str = None
+        self.geometry: ogr.Geometry = None
+        self.buffer: int = 0
         self.raster_result_map: str = None
         self.raster_result_image: str = None
         self.raster_result_image_bytes: bytes = None
