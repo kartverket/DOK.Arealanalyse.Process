@@ -18,6 +18,6 @@ export SOCKET_IO_SRV_URL=http://localhost:5002
 # Azure Blob Storage connection string (valgfri)
 export BLOB_STORAGE_CONN_STR=DefaultEndpointsProtocol=https;AccountName=.....
 
-# Filsti med mappe med PDF-malverk i Jinja2-format (valgfri)
+# Filsti til mappe med Jinja2-maler til genering av PDF-rapport (valgfri)
 export PDF_TEMPLATES_DIR=/path/to/jinja2_templates
 ```
