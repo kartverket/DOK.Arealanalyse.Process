@@ -15,7 +15,7 @@ class AnalysisResponse():
         self.municipality_name = municipality_name
         self.fact_sheet = fact_sheet or FactSheet()
         self.result_list = []
-        self.report = None
+        self.report: str = None
 
     def to_dict(self) -> Dict:
         result_list = list(

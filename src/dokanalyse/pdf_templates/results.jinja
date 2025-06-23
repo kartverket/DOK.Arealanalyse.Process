@@ -1,0 +1,201 @@
+{% for result in results %}
+<div class="result">
+    <div class="result__heading">
+        {% if result['resultStatus'] == 'HIT-RED' %}
+        <img src="assets/icon-hit-red.svg" alt="HIT-RED" />
+        {% elif result['resultStatus'] == 'HIT-YELLOW' %}
+        <img src="assets/icon-hit-yellow.svg" alt="HIT-YELLOW" />
+        {% elif result['resultStatus'] == 'NO-HIT-YELLOW' %}
+        <img src="assets/icon-no-hit-yellow.svg" alt="NO-HIT-YELLOW" />
+        {% elif result['resultStatus'] == 'NO-HIT-GREEN' %}
+        <img src="assets/icon-no-hit-green.svg" alt="NO-HIT-GREEN" />
+        {% endif %}
+
+        <div class="result__heading__title">{{ get_result_title(result) }}</div>
+
+        <div class="result__heading__right">
+            <div class="result__heading__theme">{{ result['themes'][0] | capitalize }}</div>
+
+            <div class="result__heading__hit-and-distance">
+                {% if result['hitArea'] %}
+                <span>
+                    Treff: <strong>{{ get_hit_area_percent(result)}}</strong>
+                </span>
+                {% elif result['distanceToObject'] != 0 %}
+                <span>
+                    Avstand: <strong>{{ get_distance(result)}}</strong>
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if result['qualityWarning'] %}
+    <section>
+        <div class="result__quality-warnings">
+            <ul>
+                {% for warning in result['qualityWarning'] %}
+                    <li>{{ warning  }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if result['rasterResult']['imageUri'] %}
+    <section>
+        <div class="result__map-image">
+            <img src="{{ result['rasterResult']['imageUri'] }}" alt="Område" />
+        </div>
+
+        <div class="result__map-image__legend">
+            <h4>Tegneregler</h4>
+            <img src="{{ result['cartography'] }}" alt="Tegneregler" />
+        </div>
+    </section>
+    {% endif %}
+
+    {% if result['description'] %}
+    <section>
+        <div class="result__description">
+            {{ result['description'] | markdown }}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if result['guidanceText'] %}
+    {% set css_class = result['resultStatus'] | lower -%}
+    <section>
+        <div class="result__guidance-text {{ css_class }}">
+            {{ result['guidanceText'] | markdown }}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if result['possibleActions'] %}
+    <section>
+        <h3>Mulige tiltak</h3>
+
+        <div class="result__possible-actions">
+            {% if result['resultStatus'] == 'NO-HIT-GREEN' %}
+            <div class="result__possible-actions__no-action">Ingen tiltak trenger å utføres</div>
+            {% else %}
+            <ul>
+                {% for action in result['possibleActions'] %}
+                <li>{{ action | markdown }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if result['guidanceUri'] %}
+    <section>
+        <h3>Veiledningslenker</h3>
+
+        <ul class="result__guidance-links">
+            {% for uri in result['guidanceUri'] %}
+            <li>
+                {{ uri['title'] }}:<br />
+                <a href="{{ uri['href'] }}">{{ uri['href'] }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    <section>
+        <h3>Om datasettet</h3>
+
+        <div class="result__about">
+            <ul>
+                <li>
+                    Beskrivelse: {{ result['runOnDataset']['title'] }}
+                </li>
+                <li>
+                    Oppdatert: {{ result['runOnDataset']['updated'] | format_datetime }}
+                </li>
+                <li>
+                    Eier: {{ result['runOnDataset']['owner'] }}
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    {% if result['qualityMeasurement'] %}
+    <section>
+        <h3>Kvalitetsinformasjon</h3>
+
+        <div class="result__quality-measurement">
+            <ul>
+                {% for qm in result['qualityMeasurement'] %}
+                <li>
+                    <strong>{{ qm['qualityDimensionName'] }}:</strong>
+                    <span>{{ qm['value']}}</span>
+
+                    {% if qm['comment'] %}
+                    <span>({{ qm['comment'] }})</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+    {% endif %}
+    
+    <section>
+        <h3>Om analysen</h3>
+
+        <div class="result__about-analysis">
+            <ul>
+                <li>
+                    Algoritmer kjørt:
+                    <ol>
+                        {% for algorithm in result['runAlgorithm'] %}
+                        <li>{{ algorithm }}</li>
+                        {% endfor %}
+                    </ol>
+                </li>
+                <li>
+                    Buffer brukt: {{ format_number(result['buffer']) }} m
+                </li>
+                {% if result['distanceToObject'] > 0 %}
+                <li>
+                    Avstand til nærmeste objekt: {{ get_distance(result) }}
+                </li>
+                {% endif %}
+                {% if result['inputGeometryArea'] > 0 %}
+                <li>
+                    Områdeareal: {{ get_input_area(result) }}
+                </li>
+                {% endif %}
+                {% if result['hitArea'] %}
+                <li>
+                    Treffareal: {{ get_hit_area(result) }} ({{ get_hit_area_percent(result) }})
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </section>
+
+    {% if result['data'] %}
+    <section>
+        <h3>Data</h3>
+
+        <div class="result__data">
+            {% for entry in result['data'] %}
+            <div class="result__data__entry">
+                {% for key, value in entry.items() %}
+                <div>
+                    <strong>{{ key }}:</strong>
+                    <span>{{ value }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endfor %}

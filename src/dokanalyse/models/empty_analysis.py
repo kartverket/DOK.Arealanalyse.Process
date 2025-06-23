@@ -11,7 +11,7 @@ class EmptyAnalysis(Analysis):
         self.result_status = result_status
 
     async def run(self):
-        self.title = self.geolett['tittel'] if self.geolett else self.config.title
+        self.title = self.guidance_data['tittel'] if self.guidance_data else self.config.title
         self.themes = self.config.themes
         self.run_on_dataset = await get_kartkatalog_metadata(self.config.metadata_id)
 

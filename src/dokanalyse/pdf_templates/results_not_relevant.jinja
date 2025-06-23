@@ -1,0 +1,17 @@
+{% set not_relevant = get_not_relevant_dataset_titles(data) -%}
+
+{% if not_relevant %}
+{% set dok_register_link = 'https://register.geonorge.no/det-offentlige-kartgrunnlaget-kommunalt?municipality=' + data['municipalityNumber'] -%}
+
+<div class="results-not-relevant">
+    <div class="results-not-relevant__heading">
+        {{ data['municipalityName'] }} kommune har i Det offentlige kartgrunnlaget (<a href="{{ dok_register_link }}" target="_blank">{{
+            dok_register_link }}</a>) valgt bort følgende datasett:
+    </div>
+    <ul>
+        {% for title in not_relevant %}
+        <li>{{ title }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}

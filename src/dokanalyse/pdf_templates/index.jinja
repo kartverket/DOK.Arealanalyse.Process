@@ -1,0 +1,52 @@
+{% extends "_base.jinja" %}
+
+{% block body %}
+<div class="heading">
+    <img src="assets/logo-kartverket.svg" alt="Logo" />
+    <h1>DOK-arealanalyse</h1>
+</div>
+
+<div class="general-info">
+    <div>
+        <strong class="general-info__label">Kommunenummer:</strong>
+        <span>{{ data['municipalityNumber'] }}</span>
+    </div>
+    <div>
+        <strong class="general-info__label">Kommunenavn:</strong>
+        <span>{{ data['municipalityName'] }}</span>
+    </div>
+    <div>
+        <strong class="general-info__label">Områdeareal:</strong>
+        <span>{{ get_input_area(data) }}</span>
+    </div>
+</div>
+
+{% include "fact_sheet.jinja" %}
+
+{% with results = get_results_by_result_status(data, 'HIT-RED') %}
+    {% include "results.jinja" %}
+{% endwith %}
+
+{% with results = get_results_by_result_status(data, 'HIT-YELLOW') %}
+    {% include "results.jinja" %}
+{% endwith %}
+
+{% with results = get_results_by_result_status(data, 'NO-HIT-YELLOW') %}
+    {% include "results.jinja" %}
+{% endwith %}
+
+{% with results = get_results_by_result_status(data, 'NO-HIT-GREEN') %}
+    {% include "results.jinja" %}
+{% endwith %}
+
+{% with results = get_results_by_result_status(data, 'TIMEOUT') %}
+    {% include "results_error.jinja" %}
+{% endwith %}
+
+{% with results = get_results_by_result_status(data, 'ERROR') %}
+    {% include "results_error.jinja" %}
+{% endwith %}
+
+{% include "results_not_relevant.jinja" %}
+
+{% endblock %}

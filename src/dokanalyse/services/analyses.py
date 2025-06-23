@@ -1,16 +1,19 @@
 import time
 import logging
 import traceback
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from uuid import UUID, uuid4
 import asyncio
 from socketio import SimpleClient
 from osgeo import ogr
+from pydash import kebab_case
 from .dataset import get_config_ids, get_dataset_type
 from .fact_sheet import create_fact_sheet
 from .municipality import get_municipality
-from ..services.config import get_dataset_config
-from ..services.blob_storage import create_container, upload_image
+from .config import get_dataset_config
+from .map_image import generate_map_images
+from .report import create_pdf
+from .blob_storage import create_container, upload_binary
 from ..utils.helpers.geometry import create_input_geometry, get_epsg
 from ..models.config import DatasetConfig
 from ..models import Analysis, ArcGisAnalysis, OgcApiAnalysis, WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus
@@ -64,8 +67,25 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     for task in tasks:
         response.result_list.append(task.result())
 
-    await _upload_binaries(response)
+    analyses_with_map_image = [
+        analysis for analysis in response.result_list if analysis.raster_result_map]
 
+    if correlation_id and sio_client:
+        sio_client.emit('create_map_images_api', {'recipient': correlation_id})
+
+    map_images = generate_map_images(analyses_with_map_image, fact_sheet)
+
+    container_name = str(uuid4())
+
+    await _upload_images(response, map_images, container_name)
+
+    if correlation_id and sio_client:
+        sio_client.emit('create_report_api', {'recipient': correlation_id})
+
+    report = create_pdf(response)
+
+    response.report = await _upload_report(report, container_name)
+    
     return response.to_dict()
 
 
@@ -123,36 +143,27 @@ def _create_analysis(config_id: UUID, config: DatasetConfig, geometry: ogr.Geome
             return None
 
 
-async def _upload_binaries(response: AnalysisResponse):
-    map_images: Dict[str, bytes] = {}
+async def _upload_images(response: AnalysisResponse, map_images: List[Tuple[str, str, bytes | None]], container_name: str) -> None:
+    filtered = [map_image for map_image in map_images if map_image[2]]
 
-    if response.fact_sheet and response.fact_sheet.raster_result_image_bytes:
-        map_images['fact_sheet'] = response.fact_sheet.raster_result_image_bytes
-
-    for analysis in response.result_list:
-        if analysis.raster_result_image_bytes:
-            map_images[str(analysis.config_id)
-                       ] = analysis.raster_result_image_bytes
-
-    if not map_images:
+    if not filtered:
         return
 
-    container_name = str(uuid4())
     await create_container(container_name)
 
     tasks: List[asyncio.Task[str]] = []
 
     async with asyncio.TaskGroup() as tg:
-        for key, value in map_images.items():
-            blob_name = f'{str(uuid4())}.png'
-            task = tg.create_task(upload_image(
-                value, container_name, blob_name), name=key)
+        for id, name, data in filtered:
+            blob_name = f'{kebab_case(name)}.png'
+            task = tg.create_task(upload_binary(
+                data, container_name, blob_name, 'image/png'), name=id)
             tasks.append(task)
 
     for task in tasks:
         task_name = task.get_name()
-
-        if task_name == 'fact_sheet':
+        
+        if task_name == 'omraade':
             response.fact_sheet.raster_result_image = task.result()
             continue
 
@@ -160,6 +171,13 @@ async def _upload_binaries(response: AnalysisResponse):
 
         if analysis:
             analysis.raster_result_image = task.result()
+
+
+async def _upload_report(report: bytes, container_name: str) -> str:
+    await create_container(container_name)
+    pdf_url = await upload_binary(report, container_name, 'rapport.pdf', 'application/pdf')
+
+    return pdf_url
 
 
 def _find_analysis(analyses: List[Analysis], config_id: str) -> Analysis:

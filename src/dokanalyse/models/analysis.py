@@ -8,16 +8,14 @@ from .result_status import ResultStatus
 from .config import DatasetConfig
 from ..utils.helpers.common import keys_to_camel_case
 from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json
-from ..utils.helpers.map_image import create_payload_for_analysis
 from ..utils.helpers.quality import get_coverage_indicator, get_coverage_service_config_data
-from ..utils.constants import MAP_IMAGE_API_URL
 from ..services.config import get_quality_indicator_configs
 from ..services.kartkatalog import get_kartkatalog_metadata
 from ..services.quality.coverage_quality import get_coverage_quality
 from ..services.quality.dataset_quality import get_dataset_quality
 from ..services.quality.object_quality import get_object_quality
 from ..services.guidance_data import get_guidance_data
-from ..services.map_image import create_map_image
+
 
 _QMS_SORT_ORDER = [
     'fullstendighet_dekning',
@@ -74,8 +72,6 @@ class Analysis(ABC):
             if self.result_status == ResultStatus.TIMEOUT or self.result_status == ResultStatus.ERROR:
                 await self.set_default_data()
                 return
-
-            self.__set_geometry_areas()
         elif not self.is_relevant:
             self.result_status = ResultStatus.NO_HIT_GREEN
         else:
@@ -83,6 +79,8 @@ class Analysis(ABC):
 
         if self.result_status in [ResultStatus.NO_HIT_GREEN, ResultStatus.NO_HIT_YELLOW] and self.is_relevant:
             await self._set_distance_to_object()
+
+        self.__set_geometry_areas()
 
         self._add_run_algorithm('deliver result')
 
@@ -97,12 +95,6 @@ class Analysis(ABC):
         if include_quality_measurement:
             await self.__set_quality_measurements(context)
 
-        if self.raster_result_map and MAP_IMAGE_API_URL:
-            payload = create_payload_for_analysis(
-                self.geometry, self.buffer, self.raster_result_map)
-            _, result = await create_map_image(payload)
-            self.raster_result_image_bytes = result
-
     def _add_run_algorithm(self, algorithm) -> None:
         self.run_algorithm.append(algorithm)
 
@@ -115,7 +107,7 @@ class Analysis(ABC):
     async def __run_coverage_analysis(self, context) -> None:
         quality_indicators = get_quality_indicator_configs(self.config_id)
         ci = get_coverage_indicator(quality_indicators)
-        
+
         if not ci:
             return
 

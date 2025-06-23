@@ -1,0 +1,89 @@
+{% if data['factSheetRasterResult'] %}
+<div class="area-map-image">
+    <img src="{{ data['factSheetRasterResult']['imageUri'] }}" alt="Område" />
+</div>
+{% endif %}
+
+<div class="fact-sheet__data">
+    <h3>Fordeling av areal per arealtype</h3>
+
+    {% set pie_chart, options = create_pie_chart(data['factList'], 'AREA_TYPES') -%}
+
+    <div>
+        <div class="fact-sheet__data__table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Arealtype</th>
+                        <th>Areal (m²)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in options %}
+                    <tr>
+                        <td>{{ entry['label'] }}</td>
+                        <td>{{ entry['value_formatted'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="fact-sheet__data__pie-chart">
+            <div class="fact-sheet__data__pie-chart__svg-wrapper">
+                {{ pie_chart }}
+            </div>
+
+            <div class="fact-sheet__data__pie-chart__legend">
+                {% for entry in options %}
+                <div>
+                    <span style="background-color: {{ entry['color'] }}"></span>
+                    <span>{{ entry['legend_item'] }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="fact-sheet__data">
+    <h3>Fordeling av boligtyper</h3>
+
+    {% set pie_chart, options = create_pie_chart(data['factList'], 'BUILDINGS') -%}
+
+    <div>
+        <div class="fact-sheet__data__table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Boligtype</th>
+                        <th>Antall</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in options %}
+                    <tr>
+                        <td>{{ entry['label'] }}</td>
+                        <td>{{ entry['value_formatted'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="fact-sheet__data__pie-chart">
+            <div class="fact-sheet__data__pie-chart__svg-wrapper">
+                {{ pie_chart }}
+            </div>
+
+            <div class="fact-sheet__data__pie-chart__legend">
+                {% for entry in options %}
+                <div>
+                    <span style="background-color: {{ entry['color'] }}"></span>
+                    <span>{{ entry['legend_item'] }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
