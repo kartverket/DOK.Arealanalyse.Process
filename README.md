@@ -15,9 +15,9 @@ export AR5_FGDB_PATH=/path/to/ar5.gdb
 # URL til Socket IO server (valgfri)
 export SOCKET_IO_SRV_URL=http://localhost:5002
 
-# URL til API for å generere kartbilder (valgfri)
-export MAP_IMAGE_API_URL=http://localhost:5003/binary/create/map-image
-
 # Azure Blob Storage connection string (valgfri)
-export MAP_IMAGE_API_URL=DefaultEndpointsProtocol=https;AccountName=.....
+export BLOB_STORAGE_CONN_STR=DefaultEndpointsProtocol=https;AccountName=.....
+
+# Filsti med mappe med PDF-malverk i Jinja2-format (valgfri)
+export PDF_TEMPLATES_DIR=/path/to/jinja2_templates
 ```
