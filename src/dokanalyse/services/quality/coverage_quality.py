@@ -29,7 +29,7 @@ async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geomet
     values, hit_area_percent, data = await _get_values_from_web_service(quality_indicator, geometry, epsg)
 
     if len(values) == 0 and quality_indicator.warning_threshold is not None:
-        return None, False, []
+        return None, False, True, []
 
     codelist = await get_codelist('fullstendighet_dekning')
     meas_values: List[Dict] = []
