@@ -1,59 +1,63 @@
 {% for result in results %}
 <div class="result">
-    <div class="result__heading">
-        {% if result['resultStatus'] == 'HIT-RED' %}
-        <img src="assets/icon-hit-red.svg" alt="HIT-RED" />
-        {% elif result['resultStatus'] == 'HIT-YELLOW' %}
-        <img src="assets/icon-hit-yellow.svg" alt="HIT-YELLOW" />
-        {% elif result['resultStatus'] == 'NO-HIT-YELLOW' %}
-        <img src="assets/icon-no-hit-yellow.svg" alt="NO-HIT-YELLOW" />
-        {% elif result['resultStatus'] == 'NO-HIT-GREEN' %}
-        <img src="assets/icon-no-hit-green.svg" alt="NO-HIT-GREEN" />
-        {% endif %}
-
-        <div class="result__heading__title">{{ get_result_title(result) }}</div>
-
-        <div class="result__heading__right">
-            <div class="result__heading__theme">{{ result['themes'][0] | capitalize }}</div>
-
-            <div class="result__heading__hit-and-distance">
-                {% if result['hitArea'] %}
-                <span>
-                    Treff: <strong>{{ get_hit_area_percent(result)}}</strong>
-                </span>
-                {% elif result['distanceToObject'] != 0 %}
-                <span>
-                    Avstand: <strong>{{ get_distance(result)}}</strong>
-                </span>
+    <div class="result__top">
+        <div class="result__heading">
+            <div class="result__heading__left">
+                {% if result['resultStatus'] == 'HIT-RED' %}
+                <img src="assets/icon-hit-red.svg" alt="HIT-RED" />
+                {% elif result['resultStatus'] == 'HIT-YELLOW' %}
+                <img src="assets/icon-hit-yellow.svg" alt="HIT-YELLOW" />
+                {% elif result['resultStatus'] == 'NO-HIT-YELLOW' %}
+                <img src="assets/icon-no-hit-yellow.svg" alt="NO-HIT-YELLOW" />
+                {% elif result['resultStatus'] == 'NO-HIT-GREEN' %}
+                <img src="assets/icon-no-hit-green.svg" alt="NO-HIT-GREEN" />
                 {% endif %}
+
+                <div class="result__heading__title">{{ get_result_title(result) }}</div>
+            </div>
+            
+            <div class="result__heading__right">
+                <div class="result__heading__theme">{{ result['themes'][0] | capitalize }}</div>
+
+                <div class="result__heading__hit-and-distance">
+                    {% if result['hitArea'] %}
+                    <span>
+                        Treff: <strong>{{ get_hit_area_percent(result)}}</strong>
+                    </span>
+                    {% elif result['distanceToObject'] != 0 %}
+                    <span>
+                        Avstand: <strong>{{ get_distance(result)}}</strong>
+                    </span>
+                    {% endif %}
+                </div>
             </div>
         </div>
+
+        {% if result['qualityWarning'] %}
+        <section>
+            <div class="result__quality-warnings">
+                <ul>
+                    {% for warning in result['qualityWarning'] %}
+                        <li>{{ warning  }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if result['rasterResult']['imageUri'] %}
+        <section>
+            <div class="result__map-image">
+                <img src="{{ result['rasterResult']['imageUri'] }}" alt="Område" />
+            </div>
+
+            <div class="result__map-image__legend">
+                <h4>Tegneregler</h4>
+                <img src="{{ result['cartography'] }}" alt="Tegneregler" />
+            </div>
+        </section>
+        {% endif %}
     </div>
-
-    {% if result['qualityWarning'] %}
-    <section>
-        <div class="result__quality-warnings">
-            <ul>
-                {% for warning in result['qualityWarning'] %}
-                    <li>{{ warning  }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-    </section>
-    {% endif %}
-
-    {% if result['rasterResult']['imageUri'] %}
-    <section>
-        <div class="result__map-image">
-            <img src="{{ result['rasterResult']['imageUri'] }}" alt="Område" />
-        </div>
-
-        <div class="result__map-image__legend">
-            <h4>Tegneregler</h4>
-            <img src="{{ result['cartography'] }}" alt="Tegneregler" />
-        </div>
-    </section>
-    {% endif %}
 
     {% if result['description'] %}
     <section>

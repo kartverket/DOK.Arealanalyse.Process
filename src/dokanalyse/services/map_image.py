@@ -3,8 +3,7 @@ import time
 from io import BytesIO
 from urllib.parse import urlparse, parse_qs
 from typing import List, Dict, Tuple
-from pebble import ProcessPool
-from pebble.common.types import ProcessExpired
+from pebble import ThreadPool, ProcessPool
 from concurrent.futures import TimeoutError, as_completed
 from osgeo import ogr, osr
 import pandas as pd
@@ -26,7 +25,7 @@ ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR
 _LOGGER = logging.getLogger(__name__)
 _WMTS_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml?request=GetCapabilities'
 _DPI = 100
-_TIMEOUT_SECONDS = 30
+_TIMEOUT_SECONDS = 60
 
 
 def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None) -> List[Tuple[str, str, bytes | None]]:
@@ -48,9 +47,6 @@ def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None) 
                 results.append(future.result())
             except TimeoutError as error:
                 _LOGGER.error('Map image generation timed out')
-            except ProcessExpired as error:
-                _LOGGER.error('Map image generation process died: %s. Exit code: %d' % (
-                    error, error.exitcode))
             except Exception as error:
                 _LOGGER.error('Map image generation failed: %s' % error)
 
@@ -95,7 +91,7 @@ def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
     gdf.plot(ax=ax, facecolor='none', linewidth=0)
 
     grayscale: bool = kwargs.get('grayscale', False)
-    use_wmts: bool = kwargs.get('use_wmts', False)
+    use_wmts: bool = kwargs.get('use_wmts', True)
 
     try:
         _add_basemap(ax, use_wmts, grayscale)
@@ -136,7 +132,6 @@ def _get_params_for_analyses(analyses: List[Analysis]) -> List[Dict]:
             'geometry': _get_wkt_str(analysis.geometry),
             'buffer': buffer,
             'grayscale': True,
-            'use_wmts': True,
             'wms': {
                 'url': url,
                 'layers': layers
@@ -159,8 +154,7 @@ def _get_params_for_fact_sheet(fact_sheet: FactSheet) -> Dict:
         'size': (1280, 720),
         'geometry': _get_wkt_str(fact_sheet.geometry),
         'buffer': buffer,
-        'grayscale': False,
-        'use_wmts': True
+        'grayscale': False        
     }
 
 

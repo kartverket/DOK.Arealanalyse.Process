@@ -161,10 +161,14 @@ section {
     margin-bottom: 24pt;
 }
 
+.result__top {
+    break-inside: avoid;
+}
+
 .result__heading {
     display: flex;
-    align-items: center;
-    position: relative;
+    align-items: center;    
+    justify-content: space-between;
     margin-bottom: 12pt;
 }
 
@@ -187,9 +191,16 @@ section {
     margin-right: 3pt;
 }
 
+.result__heading__hit-and-distance {
+    white-space: nowrap;
+}
+
+.result__heading__left {
+    display: flex;
+    align-items: center;
+}
+
 .result__heading__right {
-    position: absolute;
-    right: 0;
     text-align: right;
 }
 

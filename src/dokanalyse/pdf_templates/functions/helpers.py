@@ -35,10 +35,10 @@ def get_not_relevant_dataset_titles(response: Dict) -> List[str]:
 
 def get_result_title(result: Dict) -> str:
     if 'runOnDataset' in result:
-        dataset_title = f'«{result['runOnDataset']['title']}»'
+        dataset_title = f"«{result['runOnDataset']['title']}»"
 
         if result['title']:
-            dataset_title += f'<div>({result['title']})</div>'
+            dataset_title += f"<div>({result['title']})</div>"
     else:
         dataset_title = result['title']
 
