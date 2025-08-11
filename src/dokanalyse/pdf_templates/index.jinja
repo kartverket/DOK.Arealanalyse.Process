@@ -21,7 +21,9 @@
     </div>
 </div>
 
-{% include "fact_sheet.jinja" %}
+{% if data['factList'] %}
+    {% include "fact_sheet.jinja" %}
+{% endif %}
 
 {% with results = get_results_by_result_status(data, 'HIT-RED') %}
     {% include "results.jinja" %}

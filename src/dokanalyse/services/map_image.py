@@ -25,7 +25,7 @@ ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR
 _LOGGER = logging.getLogger(__name__)
 _WMTS_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml?request=GetCapabilities'
 _DPI = 100
-_TIMEOUT_SECONDS = 60
+_TIMEOUT_SECONDS = 120
 
 
 def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None) -> List[Tuple[str, str, bytes | None]]:

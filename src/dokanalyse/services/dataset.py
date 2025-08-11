@@ -26,34 +26,31 @@ def get_dataset_type(config: DatasetConfig) -> Literal['wfs', 'arcgis', 'ogc_api
 
 async def get_config_ids(data: dict, municipality_number: str) -> Dict[UUID, bool]:
     include_chosen_dok = data.get('includeFilterChosenDOK', True)
+    kartgrunnlag = await _get_kartgrunnlag(municipality_number) if include_chosen_dok else []
+    configs = _get_datasets_by_theme(data.get('theme'))
 
-    if include_chosen_dok:
-        kartgrunnlag = await _get_kartgrunnlag(municipality_number)
-    else:
-        kartgrunnlag = []
-
-    config_ids = _get_datasets_by_theme(data.get('theme'))
     datasets: Dict[UUID, bool] = {}
 
-    for id in config_ids:
-        should_analyze = len(
-            kartgrunnlag) == 0 or id is None or id in kartgrunnlag
-        datasets[id] = should_analyze
+    for config in configs:       
+        if include_chosen_dok:
+            datasets[config.config_id] = str(config.metadata_id) in kartgrunnlag
+        else:
+            datasets[config.config_id] = True
 
     return datasets
 
 
-def _get_datasets_by_theme(theme: str) -> List[UUID]:
+def _get_datasets_by_theme(theme: str) -> List[DatasetConfig]:
     dataset_configs = get_dataset_configs()
-    config_ids = []
+    configs: List[DatasetConfig] = []
 
     for config in dataset_configs:
         themes = list(map(lambda theme: theme.lower(), config.themes))
 
         if theme is None or theme.lower() in themes:
-            config_ids.append(config.config_id)
+            configs.append(config)
 
-    return config_ids
+    return configs
 
 
 async def _get_kartgrunnlag(municipality_number: str) -> List[str]:
