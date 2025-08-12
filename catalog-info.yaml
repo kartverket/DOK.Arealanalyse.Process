@@ -1,0 +1,12 @@
+# nonk8s
+apiVersion: "backstage.io/v1alpha1"
+kind: "Component"
+metadata:
+  name: "dok.arealanalyse.process"
+  tags:
+  - "internal"
+spec:
+  type: "library"
+  lifecycle: "production"
+  owner: "datadeling_og_distribusjon"
+  system: "geonorge"
