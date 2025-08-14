@@ -4,6 +4,7 @@ import aiohttp
 import asyncio
 from pydantic import HttpUrl
 from osgeo import ogr
+from . import log_error_response
 from ..utils.helpers.geometry import geometry_to_arcgis_geom
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ async def _query_arcgis(url: HttpUrl, data: Dict, timeout: int) -> Tuple[int, Di
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=data, timeout=timeout) as response:
                 if response.status != 200:
+                    log_error_response(url, response.status)
                     return response.status, None
 
                 json = await response.json()

@@ -73,9 +73,12 @@ def _create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[Qualit
     for file_path in files:
         with open(file_path, 'r') as file:
             results = yaml.safe_load_all(file)
-            result: dict
-
+            result: Dict
+            
             for result in results:
+                if not result or result.get('disabled'):
+                    continue
+                
                 type = result.get('type')
 
                 if type == 'dataset':

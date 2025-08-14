@@ -4,6 +4,7 @@ import aiohttp
 import asyncio
 from pydantic import HttpUrl
 from osgeo import ogr
+from . import log_error_response
 from ..utils.helpers.geometry import geometry_to_wkt
 from ..utils.constants import WGS84_EPSG
 
@@ -29,6 +30,7 @@ async def _query_ogc_api(url: str, timeout: int) -> Tuple[int, Dict]:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=timeout) as response:
                 if response.status != 200:
+                    log_error_response(url, response.status)
                     return response.status, None
 
                 return 200, await response.json()
