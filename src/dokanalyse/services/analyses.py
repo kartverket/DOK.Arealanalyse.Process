@@ -28,7 +28,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     geometry = create_input_geometry(geo_json)
     orig_epsg = get_epsg(geo_json)
     buffer = data.get('requestedBuffer', 0)
-    context = data.get('context')
+    context = data.get('context') or ''
     include_guidance = data.get('includeGuidance', False)
     include_quality_measurement = data.get('includeQualityMeasurement', False)
     include_facts = data.get('includeFacts', True)

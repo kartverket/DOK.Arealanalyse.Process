@@ -22,7 +22,7 @@ class WfsAnalysis(Analysis):
     async def _run_queries(self, context: str) -> None:
         first_layer = self.config.layers[0]
 
-        guidance_id = first_layer.building_guidance_id if context == 'Byggesak' else first_layer.planning_guidance_id
+        guidance_id = first_layer.building_guidance_id if context.lower() == 'byggesak' else first_layer.planning_guidance_id
         guidance_data = await get_guidance_data(guidance_id)
 
         self._add_run_algorithm(f'query {self.config.wfs}')
@@ -52,7 +52,7 @@ class WfsAnalysis(Analysis):
                     self._add_run_algorithm(
                         f'intersects layer {layer.wfs} (True)')
 
-                    guidance_id = layer.building_guidance_id if context == 'Byggesak' else layer.planning_guidance_id
+                    guidance_id = layer.building_guidance_id if context.lower() == 'byggesak' else layer.planning_guidance_id
                     guidance_data = await get_guidance_data(guidance_id)
 
                     self.geometries = response['geometries']

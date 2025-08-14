@@ -61,7 +61,7 @@ class Analysis(ABC):
         self.has_coverage: bool = True
         self.is_relevant = True
 
-    async def run(self, context, include_guidance, include_quality_measurement) -> None:
+    async def run(self, context: str, include_guidance: bool, include_quality_measurement: bool) -> None:
         self.__set_input_geometry()
 
         await self.__run_coverage_analysis(context)
@@ -104,7 +104,7 @@ class Analysis(ABC):
         self.themes = self.config.themes
         self.run_on_dataset = await get_kartkatalog_metadata(self.config.metadata_id)
 
-    async def __run_coverage_analysis(self, context) -> None:
+    async def __run_coverage_analysis(self, context: str) -> None:
         quality_indicators = get_quality_indicator_configs(self.config_id)
         ci = get_coverage_indicator(quality_indicators)
 
@@ -121,7 +121,7 @@ class Analysis(ABC):
         if not response.has_coverage:
             self.data = response.data
             guidance_id = coverage_svc.get(
-                'building_guidance_id') if context == 'Byggesak' else coverage_svc.get('planning_guidance_id')
+                'building_guidance_id') if context.lower() == 'byggesak' else coverage_svc.get('planning_guidance_id')
 
             if guidance_id:
                 self.guidance_data = await get_guidance_data(guidance_id)
@@ -187,7 +187,7 @@ class Analysis(ABC):
         for line in possible_actions.splitlines():
             self.possible_actions.append(line.lstrip('- '))
 
-    async def __set_quality_measurements(self, context) -> None:
+    async def __set_quality_measurements(self, context: str) -> None:
         quality_indicators = get_quality_indicator_configs(self.config_id)
 
         if len(quality_indicators) == 0:
