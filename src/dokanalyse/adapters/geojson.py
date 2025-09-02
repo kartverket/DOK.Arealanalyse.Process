@@ -35,7 +35,7 @@ async def _get_geojson(url: Union[HttpUrl, FileUrl], timeout) -> str:
 async def _fetch_geojson(url: HttpUrl, timeout) -> Tuple[int, str]:
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=timeout) as response:
+            async with session.get(str(url), timeout=timeout) as response:
                 if response.status != 200:
                     return response.status, None
 

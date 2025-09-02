@@ -50,7 +50,7 @@ async def _get_file_path(url: Union[HttpUrl, FileUrl], timeout: int) -> str:
 async def _fetch_geopackage(url: HttpUrl, timeout) -> Tuple[int, bytes]:
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=timeout) as response:
+            async with session.get(str(url), timeout=timeout) as response:
                 if response.status != 200:
                     return response.status, None
 
