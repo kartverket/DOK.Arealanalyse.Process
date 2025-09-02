@@ -1,8 +1,11 @@
 from io import StringIO
 from typing import List, Dict, Tuple, Literal
 import babel.numbers
+import matplotlib
 import matplotlib.pyplot as plt
 import babel
+
+matplotlib.use('agg')
 
 _COLOR_MAP_AREA_TYPES = {
     'Bebygd': '#fcdbd6',
@@ -115,7 +118,7 @@ def _get_options_for_buildings(fact_list: List[Dict]) -> Tuple[List[int], List[s
 
         label = building['category']
         value_formatted = babel.numbers.format_decimal(value, locale='nb_NO')
-        
+
         values.append(value)
         values_formatted.append(value_formatted)
         labels.append(label)

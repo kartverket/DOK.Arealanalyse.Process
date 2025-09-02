@@ -2,7 +2,7 @@ import logging
 import time
 from uuid import UUID
 from collections import Counter
-from typing import List
+from typing import List, Dict
 from lxml import etree as ET
 from osgeo import ogr
 from ...adapters.wfs import query_wfs
@@ -15,7 +15,6 @@ _LOGGER = logging.getLogger(__name__)
 _METADATA_ID = UUID('24d7e9d1-87f6-45a0-b38e-3447f8d7f9a1')
 _LAYER_NAME = 'Bygning'
 _WFS_URL = 'https://wfs.geonorge.no/skwms1/wfs.matrikkelen-bygningspunkt'
-_TIMEOUT = 10
 
 _BUILDING_CATEGORIES = {
     (100, 159): 'Bolig',
@@ -43,11 +42,11 @@ async def get_buildings(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffe
     return FactPart(geometry, epsg, orig_epsg, buffer, dataset, [f'intersect {_LAYER_NAME}'], data)
 
 
-async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[dict]:
-    _, response = await query_wfs(_WFS_URL, _LAYER_NAME, 'representasjonspunkt', geometry, epsg, _TIMEOUT)
+async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict]:
+    _, response = await query_wfs(_WFS_URL, _LAYER_NAME, 'representasjonspunkt', geometry, epsg)
 
     if response is None:
-        return None
+        return []
 
     root = ET.fromstring(bytes(response, encoding='utf-8'))
     path = '//*[local-name() = "bygningstype"]'

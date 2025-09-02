@@ -1,4 +1,4 @@
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, model_validator, field_validator
 from typing import List, Optional, Dict
 from ..result_status import ResultStatus
 import uuid
@@ -14,7 +14,8 @@ class Layer(BaseModel):
     planning_guidance_id: Optional[uuid.UUID] = None
     building_guidance_id: Optional[uuid.UUID] = None
 
-    @validator('result_status')
+    @field_validator('result_status')
+    @classmethod
     def check_result_status(cls, value: ResultStatus) -> ResultStatus:
         valid_statuses = [
             ResultStatus.NO_HIT_GREEN,
@@ -29,7 +30,8 @@ class Layer(BaseModel):
 
         return value
 
-    @root_validator(pre=True)
+    @model_validator(mode='before')
+    @classmethod
     def check_layer_type(cls, values: Dict) -> Dict:
         if not 'wfs' in values and not 'arcgis' in values and not 'ogc_api' in values:
             raise ValueError(

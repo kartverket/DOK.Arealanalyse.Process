@@ -13,18 +13,18 @@ from ..utils.constants import WGS84_EPSG
 _LOGGER = logging.getLogger(__name__)
 
 
-async def query_ogc_api(base_url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
+async def query_ogc_api(base_url: HttpUrl, variant: str, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
     has_search = await _has_search_endpoint(base_url)
 
     if has_search:
         return await _query_ogc_api_post(base_url, layer, geom_field, geometry, filter, epsg, out_epsg, timeout)
 
-    return await _query_ogc_api_get(base_url, layer, geom_field, geometry, filter, epsg, out_epsg, timeout)
+    return await _query_ogc_api_get(base_url, variant, layer, geom_field, geometry, filter, epsg, out_epsg, timeout)
 
 
-async def _query_ogc_api_get(base_url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
+async def _query_ogc_api_get(base_url: HttpUrl, variant: str, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
     url = _create_request_url(
-        base_url, layer, geom_field, geometry, filter, epsg, out_epsg)
+        base_url, variant, layer, geom_field, geometry, filter, epsg, out_epsg)
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -35,6 +35,7 @@ async def _query_ogc_api_get(base_url: HttpUrl, layer: str, geom_field: str, geo
 
                 return 200, await response.json()
     except asyncio.TimeoutError:
+        _LOGGER.error(f'Request against OGC API: "{base_url}" timed out')
         return 408, None
     except Exception as err:
         _LOGGER.error(err)
@@ -63,13 +64,18 @@ async def _query_ogc_api_post(base_url: HttpUrl, layer: str, geom_field: str, ge
         return 500, None
 
 
-def _create_request_url(base_url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326) -> str:
+def _create_request_url(base_url: HttpUrl, variant: str, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326) -> str:
     wkt_str = geometry_to_wkt(geometry, epsg)
 
     # autopep8: off
     filter_crs = f'&filter-crs=http://www.opengis.net/def/crs/EPSG/0/{epsg}' if epsg != WGS84_EPSG else ''
     crs = f'&crs=http://www.opengis.net/def/crs/EPSG/0/{out_epsg}' if out_epsg != WGS84_EPSG else ''
-    url = f'{base_url}/collections/{layer}/items?f=json&filter-lang=cql2-text{filter_crs}{crs}&filter=S_INTERSECTS({geom_field},{wkt_str})'
+    url = f'{base_url}/collections/{layer}/items?f=json&filter-lang='
+
+    if variant == 'pygeoapi':
+        url += f'cql-text{filter_crs}{crs}&filter=INTERSECTS({geom_field},{wkt_str})'
+    else:
+        url += f'cql2-text{filter_crs}{crs}&filter=S_INTERSECTS({geom_field},{wkt_str})'
 
     if filter:
         url += f' AND {filter}'

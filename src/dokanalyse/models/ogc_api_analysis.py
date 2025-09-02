@@ -30,7 +30,7 @@ class OgcApiAnalysis(Analysis):
                 self._add_run_algorithm(f'add filter {layer.filter}')
 
             status_code, api_response = await query_ogc_api(
-                self.config.ogc_api, layer.ogc_api, self.config.geom_field, self.run_on_input_geometry, layer.filter, self.epsg)
+                self.config.ogc_api, self.config.ogc_api_v, layer.ogc_api, self.config.geom_field, self.run_on_input_geometry, layer.filter, self.epsg)
 
             if status_code == 408:
                 self.result_status = ResultStatus.TIMEOUT
@@ -72,7 +72,7 @@ class OgcApiAnalysis(Analysis):
             self.geometry, 20000, self.epsg)
         layer = self.config.layers[0]
 
-        _, response = await query_ogc_api(self.config.ogc_api, layer.ogc_api, self.config.geom_field, buffered_geom, layer.filter, self.epsg)
+        _, response = await query_ogc_api(self.config.ogc_api, self.config.ogc_api_v, layer.ogc_api, self.config.geom_field, buffered_geom, layer.filter, self.epsg)
 
         if response is None:
             self.distance_to_object = maxsize

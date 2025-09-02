@@ -1,6 +1,5 @@
 from os import path
 import logging
-from http import HTTPStatus
 from typing import Tuple
 from pydantic import HttpUrl
 import aiohttp
@@ -28,8 +27,8 @@ def _create_wfs_request_xml(layer: str, geom_field: str, gml_str: str, epsg: int
     return file_text.format(layer=layer,  geom_field=geom_field, geometry=gml_str, epsg=epsg).encode('utf-8')
 
 
-async def _query_wfs(url: HttpUrl, xml_body: str, timeout: int) -> Tuple[int, str]:
-    url = f'{url}?service=WFS&version=2.0.0'
+async def _query_wfs(base_url: HttpUrl, xml_body: str, timeout: int) -> Tuple[int, str]:
+    url = f'{base_url}?service=WFS&version=2.0.0'
     headers = {'Content-Type': 'application/xml'}
 
     try:
@@ -42,6 +41,7 @@ async def _query_wfs(url: HttpUrl, xml_body: str, timeout: int) -> Tuple[int, st
 
                 return response.status, None
     except asyncio.TimeoutError:
+        _LOGGER.error(f'Request against WFS "{base_url}" timed out')
         return 408, None
     except Exception as err:
         _LOGGER.error(err)

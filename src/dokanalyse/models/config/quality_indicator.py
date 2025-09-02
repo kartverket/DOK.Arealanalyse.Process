@@ -1,4 +1,4 @@
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, model_validator
 from typing import Optional, Dict
 from .quality_indicator_type import QualityIndicatorType
 from . import CoverageService, CoverageGeoJson, CoverageGeoPackage
@@ -18,7 +18,8 @@ class QualityIndicator(BaseModel):
     gpkg: Optional[CoverageGeoPackage] = None
     disabled: Optional[bool] = False
 
-    @root_validator(pre=False)
+    @model_validator(mode='before')
+    @classmethod
     def check_coverage(cls, values: Dict) -> Dict:
         type = values.get('type')
 

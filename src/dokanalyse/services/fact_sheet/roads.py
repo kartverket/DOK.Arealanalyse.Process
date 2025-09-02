@@ -28,13 +28,13 @@ async def get_roads(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: i
 
 async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict]:
     start = time.time()
-    status, response = await query_ogc_api(_API_BASE_URL, _LAYER_NAME, 'senterlinje', geometry, None, epsg, epsg, _TIMEOUT)
+    status, response = await query_ogc_api(_API_BASE_URL, None, _LAYER_NAME, 'senterlinje', geometry, None, epsg, epsg, _TIMEOUT)
     end = time.time()
 
     if response is None:
         _LOGGER.error(
             f'Fact sheet: Could not get roads from Elveg OGC API (status {status})')
-        return None
+        return []
 
     # autopep8: off
     _LOGGER.info(f'Fact sheet: Got roads from Elveg OGC API: {round(end - start, 2)} sec.')

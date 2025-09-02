@@ -34,7 +34,11 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     include_facts = data.get('includeFacts', True)
     municipality_number, municipality_name = await get_municipality(geometry, DEFAULT_EPSG)
 
-    datasets = await get_config_ids(data, municipality_number)
+    # datasets = await get_config_ids(data, municipality_number)
+    
+    datasets = {
+        UUID('6fbe96e8-6015-46c4-aedf-0e0d751d76fb'): True
+    }
     correlation_id = get_correlation_id()
 
     if datasets and correlation_id and sio_client:
@@ -65,7 +69,10 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
         geo_json, geometry, DEFAULT_EPSG, orig_epsg, buffer, fact_sheet, municipality_number, municipality_name)
 
     for task in tasks:
-        response.result_list.append(task.result())
+        result = task.result()
+
+        if result:
+            response.result_list.append(result)
 
     analyses_with_map_image = [
         analysis for analysis in response.result_list if analysis.raster_result_map]
@@ -85,7 +92,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
     report = create_pdf(response)
 
     response.report = await _upload_report(report, container_name)
-    
+
     return response.to_dict()
 
 
@@ -162,7 +169,7 @@ async def _upload_images(response: AnalysisResponse, map_images: List[Tuple[str,
 
     for task in tasks:
         task_name = task.get_name()
-        
+
         if task_name == 'omraade':
             response.fact_sheet.raster_result_image = task.result()
             continue

@@ -45,6 +45,7 @@ async def _query_arcgis(url: HttpUrl, data: Dict, timeout: int) -> Tuple[int, Di
 
                 return 200, json
     except asyncio.TimeoutError:
+        _LOGGER.error(f'Request against ArcGIS REST API "{url}" timed out')
         return 408, None
     except Exception as err:
         _LOGGER.error(err)

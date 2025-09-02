@@ -63,7 +63,7 @@ async def _fetch_geopackage(url: HttpUrl, timeout) -> Tuple[int, bytes]:
 
 
 def _get_filename(url: HttpUrl) -> str:
-    parsed = urlparse(url)
+    parsed = urlparse(str(url))
     filename = os.path.basename(parsed.path)
 
     return filename.lower()
