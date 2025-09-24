@@ -1,7 +1,7 @@
 import time
 import logging
 import traceback
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 from uuid import UUID, uuid4
 import asyncio
 from socketio import SimpleClient
@@ -17,14 +17,14 @@ from .blob_storage import create_container, upload_binary
 from ..utils.helpers.geometry import create_input_geometry, get_epsg
 from ..models.config import DatasetConfig
 from ..models import Analysis, ArcGisAnalysis, OgcApiAnalysis, WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus
-from ..utils.constants import DEFAULT_EPSG
+from ..utils.constants import DEFAULT_EPSG, BLOB_STORAGE_CONN_STR
 from ..utils.correlation_id_middleware import get_correlation_id
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
-    geo_json = data.get('inputGeometry')
+async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
+    geo_json = data['inputGeometry']
     geometry = create_input_geometry(geo_json)
     orig_epsg = get_epsg(geo_json)
     buffer = data.get('requestedBuffer', 0)
@@ -72,28 +72,28 @@ async def run(data: Dict, sio_client: SimpleClient) -> AnalysisResponse:
 
     analyses_with_map_image = [
         analysis for analysis in response.result_list if analysis.raster_result_map]
-
+    
     if correlation_id and sio_client:
         sio_client.emit('create_map_images_api', {'recipient': correlation_id})
 
-    map_images = generate_map_images(analyses_with_map_image, fact_sheet)
-
     container_name = str(uuid4())
 
-    await _upload_images(response, map_images, container_name)
+    if BLOB_STORAGE_CONN_STR:
+        map_images = generate_map_images(analyses_with_map_image, fact_sheet)
+        await _upload_images(response, map_images, container_name)
 
     if correlation_id and sio_client:
         sio_client.emit('create_report_api', {'recipient': correlation_id})
 
-    report = create_pdf(response)
-
-    response.report = await _upload_report(report, container_name)
+    if BLOB_STORAGE_CONN_STR:
+        report = create_pdf(response)
+        response.report = await _upload_report(report, container_name)
 
     return response.to_dict()
 
 
 async def _run_analysis(config_id: UUID, should_analyze: bool, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int,
-                        context: str, include_guidance: bool, include_quality_measurement: bool, sio_client: SimpleClient) -> Analysis:
+                        context: str, include_guidance: bool, include_quality_measurement: bool, sio_client: SimpleClient) -> Analysis | None:
     config = get_dataset_config(config_id)
 
     if config is None:
@@ -183,7 +183,7 @@ async def _upload_report(report: bytes, container_name: str) -> str:
     return pdf_url
 
 
-def _find_analysis(analyses: List[Analysis], config_id: str) -> Analysis:
+def _find_analysis(analyses: List[Analysis], config_id: str) -> Analysis | None:
     return next((analysis for analysis in analyses if str(analysis.config_id) == config_id), None)
 
 

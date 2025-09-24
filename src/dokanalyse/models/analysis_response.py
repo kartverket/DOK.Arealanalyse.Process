@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 from osgeo import ogr
 from .analysis import Analysis
 from .fact_sheet import FactSheet
@@ -8,7 +8,7 @@ from ..utils.helpers.geometry import add_geojson_crs, create_buffered_geometry
 class AnalysisResponse():
     result_list: List[Analysis]
 
-    def __init__(self, input_geometry: Dict, input_geometry_area: float, fact_sheet: FactSheet, municipality_number: str, municipality_name: str):
+    def __init__(self, input_geometry: Dict, input_geometry_area: float, fact_sheet: FactSheet | None, municipality_number: str, municipality_name: str):
         self.input_geometry = input_geometry
         self.input_geometry_area = input_geometry_area
         self.municipality_number = municipality_number
@@ -35,7 +35,7 @@ class AnalysisResponse():
         return data
 
     @classmethod
-    def create(cls, geo_json: Dict, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int, fact_sheet: FactSheet, municipality_number: str, municipality_name: str):
+    def create(cls, geo_json: Dict[str, Any], geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int, fact_sheet: FactSheet | None, municipality_number: str, municipality_name: str):
         add_geojson_crs(geo_json, orig_epsg)
 
         if buffer > 0:

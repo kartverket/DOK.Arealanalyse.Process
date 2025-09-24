@@ -1,11 +1,16 @@
 from io import StringIO
-from typing import List, Dict, Tuple, Literal
+from typing import List, Dict, Tuple, Literal, Any
 import babel.numbers
 import matplotlib
 import matplotlib.pyplot as plt
 import babel
 
 matplotlib.use('agg')
+
+_DATASET_IDS = {
+    'AREA_TYPES': '166382b4-82d6-4ea9-a68e-6fd0c87bf788',
+    'BUILDINGS': '24d7e9d1-87f6-45a0-b38e-3447f8d7f9a1'
+}
 
 _COLOR_MAP_AREA_TYPES = {
     'Bebygd': '#fcdbd6',
@@ -35,13 +40,19 @@ _COLOR_MAP_BUILDINGS = {
 }
 
 
-def create_pie_chart(fact_list: List[Dict], type: Literal['AREA_TYPES', 'BUILDINGS']) -> Tuple[str, List[Dict]]:
+def create_pie_chart(fact_list: List[Dict], type: Literal['AREA_TYPES', 'BUILDINGS']) -> Tuple[str, List[Dict] | None]:
+    dataset_id = _DATASET_IDS[type]
+    fact_part = next((fact_part for fact_part in fact_list if fact_part['runOnDataset']['datasetId'] == dataset_id), None)
+
+    if not fact_part:
+        return '', None
+
     if type == 'AREA_TYPES':
         values, values_formatted, labels, legend, colors = _get_options_for_area_types(
-            fact_list)
+            fact_part)
     else:
         values, values_formatted, labels, legend, colors = _get_options_for_buildings(
-            fact_list)
+            fact_part)
 
     fig, ax = plt.subplots(figsize=(5, 5))
 
@@ -69,8 +80,8 @@ def create_pie_chart(fact_list: List[Dict], type: Literal['AREA_TYPES', 'BUILDIN
     return string.getvalue(), options
 
 
-def _get_options_for_area_types(fact_list: List[Dict]) -> Tuple[List[int], List[str], List[str], List[str], List[str]]:
-    area_types = fact_list[0]['data']['areaTypes']
+def _get_options_for_area_types(fact_part: Dict[str, Any]) -> Tuple[List[int], List[str], List[str], List[str], List[str]]:
+    area_types = fact_part['data']['areaTypes']
 
     sorted_area_types = sorted(
         area_types, key=lambda area_type: area_type['area'], reverse=True)
@@ -99,8 +110,8 @@ def _get_options_for_area_types(fact_list: List[Dict]) -> Tuple[List[int], List[
     return values, values_formatted, labels, legend, colors
 
 
-def _get_options_for_buildings(fact_list: List[Dict]) -> Tuple[List[int], List[str], List[str], List[str], List[str]]:
-    buildings = fact_list[1]['data']
+def _get_options_for_buildings(fact_part: Dict[str, Any]) -> Tuple[List[int], List[str], List[str], List[str], List[str]]:
+    buildings = fact_part['data']
     sorted_buildings = sorted(
         buildings, key=lambda building: building['count'], reverse=True)
 

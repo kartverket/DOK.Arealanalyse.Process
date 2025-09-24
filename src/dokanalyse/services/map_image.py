@@ -128,7 +128,7 @@ def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
     gdf.plot(ax=ax, edgecolor='#d33333',
              facecolor='none', linewidth=3)
 
-    buffer: str = kwargs.get('buffer')
+    buffer: str = kwargs.get('buffer', '')
 
     if buffer:
         buffer_row = gpd.GeoSeries.from_wkt([buffer])

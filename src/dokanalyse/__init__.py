@@ -179,7 +179,7 @@ class DokanalyseProcessor(BaseProcessor):
     def __init__(self, processor_def):
         super().__init__(processor_def, PROCESS_METADATA)
 
-    def execute(self, data: Dict, outputs=None) -> Tuple[str, Dict]:
+    def execute(self, data: Dict, outputs=None) -> Tuple[str, Dict | None]:
         mimetype = 'application/json'
 
         if not request_is_valid(data):

@@ -14,7 +14,7 @@ _METADATA_ID = UUID('166382b4-82d6-4ea9-a68e-6fd0c87bf788')
 _LAYER_NAME = 'fkb_ar5_omrade'
 
 
-async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> FactPart:
+async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> FactPart | None:
     if not AR5_FGDB_PATH:
         return None
 
