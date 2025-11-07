@@ -34,6 +34,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
     include_facts = data.get('includeFacts', True)
     municipality_number, municipality_name = await get_municipality(geometry, DEFAULT_EPSG)
 
+    # datasets = {UUID('af961cfa-e0b2-4d4e-9560-f17913a7576c'): True}
     datasets = await get_config_ids(data, municipality_number)
     correlation_id = get_correlation_id()
 

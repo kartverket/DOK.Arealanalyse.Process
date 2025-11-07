@@ -25,6 +25,9 @@ async def upload_binary(binary: bytes, container_name: str, blob_name: str, cont
     service = BlobServiceClient.from_connection_string(
         conn_str=BLOB_STORAGE_CONN_STR)
 
+    blob_client = None
+    container_client = None
+
     try:
         container_client = service.get_container_client(container_name)
         content_settings = ContentSettings(content_type=content_type)
@@ -35,8 +38,12 @@ async def upload_binary(binary: bytes, container_name: str, blob_name: str, cont
         _LOGGER.error(error)
         return None
     finally:
-        await blob_client.close()
-        await container_client.close()
+        if blob_client:
+            await blob_client.close()
+
+        if container_client:
+            await container_client.close()
+
         await service.close()
 
 

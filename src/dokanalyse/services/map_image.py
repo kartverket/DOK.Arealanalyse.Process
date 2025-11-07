@@ -8,6 +8,7 @@ from urllib.parse import urlparse, parse_qs
 from typing import List, Dict, Tuple
 from pebble import ProcessPool
 from concurrent.futures import TimeoutError, as_completed
+import multiprocessing as mp
 from osgeo import ogr, osr
 import pandas as pd
 import geopandas as gpd
@@ -25,14 +26,16 @@ from ..models.analysis import Analysis
 from ..models.fact_sheet import FactSheet
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR
+import traceback
 
 ogcc.METERS_PER_UNIT['EPSG:3857'] = 1
 ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR
 
 _LOGGER = logging.getLogger(__name__)
-_WMTS_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml?request=GetCapabilities'
 _DPI = 100
 _TIMEOUT_SECONDS = 120
+
+_BASEMAP_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/{layer_name}/default/webmercator/{{z}}/{{y}}/{{x}}.png'
 _BASEMAPS_CACHE_DIR = f'{CACHE_DIR}/basemaps'
 _BASEMAPS_CACHE_DAYS = 30
 
@@ -52,8 +55,9 @@ def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None) 
     _generate_basemaps(params)
 
     results: List[Tuple[str, bytes | None]] = []
+    context = mp.get_context('spawn') 
 
-    with ProcessPool(max_workers=8) as pool:
+    with ProcessPool(max_workers=os.cpu_count(), context=context) as pool:
         futures = [pool.submit(
             _generate_map_image, _TIMEOUT_SECONDS, **kwargs) for kwargs in params]
 
@@ -85,8 +89,9 @@ def _generate_basemaps(params: List[Dict]) -> None:
         return
 
     results: List[Tuple[str, bytes | None]] = []
+    context = mp.get_context('spawn') 
 
-    with ProcessPool(max_workers=8) as pool:
+    with ProcessPool(max_workers=os.cpu_count(), context=context) as pool:
         futures = [pool.submit(
             _generate_basemap, _TIMEOUT_SECONDS, **kwargs) for kwargs in basemap_params.values()]
 
@@ -198,8 +203,9 @@ def _generate_basemap(**kwargs) -> Tuple[str, bytes | None]:
     try:
         _add_basemap(ax, use_wmts, grayscale)
     except Exception as err:
-        _LOGGER.error(err)
-        return None
+        err2 = traceback.format_exc()
+        _LOGGER.error(err2)
+        return kwargs['hash'], image_bytes
 
     image_bytes = _convert_to_bytes(fig)
 
@@ -269,7 +275,8 @@ def _get_params_for_fact_sheet(fact_sheet: FactSheet) -> Dict:
 def _add_basemap(ax: GeoAxes, use_wmts: bool, grayscale: bool) -> None:
     if use_wmts:
         layer_name = 'topograatone' if grayscale else 'topo'
-        ax.add_wmts(_WMTS_URL, layer_name)
+        basemap_url = _BASEMAP_URL.format(layer_name=layer_name)
+        ctx.add_basemap(ax, source=basemap_url)
     else:
         basemap_src = ctx.providers.CartoDB.Positron if grayscale else ctx.providers.OpenStreetMap.Mapnik
         ctx.add_basemap(ax, source=basemap_src)
