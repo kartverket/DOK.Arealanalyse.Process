@@ -11,3 +11,4 @@ MAP_IMAGE_BASE_MAP: Final[str] = getenv('DOKANALYSE_MAP_IMAGE_BASE_MAP') or 'WMT
 PDF_TEMPLATES_DIR: Final[str | None] = getenv('DOKANALYSE_PDF_TEMPLATES_DIR')
 DEFAULT_EPSG: Final[int] = 25833
 WGS84_EPSG: Final[int] = 4326
+DATASETS: Final[str | None] = getenv('DOKANALYSE_DATASETS')

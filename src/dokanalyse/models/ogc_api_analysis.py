@@ -1,5 +1,4 @@
 import json
-from sys import maxsize
 from typing import List, Dict
 from uuid import UUID
 from pydash import get
@@ -10,6 +9,7 @@ from .config.dataset_config import DatasetConfig
 from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_json, transform_geometry
+from ..adapters import get_service_url
 from ..adapters.ogc_api import query_ogc_api
 
 
@@ -23,7 +23,7 @@ class OgcApiAnalysis(Analysis):
         guidance_id = first_layer.building_guidance_id if context.lower() == 'byggesak' else first_layer.planning_guidance_id
         guidance_data = await get_guidance_data(guidance_id)
 
-        self._add_run_algorithm(f'query {self.config.ogc_api}')
+        self._add_run_algorithm(f'query {get_service_url(self.config.ogc_api)}')
 
         for layer in self.config.layers:
             if layer.filter is not None:
@@ -58,7 +58,7 @@ class OgcApiAnalysis(Analysis):
                     self.raster_result_map = get_wms_url(
                         self.config.wms, layer.wms)
                     self.cartography = await get_cartography_url(
-                        self.config.wms, layer.wms)
+                        self.config.wms, layer.wms, self.run_on_input_geometry)
                     self.result_status = layer.result_status
                     break
 
@@ -75,7 +75,7 @@ class OgcApiAnalysis(Analysis):
         _, response = await query_ogc_api(self.config.ogc_api, self.config.ogc_api_v, layer.ogc_api, self.config.geom_field, buffered_geom, layer.filter, self.epsg)
 
         if response is None:
-            self.distance_to_object = maxsize
+            self.distance_to_object = -1
             return
 
         distances = []
@@ -92,7 +92,7 @@ class OgcApiAnalysis(Analysis):
         self._add_run_algorithm('get distance to nearest object')
 
         if len(distances) == 0:
-            self.distance_to_object = maxsize
+            self.distance_to_object = -1
         else:
             self.distance_to_object = distances[0]
 

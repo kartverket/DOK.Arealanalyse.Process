@@ -1,16 +1,18 @@
 import logging
 from typing import Tuple, Dict
-import aiohttp
 import asyncio
 from pydantic import HttpUrl
 from osgeo import ogr
-from . import log_error_response
+from . import log_error_response, get_service_credentials, get_http_session
+from ..models.config.feature_service import FeatureService
+from ..models.config.auth import Auth
 from ..utils.helpers.geometry import geometry_to_arcgis_geom
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def query_arcgis(url: HttpUrl, layer: str, filter: str, geometry: ogr.Geometry, epsg: int, timeout: int = 30) -> Tuple[int, Dict]:
+async def query_arcgis(arcgis: HttpUrl | FeatureService, layer: str, filter: str, geometry: ogr.Geometry, epsg: int, timeout: int = 30) -> Tuple[int, Dict]:
+    url, auth = get_service_credentials(arcgis)
     api_url = f'{url}/{layer}/query'
     arcgis_geom = geometry_to_arcgis_geom(geometry, epsg)
 
@@ -27,12 +29,12 @@ async def query_arcgis(url: HttpUrl, layer: str, filter: str, geometry: ogr.Geom
         'f': 'geojson'
     }
 
-    return await _query_arcgis(api_url, data, timeout)
+    return await _query_arcgis(api_url, auth, data, timeout)
 
 
-async def _query_arcgis(url: HttpUrl, data: Dict, timeout: int) -> Tuple[int, Dict]:
+async def _query_arcgis(url: HttpUrl, auth: Auth, data: Dict, timeout: int) -> Tuple[int, Dict]:
     try:
-        async with aiohttp.ClientSession() as session:
+        async with get_http_session(auth) as session:
             async with session.post(url, data=data, timeout=timeout) as response:
                 if response.status != 200:
                     log_error_response(url, response.status)

@@ -1,33 +1,37 @@
 import logging
 import json
 from typing import Tuple, Dict, Any
-import aiohttp
 import asyncio
 from pydantic import HttpUrl
 from cql2 import Expr
 from osgeo import ogr
-from . import log_error_response
+from . import log_error_response, get_service_credentials, get_http_session
+from ..models.config.feature_service import FeatureService
+from ..models.config.auth import Auth
 from ..utils.helpers.geometry import geometry_to_wkt, transform_geometry
 from ..utils.constants import WGS84_EPSG
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def query_ogc_api(base_url: HttpUrl, variant: str, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
-    has_search = await _has_search_endpoint(base_url)
+async def query_ogc_api(ogc_api: HttpUrl | FeatureService, variant: str, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
+    credentials = get_service_credentials(ogc_api)
+    has_search = await _has_search_endpoint(credentials)
 
     if has_search:
-        return await _query_ogc_api_post(base_url, layer, geom_field, geometry, filter, epsg, out_epsg, timeout)
+        return await _query_ogc_api_post(credentials, layer, geom_field, geometry, filter, epsg, out_epsg, timeout)
 
-    return await _query_ogc_api_get(base_url, variant, layer, geom_field, geometry, filter, epsg, out_epsg, timeout)
+    return await _query_ogc_api_get(credentials, variant, layer, geom_field, geometry, filter, epsg, out_epsg, timeout)
 
 
-async def _query_ogc_api_get(base_url: HttpUrl, variant: str, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
+async def _query_ogc_api_get(credentials: Tuple[str, Auth | None], variant: str, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
+    base_url, auth = credentials
+
     url = _create_request_url(
         base_url, variant, layer, geom_field, geometry, filter, epsg, out_epsg)
 
     try:
-        async with aiohttp.ClientSession() as session:
+        async with get_http_session(auth) as session:           
             async with session.get(url, timeout=timeout) as response:
                 if response.status != 200:
                     log_error_response(url, response.status)
@@ -42,7 +46,9 @@ async def _query_ogc_api_get(base_url: HttpUrl, variant: str, layer: str, geom_f
         return 500, None
 
 
-async def _query_ogc_api_post(base_url: HttpUrl, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
+async def _query_ogc_api_post(credentials: Tuple[str, Auth | None], layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326, timeout: int = 30) -> Tuple[int, Dict]:
+    base_url, auth = credentials
+
     request_body = _create_request_body(
         layer, geom_field, geometry, filter, epsg, out_epsg)
 
@@ -51,7 +57,7 @@ async def _query_ogc_api_post(base_url: HttpUrl, layer: str, geom_field: str, ge
     url = f'{base_url}/search?f=json'
 
     try:
-        async with aiohttp.ClientSession() as session:
+        async with get_http_session(auth) as session:
             async with session.post(url, data=json_str, timeout=timeout) as response:
                 if response.status != 200:
                     return response.status, None
@@ -64,7 +70,7 @@ async def _query_ogc_api_post(base_url: HttpUrl, layer: str, geom_field: str, ge
         return 500, None
 
 
-def _create_request_url(base_url: HttpUrl, variant: str, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326) -> str:
+def _create_request_url(base_url: str, variant: str, layer: str, geom_field: str, geometry: ogr.Geometry, filter: str, epsg: int, out_epsg: int = 4326) -> str:
     wkt_str = geometry_to_wkt(geometry, epsg)
 
     # autopep8: off
@@ -110,13 +116,14 @@ def _create_request_body(layer: str, geom_field: str, geometry: ogr.Geometry, fi
     return cql2_json
 
 
-async def _has_search_endpoint(base_url: str) -> bool:
+async def _has_search_endpoint(credentials: Tuple[str, Auth | None]) -> bool:
+    base_url, auth = credentials
     url = f'{base_url}/search'
 
     try:
-        async with aiohttp.ClientSession() as session:
+        async with get_http_session(auth) as session:
             async with session.head(url) as response:
-                return response.status < 400
+                return response.status == 200
     except Exception as err:
         _LOGGER.error(err)
         return False

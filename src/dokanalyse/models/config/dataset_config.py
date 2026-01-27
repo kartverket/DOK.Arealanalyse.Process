@@ -1,6 +1,7 @@
 import uuid
 from typing import Optional, List, Dict
 from pydantic import BaseModel, HttpUrl, model_validator
+from .feature_service import FeatureService
 from .layer import Layer
 
 
@@ -10,9 +11,9 @@ class DatasetConfig(BaseModel):
     name: Optional[str] = None
     title: Optional[str] = None
     disabled: Optional[bool] = False
-    wfs: Optional[HttpUrl] = None
-    arcgis: Optional[HttpUrl] = None
-    ogc_api: Optional[HttpUrl] = None
+    wfs: Optional[HttpUrl | FeatureService] = None
+    arcgis: Optional[HttpUrl | FeatureService] = None
+    ogc_api: Optional[HttpUrl | FeatureService] = None
     ogc_api_v: Optional[str] = None
     wms: HttpUrl
     layers: List[Layer]

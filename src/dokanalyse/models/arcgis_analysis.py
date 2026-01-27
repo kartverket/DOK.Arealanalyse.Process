@@ -1,4 +1,3 @@
-from sys import maxsize
 import json
 from uuid import UUID
 from typing import List, Dict
@@ -9,6 +8,7 @@ from .config.dataset_config import DatasetConfig
 from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_json
+from ..adapters import get_service_url
 from ..adapters.arcgis import query_arcgis
 
 
@@ -22,7 +22,7 @@ class ArcGisAnalysis(Analysis):
         guidance_id = first_layer.building_guidance_id if context.lower() == 'byggesak' else first_layer.planning_guidance_id
         guidance_data = await get_guidance_data(guidance_id)
 
-        self._add_run_algorithm(f'query {self.config.arcgis}')             
+        self._add_run_algorithm(f'query {get_service_url(self.config.arcgis)}')
 
         for layer in self.config.layers:
             if layer.filter is not None:
@@ -54,7 +54,7 @@ class ArcGisAnalysis(Analysis):
                     self.raster_result_map = get_wms_url(
                         self.config.wms, layer.wms)
                     self.cartography = await get_cartography_url(
-                        self.config.wms, layer.wms)
+                        self.config.wms, layer.wms, self.run_on_input_geometry)
                     self.result_status = layer.result_status
                     break
 
@@ -70,7 +70,7 @@ class ArcGisAnalysis(Analysis):
         _, response = await query_arcgis(self.config.arcgis, layer.arcgis, layer.filter, buffered_geom, self.epsg)
 
         if response is None:
-            self.distance_to_object = maxsize
+            self.distance_to_object = -1
             return
 
         distances = []
@@ -87,7 +87,7 @@ class ArcGisAnalysis(Analysis):
         self._add_run_algorithm('get distance to nearest object')
 
         if len(distances) == 0:
-            self.distance_to_object = maxsize
+            self.distance_to_object = -1
         else:
             self.distance_to_object = distances[0]
 

@@ -6,7 +6,6 @@ from .quality_measurement import QualityMeasurement
 from .metadata import Metadata
 from .result_status import ResultStatus
 from .config import DatasetConfig
-from ..utils.helpers.common import keys_to_camel_case
 from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json
 from ..utils.helpers.quality import get_coverage_indicator, get_coverage_service_config_data
 from ..services.config import get_quality_indicator_configs
@@ -234,7 +233,7 @@ class Analysis(ABC):
                 'mapUri': self.raster_result_map
             },
             'cartography': self.cartography,
-            'data': list(map(lambda entry: keys_to_camel_case(entry), self.data)),
+            'data': self.data,
             'themes': self.themes,
             'runOnDataset': self.run_on_dataset.to_dict() if self.run_on_dataset is not None else None,
             'description': self.description,

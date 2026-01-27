@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=75.0"]
+requires = ["setuptools>=80.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,7 @@ name = "dokanalyse"
 description = "Arealanalyse av DOK-datasett"
 version = "0.0.16"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "pygeoapi",
     "asyncio",
@@ -38,6 +38,7 @@ dependencies = [
     "shapely",
     "PyYAML",
     "flask_http_middleware",
+    "requests>=2.32.5",
 ]
 
 [tool.setuptools.package-data]

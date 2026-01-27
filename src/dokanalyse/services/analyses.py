@@ -17,7 +17,7 @@ from .blob_storage import create_container, upload_binary
 from ..utils.helpers.geometry import create_input_geometry, get_epsg
 from ..models.config import DatasetConfig
 from ..models import Analysis, ArcGisAnalysis, OgcApiAnalysis, WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus
-from ..utils.constants import DEFAULT_EPSG, BLOB_STORAGE_CONN_STR
+from ..utils.constants import DEFAULT_EPSG, BLOB_STORAGE_CONN_STR, DATASETS
 from ..utils.correlation_id_middleware import get_correlation_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,8 +34,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
     include_facts = data.get('includeFacts', True)
     municipality_number, municipality_name = await get_municipality(geometry, DEFAULT_EPSG)
 
-    # datasets = {UUID('af961cfa-e0b2-4d4e-9560-f17913a7576c'): True}
-    datasets = await get_config_ids(data, municipality_number)
+    datasets = await _get_datasets(data, municipality_number)
     correlation_id = get_correlation_id()
 
     if datasets and correlation_id and sio_client:
@@ -73,7 +72,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
 
     analyses_with_map_image = [
         analysis for analysis in response.result_list if analysis.raster_result_map]
-    
+
     if correlation_id and sio_client:
         sio_client.emit('create_map_images_api', {'recipient': correlation_id})
 
@@ -182,6 +181,18 @@ async def _upload_report(report: bytes, container_name: str) -> str:
     pdf_url = await upload_binary(report, container_name, 'rapport.pdf', 'application/pdf')
 
     return pdf_url
+
+
+async def _get_datasets(data: Dict, municipality_number: str) -> Dict[UUID, bool]:
+    if not DATASETS:
+        return await get_config_ids(data, municipality_number)
+
+    datasets: Dict[UUID, bool] = {}
+
+    for dataset in DATASETS.split(','):
+        datasets[UUID(dataset)] = True
+
+    return datasets
 
 
 def _find_analysis(analyses: List[Analysis], config_id: str) -> Analysis | None:

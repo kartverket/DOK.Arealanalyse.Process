@@ -1,4 +1,5 @@
 import re
+import inspect
 from os import environ
 from typing import List
 from datetime import datetime, timezone
@@ -10,7 +11,8 @@ def get_env_var(var_name) -> str:
     try:
         return environ[var_name]
     except KeyError:
-        raise DokAnalysisException('The environment variable ' + var_name + ' is not set')
+        raise DokAnalysisException(
+            'The environment variable ' + var_name + ' is not set')
 
 
 def from_camel_case(value):
@@ -94,6 +96,14 @@ def evaluate_condition(condition: str, data: dict[str, any]) -> bool:
     raise Exception
 
 
+def dbg(*args, **kwargs) -> None:
+    frame = inspect.stack()[1]
+    filename = frame.filename
+    lineno = frame.lineno
+
+    print(f"{filename}:{lineno} —", *args, **kwargs)
+
+
 def _parse_condition(condition: str) -> str:
     regex = r'(?<!=|>|<)\s*=\s*(?!=)'
     condition = re.sub(regex, ' == ', condition, 0, re.MULTILINE)
@@ -110,7 +120,7 @@ def _replace_all(text: str, replacements: dict) -> str:
 
 __all__ = [
     'background_tasks',
-    'get_env_var', 
+    'get_env_var',
     'from_camel_case',
     'to_camel_case',
     'keys_to_camel_case',
@@ -119,5 +129,6 @@ __all__ = [
     'should_refresh_cache',
     'xpath_select',
     'xpath_select_one',
-    'evaluate_condition'
+    'evaluate_condition',
+    'dbg'
 ]

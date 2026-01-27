@@ -15,7 +15,7 @@ from ..utils.constants import PDF_TEMPLATES_DIR
 logging.getLogger('weasyprint').setLevel(logging.ERROR)
 logging.getLogger('fontTools.subset').setLevel(logging.ERROR)
 logging.getLogger('fontTools.ttLib.ttFont').setLevel(logging.ERROR)
-logging.getLogger('fontTools.varlib.mutator').setLevel(logging.ERROR)
+logging.getLogger('fontTools.varLib').setLevel(logging.ERROR)
 
 
 def create_pdf(analysis_response: AnalysisResponse) -> bytes:

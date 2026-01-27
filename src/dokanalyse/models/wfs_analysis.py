@@ -1,4 +1,3 @@
-from sys import maxsize
 from io import BytesIO
 from typing import List, Dict
 from osgeo import ogr
@@ -12,6 +11,7 @@ from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.common import parse_string, evaluate_condition, xpath_select_one
 from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_gml
+from ..adapters import get_service_url
 from ..adapters.wfs import query_wfs
 
 
@@ -25,7 +25,7 @@ class WfsAnalysis(Analysis):
         guidance_id = first_layer.building_guidance_id if context.lower() == 'byggesak' else first_layer.planning_guidance_id
         guidance_data = await get_guidance_data(guidance_id)
 
-        self._add_run_algorithm(f'query {self.config.wfs}')
+        self._add_run_algorithm(f'query {get_service_url(self.config.wfs)}')
 
         for layer in self.config.layers:
             if layer.filter is not None:
@@ -60,7 +60,7 @@ class WfsAnalysis(Analysis):
                     self.raster_result_map = get_wms_url(
                         self.config.wms, layer.wms)
                     self.cartography = await get_cartography_url(
-                        self.config.wms, layer.wms)
+                        self.config.wms, layer.wms, self.run_on_input_geometry)
                     self.result_status = layer.result_status
                     break
 
@@ -77,7 +77,7 @@ class WfsAnalysis(Analysis):
         _, api_response = await query_wfs(self.config.wfs, layer.wfs, self.config.geom_field, buffered_geom, self.epsg)
 
         if api_response is None:
-            self.distance_to_object = maxsize
+            self.distance_to_object = -1
             return
 
         response = self.__parse_response(api_response, layer)
@@ -92,7 +92,7 @@ class WfsAnalysis(Analysis):
         self._add_run_algorithm('get distance to nearest object')
 
         if len(distances) == 0:
-            self.distance_to_object = maxsize
+            self.distance_to_object = -1
         else:
             self.distance_to_object = distances[0]
 
