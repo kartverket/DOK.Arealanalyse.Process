@@ -1,8 +1,9 @@
 import time
-import logging
 import traceback
 from typing import List, Dict, Tuple, Any
 from uuid import UUID, uuid4
+import structlog
+from structlog.stdlib import BoundLogger
 import asyncio
 from socketio import SimpleClient
 from osgeo import ogr
@@ -17,10 +18,10 @@ from .blob_storage import create_container, upload_binary
 from ..utils.helpers.geometry import create_input_geometry, get_epsg
 from ..models.config import DatasetConfig
 from ..models import Analysis, ArcGisAnalysis, OgcApiAnalysis, WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus
+from ..utils.correlation import get_correlation_id
 from ..utils.constants import DEFAULT_EPSG, BLOB_STORAGE_CONN_STR, DATASETS
-from ..utils.correlation_id_middleware import get_correlation_id
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: BoundLogger = structlog.get_logger(__name__)
 
 
 async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
@@ -79,14 +80,18 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
     container_name = str(uuid4())
 
     if BLOB_STORAGE_CONN_STR:
-        map_images = generate_map_images(analyses_with_map_image, fact_sheet)
+        _LOGGER.info(f'Generating {len(analyses_with_map_image)} map images...')
+        map_images = generate_map_images(analyses_with_map_image, fact_sheet, sio_client)
+        _LOGGER.info(f'Uploading {len(analyses_with_map_image)} map images...')
         await _upload_images(response, map_images, container_name)
 
     if correlation_id and sio_client:
         sio_client.emit('create_report_api', {'recipient': correlation_id})
 
     if BLOB_STORAGE_CONN_STR:
+        _LOGGER.info(f'Creating PDF report...')        
         report = create_pdf(response)
+        _LOGGER.info(f'Uploading PDF report...')
         response.report = await _upload_report(report, container_name)
 
     return response.to_dict()
@@ -115,14 +120,14 @@ async def _run_analysis(config_id: UUID, should_analyze: bool, geometry: ogr.Geo
         await analysis.run(context, include_guidance, include_quality_measurement)
     except Exception:
         err = traceback.format_exc()
-        _LOGGER.error(err)
+        _LOGGER.error('Analysis failed', config_id=str(config_id), dataset=config.name, error=err)
         await analysis.set_default_data()
         analysis.result_status = ResultStatus.ERROR
 
     end = time.time()
 
     # autopep8: off
-    _LOGGER.info(f'Dataset analyzed: {config_id} - {config.name}: {round(end - start, 2)} sec.')
+    _LOGGER.info('Dataset analyzed', config_id=str(config_id), dataset=config.name, duration=round(end - start, 2))
     # autopep8: on
 
     if correlation_id and sio_client:

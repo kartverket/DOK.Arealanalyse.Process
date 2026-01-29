@@ -29,7 +29,7 @@ class ArcGisAnalysis(Analysis):
                 self._add_run_algorithm(f'add filter {layer.filter}')
 
             status_code, api_response = await query_arcgis(
-                self.config.arcgis, layer.arcgis, layer.filter, self.run_on_input_geometry, self.epsg)
+                self.config.arcgis, layer.arcgis, layer.filter, self.run_on_input_geometry, self.epsg, self.config)
 
             if status_code == 408:
                 self.result_status = ResultStatus.TIMEOUT
@@ -67,7 +67,7 @@ class ArcGisAnalysis(Analysis):
             self.geometry, 20000, self.epsg)
         layer = self.config.layers[0]
 
-        _, response = await query_arcgis(self.config.arcgis, layer.arcgis, layer.filter, buffered_geom, self.epsg)
+        _, response = await query_arcgis(self.config.arcgis, layer.arcgis, layer.filter, buffered_geom, self.epsg, self.config)
 
         if response is None:
             self.distance_to_object = -1

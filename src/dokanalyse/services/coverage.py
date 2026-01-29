@@ -1,6 +1,5 @@
-import json
 from io import BytesIO
-from typing import List, Tuple, Dict, Union
+from typing import List, Tuple, Dict, Union, Any
 from lxml import etree as ET
 from osgeo import ogr
 from ..models.config import CoverageService, CoverageGeoJson, CoverageGeoPackage
@@ -70,7 +69,8 @@ async def get_values_from_arcgis(config: CoverageService, geometry: ogr.Geometry
     data: List[Dict] = []
 
     for feature in features:
-        value = feature.get('properties').get(config.property)
+        props: Dict = feature['properties']        
+        value = props.get(config.property)
         values.append(value)
 
         if len(config.properties) > 0:
@@ -102,7 +102,8 @@ async def get_values_from_geojson(config: Union[CoverageGeoJson, CoverageGeoPack
     hit_area_percent = 0
 
     for feature in features:
-        value = feature.get('properties').get(config.property)
+        props: Dict = feature['properties']
+        value = props.get(config.property)
         values.append(value)
 
         if value in ['ikkeKartlagt', 'Ikke kartlagt']:

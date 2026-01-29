@@ -14,7 +14,6 @@ class DatasetConfig(BaseModel):
     wfs: Optional[HttpUrl | FeatureService] = None
     arcgis: Optional[HttpUrl | FeatureService] = None
     ogc_api: Optional[HttpUrl | FeatureService] = None
-    ogc_api_v: Optional[str] = None
     wms: HttpUrl
     layers: List[Layer]
     geom_field: Optional[str] = None

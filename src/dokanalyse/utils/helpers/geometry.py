@@ -5,7 +5,6 @@ from math import pi
 from re import search
 from shapely import wkt
 from shapely.wkt import dumps
-from .common import dbg
 from ..constants import DEFAULT_EPSG, WGS84_EPSG
 
 _EARTH_RADIUS = 6371008.8

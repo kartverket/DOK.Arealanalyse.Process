@@ -1,15 +1,16 @@
-import logging
 import yaml
 from pathlib import Path
-from typing import Dict, List, Tuple
 from uuid import UUID
+from typing import Dict, List, Tuple
+import structlog
+from structlog.stdlib import BoundLogger
 from pydantic import ValidationError
 from cachetools import cached, TTLCache
 from ..models.exceptions import DokAnalysisException
 from ..models.config import DatasetConfig, QualityConfig, QualityIndicator
 from ..utils.helpers.common import get_env_var
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: BoundLogger = structlog.get_logger(__name__)
 
 
 def get_dataset_configs() -> List[DatasetConfig]:
@@ -104,16 +105,16 @@ def _create_dataset_config(data: Dict) -> DatasetConfig:
         config = DatasetConfig(**data)
 
         return config if not config.disabled else None
-    except ValidationError as error:
-        _LOGGER.error(error)
+    except ValidationError as err:
+        _LOGGER.error('Dataset config creation failed', error=str(err))
         return None
 
 
 def _create_quality_config(data: Dict) -> QualityConfig:
     try:
         return QualityConfig(**data)        
-    except ValidationError as error:
-        _LOGGER.error(error)
+    except ValidationError as err:
+        _LOGGER.error('Quality config creation failed', error=str(err))
         return None
 
 

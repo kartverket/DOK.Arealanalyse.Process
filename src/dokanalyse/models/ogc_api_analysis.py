@@ -1,4 +1,3 @@
-import json
 from typing import List, Dict
 from uuid import UUID
 from pydash import get
@@ -8,7 +7,7 @@ from .result_status import ResultStatus
 from .config.dataset_config import DatasetConfig
 from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
-from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_json, transform_geometry
+from ..utils.helpers.geometry import create_buffered_geometry
 from ..adapters import get_service_url
 from ..adapters.ogc_api import query_ogc_api
 
@@ -29,8 +28,8 @@ class OgcApiAnalysis(Analysis):
             if layer.filter is not None:
                 self._add_run_algorithm(f'add filter {layer.filter}')
 
-            status_code, api_response = await query_ogc_api(
-                self.config.ogc_api, self.config.ogc_api_v, layer.ogc_api, self.config.geom_field, self.run_on_input_geometry, layer.filter, self.epsg)
+            status_code, api_response = query_ogc_api(
+                self.config.ogc_api, layer.ogc_api, self.run_on_input_geometry, layer.filter, self.epsg, self.config)
 
             if status_code == 408:
                 self.result_status = ResultStatus.TIMEOUT
@@ -72,7 +71,7 @@ class OgcApiAnalysis(Analysis):
             self.geometry, 20000, self.epsg)
         layer = self.config.layers[0]
 
-        _, response = await query_ogc_api(self.config.ogc_api, self.config.ogc_api_v, layer.ogc_api, self.config.geom_field, buffered_geom, layer.filter, self.epsg)
+        _, response = query_ogc_api(self.config.ogc_api, layer.ogc_api, buffered_geom, layer.filter, self.epsg, self.config)
 
         if response is None:
             self.distance_to_object = -1
@@ -81,9 +80,9 @@ class OgcApiAnalysis(Analysis):
         distances = []
 
         for feature in response['features']:
-            feature_geom = self.__get_geometry_from_response(feature)
+            feature_geom: ogr.Geometry = feature['geometry']
 
-            if feature_geom is not None:
+            if feature_geom:
                 distance = round(
                     self.run_on_input_geometry.Distance(feature_geom))
                 distances.append(distance)
@@ -105,8 +104,7 @@ class OgcApiAnalysis(Analysis):
         for feature in ogc_api_response['features']:
             data['properties'].append(self.__map_properties(
                 feature, self.config.properties))
-            data['geometries'].append(
-                self.__get_geometry_from_response(feature))
+            data['geometries'].append(feature['geometry'])
 
         return data
 
@@ -114,14 +112,7 @@ class OgcApiAnalysis(Analysis):
         props = {}
 
         for mapping in mappings:
-            key = mapping.split('.')[-1]
             value = get(feature['properties'], mapping, None)
-            props[key] = value
+            props[mapping] = value
 
         return props
-
-    def __get_geometry_from_response(self, feature: Dict) -> ogr.Geometry:
-        json_str = json.dumps(feature['geometry'])
-        geometry = geometry_from_json(json_str)
-
-        return transform_geometry(geometry, 4326, 25833)

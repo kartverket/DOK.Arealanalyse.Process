@@ -1,9 +1,10 @@
-import logging
+import structlog
+from structlog.stdlib import BoundLogger
 from azure.storage.blob.aio import BlobServiceClient
 from azure.storage.blob import PublicAccess, ContentSettings
 from ..utils.constants import BLOB_STORAGE_CONN_STR
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: BoundLogger = structlog.get_logger(__name__)
 
 
 async def create_container(container_name: str) -> str:
@@ -34,8 +35,8 @@ async def upload_binary(binary: bytes, container_name: str, blob_name: str, cont
         blob_client = await container_client.upload_blob(blob_name, binary, content_settings=content_settings)
 
         return blob_client.url
-    except Exception as error:
-        _LOGGER.error(error)
+    except Exception as err:
+        _LOGGER.error('Binary upload failed', error=str(err))
         return None
     finally:
         if blob_client:

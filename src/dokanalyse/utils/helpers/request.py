@@ -1,9 +1,10 @@
-import logging
 from os import path
 import json
+import structlog
+from structlog.stdlib import BoundLogger
 from jsonschema import validate
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER: BoundLogger = structlog.get_logger(__name__)
 
 _FILENAME = 'resources/no.geonorge.dokanalyse.v1.input.schema.json'
 _DIR_PATH = path.dirname(path.realpath(__file__))
@@ -17,8 +18,8 @@ def request_is_valid(data) -> bool:
     try:
         validate(instance=data, schema=schema)
         return True
-    except Exception as error:
-        _LOGGER.error(str(error))
+    except Exception as err:
+        _LOGGER.error('Invalid request', error=str(err))
         return False
 
 

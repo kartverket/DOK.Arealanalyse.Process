@@ -3,6 +3,8 @@ from .coverage_gpkg import CoverageGeoPackage
 from .coverage_service import CoverageService
 from .coverage_base_service import CoverageBaseService
 from .dataset_config import DatasetConfig
+from .feature_service import FeatureService
+from .auth import Auth
 from .layer import Layer
 from .quality_config import QualityConfig
 from .quality_indicator import QualityIndicator

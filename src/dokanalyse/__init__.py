@@ -6,6 +6,7 @@ from .services import analyses
 from .utils.helpers.request import request_is_valid
 from .utils.socket_io import get_client
 from .utils import logger
+from .utils.correlation import set_correlation_id, clear_correlation_id
 
 logger.setup()
 
@@ -180,6 +181,7 @@ class DokanalyseProcessor(BaseProcessor):
         super().__init__(processor_def, PROCESS_METADATA)
 
     def execute(self, data: Dict, outputs=None) -> Tuple[str, Dict | None]:
+        set_correlation_id()
         mimetype = 'application/json'
 
         if not request_is_valid(data):
@@ -190,6 +192,8 @@ class DokanalyseProcessor(BaseProcessor):
         try:
             outputs = asyncio.run(analyses.run(data, sio_client))
         finally:
+            clear_correlation_id()
+            
             if sio_client:
                 sio_client.disconnect()
 

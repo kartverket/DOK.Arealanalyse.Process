@@ -1,4 +1,3 @@
-import logging
 import time
 import os
 import hashlib
@@ -9,12 +8,15 @@ from typing import List, Dict, Tuple
 from pebble import ProcessPool
 from concurrent.futures import TimeoutError, as_completed
 import multiprocessing as mp
+import structlog
+from structlog.stdlib import BoundLogger
 from osgeo import ogr, osr
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.image import AxesImage
+from owslib.wms import WebMapService
 import cartopy.crs as ccrs
 import cartopy.io.ogc_clients as ogcc
 from cartopy.mpl.geoaxes import GeoAxes
@@ -22,18 +24,19 @@ import contextily as ctx
 from shapely import box, Polygon
 from PIL import Image
 from PIL.ImageFile import ImageFile
+from socketio import SimpleClient
 from ..models.analysis import Analysis
 from ..models.fact_sheet import FactSheet
+from ..utils.correlation import get_correlation_id
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR
-import traceback
 
 ogcc.METERS_PER_UNIT['EPSG:3857'] = 1
 ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR
 
-_LOGGER = logging.getLogger(__name__)
-_DPI = 100
+_LOGGER: BoundLogger = structlog.get_logger(__name__)
 _TIMEOUT_SECONDS = 120
+_DPI = 100
 
 _BASEMAP_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/{layer_name}/default/webmercator/{{z}}/{{y}}/{{x}}.png'
 _BASEMAPS_CACHE_DIR = f'{CACHE_DIR}/basemaps'
@@ -43,7 +46,7 @@ if not os.path.exists(_BASEMAPS_CACHE_DIR):
     os.makedirs(_BASEMAPS_CACHE_DIR)
 
 
-def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None) -> List[Tuple[str, str, bytes | None]]:
+def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None, sio_client: SimpleClient | None) -> List[Tuple[str, str, bytes | None]]:
     start = time.time()
 
     params: List[Dict] = []
@@ -55,7 +58,7 @@ def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None) 
     _generate_basemaps(params)
 
     results: List[Tuple[str, bytes | None]] = []
-    context = mp.get_context('spawn') 
+    context = mp.get_context('spawn')
 
     with ProcessPool(max_workers=os.cpu_count(), context=context) as pool:
         futures = [pool.submit(
@@ -64,19 +67,21 @@ def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None) 
         for future in as_completed(futures):
             try:
                 results.append(future.result())
-            except TimeoutError as error:
-                _LOGGER.error('Map image generation timed out')
-            except Exception as error:
-                _LOGGER.error('Map image generation failed: %s' % error)
+            except TimeoutError as err:
+                _LOGGER.error('Map image generation timed out', error=str(err))
+            except Exception as err:
+                _LOGGER.error('Map image generation failed', error=str(err))
 
     # autopep8: off
-    _LOGGER.info(f'Generated {len(results)} map images in {round(time.time() - start, 2)} sec.')
+    _LOGGER.info('Generated map images', count=len(results), duration=round(time.time() - start, 2))
     # autopep8: on
 
     return results
 
 
 def _generate_basemaps(params: List[Dict]) -> None:
+    _LOGGER.info('Generating basemaps for map images...')
+
     basemap_params: Dict[str, Dict] = {}
 
     for params_dict in params:
@@ -89,7 +94,7 @@ def _generate_basemaps(params: List[Dict]) -> None:
         return
 
     results: List[Tuple[str, bytes | None]] = []
-    context = mp.get_context('spawn') 
+    context = mp.get_context('spawn')
 
     with ProcessPool(max_workers=os.cpu_count(), context=context) as pool:
         futures = [pool.submit(
@@ -98,10 +103,10 @@ def _generate_basemaps(params: List[Dict]) -> None:
         for future in as_completed(futures):
             try:
                 results.append(future.result())
-            except TimeoutError as error:
-                _LOGGER.error('Basemap generation timed out')
-            except Exception as error:
-                _LOGGER.error('Basemap generation failed: %s' % error)
+            except TimeoutError as err:
+                _LOGGER.error('Basemap generation timed out', error=str(err))
+            except Exception as err:
+                _LOGGER.error('Basemap generation failed', error=str(err))
 
     for hash_str, img_bytes in results:
         if not img_bytes:
@@ -117,6 +122,8 @@ def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
     id: str = kwargs['id']
     name: str = kwargs['name']
     wkt_str: str = kwargs['geometry']
+
+    _LOGGER.info('Generating map image', config_id=id, dataset=name)
 
     gdf = gpd.GeoSeries.from_wkt([wkt_str])
     crs_epsg = ccrs.epsg('3857')
@@ -202,9 +209,7 @@ def _generate_basemap(**kwargs) -> Tuple[str, bytes | None]:
 
     try:
         _add_basemap(ax, use_wmts, grayscale)
-    except Exception as err:
-        err2 = traceback.format_exc()
-        _LOGGER.error(err2)
+    except:
         return kwargs['hash'], image_bytes
 
     image_bytes = _convert_to_bytes(fig)
@@ -283,7 +288,8 @@ def _add_basemap(ax: GeoAxes, use_wmts: bool, grayscale: bool) -> None:
 
 
 def _add_wms(ax: GeoAxes, url: str, layers: List[str]) -> AxesImage:
-    return ax.add_wms(wms=url, layers=layers)
+    wms = WebMapService(url, '1.3.0')
+    return ax.add_wms(wms=wms, layers=layers)
 
 
 def _extend_bbox_to_aspect_ratio(bounds: Tuple[float, float, float, float], target_aspect_ratio: float) -> Polygon:

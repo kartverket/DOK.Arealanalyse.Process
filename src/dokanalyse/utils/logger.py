@@ -1,15 +1,12 @@
 import sys
+import json
 import logging
+import structlog
 from os import path, makedirs
+from functools import partial
 from logging.handlers import TimedRotatingFileHandler
-from .constants import APP_FILES_DIR
-from .correlation_id_middleware import get_correlation_id
-
-
-class CorrelationIdFilter(logging.Filter):
-    def filter(self, record):
-        record.correlation_id = get_correlation_id() or '-'
-        return True
+from typing import Literal
+from .constants import APP_FILES_DIR, LOG_LEVEL
 
 
 def setup() -> None:
@@ -20,25 +17,62 @@ def setup() -> None:
         makedirs(dirname)
 
     log_format = \
-        '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - [ID: %(correlation_id)s] - %(message)s'
+        '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s'
 
     file_handler = TimedRotatingFileHandler(
         filename, when='midnight', backupCount=30)
 
-    file_handler.addFilter(CorrelationIdFilter())
     file_handler.setFormatter(logging.Formatter(log_format))
     file_handler.namer = lambda name: name.replace('.log', '') + '.log'
 
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(logging.Formatter(log_format))
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(_get_log_level())
 
-    logging.root.setLevel(logging.INFO)
+    logging.root.setLevel(_get_log_level())
     logging.root.addHandler(file_handler)
     logging.root.addHandler(console_handler)
 
     logger = logging.getLogger('azure')
     logger.setLevel(logging.WARNING)
+
+    processor_chain = [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt='iso'),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.processors.JSONRenderer(
+            serializer=partial(json.dumps, ensure_ascii=False)
+        )
+    ]
+
+    structlog.configure(
+        processors=processor_chain,
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+
+def _get_log_level() -> Literal[10, 20, 30, 40, 50]:
+    match LOG_LEVEL:
+        case 'DEBUG':
+            return logging.DEBUG
+        case 'INFO':
+            return logging.INFO
+        case 'WARNING':
+            return logging.WARNING
+        case 'ERROR':
+            return logging.ERROR
+        case 'FATAL':
+            return logging.FATAL
+        case _:
+            return logging.INFO
 
 
 __all__ = ['setup']

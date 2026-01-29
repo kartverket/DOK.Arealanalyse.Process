@@ -32,7 +32,7 @@ class WfsAnalysis(Analysis):
                 self._add_run_algorithm(f'add filter {layer.filter}')
 
             status_code, api_response = await query_wfs(
-                self.config.wfs, layer.wfs, self.config.geom_field, self.run_on_input_geometry, self.epsg)
+                self.config.wfs, layer.wfs, self.config.geom_field, self.run_on_input_geometry, self.epsg, self.config)
 
             if status_code == 408:
                 self.result_status = ResultStatus.TIMEOUT
@@ -74,7 +74,7 @@ class WfsAnalysis(Analysis):
             self.geometry, 20000, self.epsg)
         layer = self.config.layers[0]
 
-        _, api_response = await query_wfs(self.config.wfs, layer.wfs, self.config.geom_field, buffered_geom, self.epsg)
+        _, api_response = await query_wfs(self.config.wfs, layer.wfs, self.config.geom_field, buffered_geom, self.epsg, self.config)
 
         if api_response is None:
             self.distance_to_object = -1
