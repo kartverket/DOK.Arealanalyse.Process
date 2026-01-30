@@ -20,6 +20,7 @@ from owslib.wms import WebMapService
 import cartopy.crs as ccrs
 import cartopy.io.ogc_clients as ogcc
 from cartopy.mpl.geoaxes import GeoAxes
+from cartopy.mpl.slippy_image_artist import SlippyImageArtist
 import contextily as ctx
 from shapely import box, Polygon
 from PIL import Image
@@ -27,7 +28,7 @@ from PIL.ImageFile import ImageFile
 from socketio import SimpleClient
 from ..models.analysis import Analysis
 from ..models.fact_sheet import FactSheet
-from ..utils.correlation import get_correlation_id
+from ..models.analysis_state import AnalysisState, AnalysisStatus
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR
 
@@ -39,6 +40,7 @@ _TIMEOUT_SECONDS = 120
 _DPI = 100
 
 _BASEMAP_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/{layer_name}/default/webmercator/{{z}}/{{y}}/{{x}}.png'
+_WMTS_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml?request=GetCapabilities'
 _BASEMAPS_CACHE_DIR = f'{CACHE_DIR}/basemaps'
 _BASEMAPS_CACHE_DAYS = 30
 
@@ -46,7 +48,11 @@ if not os.path.exists(_BASEMAPS_CACHE_DIR):
     os.makedirs(_BASEMAPS_CACHE_DIR)
 
 
-def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None, sio_client: SimpleClient | None) -> List[Tuple[str, str, bytes | None]]:
+def generate_map_images(
+        analyses: List[Analysis],
+        fact_sheet: FactSheet | None,
+        state: AnalysisState,
+) -> List[Tuple[str, str, bytes | None]]:
     start = time.time()
 
     params: List[Dict] = []
@@ -55,9 +61,16 @@ def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None, 
     if fact_sheet:
         params.append(_get_params_for_fact_sheet(fact_sheet))
 
-    _generate_basemaps(params)
+    state.set_status(AnalysisStatus.CREATING_MAP_IMAGES)
+    state.map_images_total = len(params)
+    state.send_message()
 
-    results: List[Tuple[str, bytes | None]] = []
+    if not params:
+        return []
+    
+    # _generate_basemaps(params)
+
+    results: List[Tuple[str, str, bytes | None]] = []
     context = mp.get_context('spawn')
 
     with ProcessPool(max_workers=os.cpu_count(), context=context) as pool:
@@ -71,6 +84,9 @@ def generate_map_images(analyses: List[Analysis], fact_sheet: FactSheet | None, 
                 _LOGGER.error('Map image generation timed out', error=str(err))
             except Exception as err:
                 _LOGGER.error('Map image generation failed', error=str(err))
+            finally:
+                state.set_status(AnalysisStatus.MAP_IMAGE_CREATED)
+                state.send_message()
 
     # autopep8: off
     _LOGGER.info('Generated map images', count=len(results), duration=round(time.time() - start, 2))
@@ -122,6 +138,7 @@ def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
     id: str = kwargs['id']
     name: str = kwargs['name']
     wkt_str: str = kwargs['geometry']
+    grayscale: bool = kwargs.get('grayscale', False)
 
     _LOGGER.info('Generating map image', config_id=id, dataset=name)
 
@@ -136,6 +153,8 @@ def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
         'projection': crs_epsg})
 
     ax.axis('off')
+
+    _add_wmts(ax, grayscale)
 
     gdf.plot(ax=ax, edgecolor='#d33333',
              facecolor='none', linewidth=3)
@@ -285,6 +304,13 @@ def _add_basemap(ax: GeoAxes, use_wmts: bool, grayscale: bool) -> None:
     else:
         basemap_src = ctx.providers.CartoDB.Positron if grayscale else ctx.providers.OpenStreetMap.Mapnik
         ctx.add_basemap(ax, source=basemap_src)
+
+
+def _add_wmts(ax: GeoAxes, grayscale: bool) -> SlippyImageArtist:
+    layer_name = 'topograatone' if grayscale else 'topo'
+    cache_dir = f'{_BASEMAPS_CACHE_DIR}/{layer_name}'
+
+    return ax.add_wmts(_WMTS_URL, layer_name, cache=cache_dir)
 
 
 def _add_wms(ax: GeoAxes, url: str, layers: List[str]) -> AxesImage:

@@ -31,7 +31,7 @@ def setup() -> None:
 
     logging.root.setLevel(_get_log_level())
     logging.root.addHandler(file_handler)
-    logging.root.addHandler(console_handler)
+    # logging.root.addHandler(console_handler)
 
     logger = logging.getLogger('azure')
     logger.setLevel(logging.WARNING)

@@ -16,6 +16,7 @@ from .map_image import generate_map_images
 from .report import create_pdf
 from .blob_storage import create_container, upload_binary
 from ..utils.helpers.geometry import create_input_geometry, get_epsg
+from ..models.analysis_state import AnalysisState, AnalysisStatus
 from ..models.config import DatasetConfig
 from ..models import Analysis, ArcGisAnalysis, OgcApiAnalysis, WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus
 from ..utils.correlation import get_correlation_id
@@ -38,28 +39,29 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
     datasets = await _get_datasets(data, municipality_number)
     correlation_id = get_correlation_id()
 
-    if datasets and correlation_id and sio_client:
-        to_analyze = {key: value for (
-            key, value) in datasets.items() if value == True}
-        sio_client.emit('datasets_counted_api', {'count': len(
-            to_analyze), 'recipient': correlation_id})
+    state = AnalysisState(correlation_id, sio_client)
+    state.steps_total = 4 if include_facts else 3
+    state.analyses_total = len({key: value for (key, value)
+                                in datasets.items() if value == True})
 
+    if datasets:
+        state.send_message()
+
+    state.set_status(AnalysisStatus.ANALYZING_DATASETS)
     tasks: List[asyncio.Task] = []
 
     async with asyncio.TaskGroup() as tg:
         for config_id, should_analyze in datasets.items():
             task = tg.create_task(_run_analysis(
                 config_id, should_analyze, geometry, DEFAULT_EPSG, orig_epsg, buffer,
-                context, include_guidance, include_quality_measurement, sio_client))
+                context, include_guidance, include_quality_measurement, state))
             tasks.append(task)
 
     fact_sheet = None
 
     if include_facts:
-        if correlation_id and sio_client:
-            sio_client.emit('create_fact_sheet_api', {
-                            'recipient': correlation_id})
-
+        state.set_status(AnalysisStatus.CREATING_FACT_SHEET)
+        state.send_message()
         fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer)
 
     response = AnalysisResponse.create(
@@ -74,31 +76,35 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
     analyses_with_map_image = [
         analysis for analysis in response.result_list if analysis.raster_result_map]
 
-    if correlation_id and sio_client:
-        sio_client.emit('create_map_images_api', {'recipient': correlation_id})
-
     container_name = str(uuid4())
 
     if BLOB_STORAGE_CONN_STR:
-        _LOGGER.info(f'Generating {len(analyses_with_map_image)} map images...')
-        map_images = generate_map_images(analyses_with_map_image, fact_sheet, sio_client)
-        _LOGGER.info(f'Uploading {len(analyses_with_map_image)} map images...')
+        map_images = generate_map_images(
+            analyses_with_map_image, fact_sheet, state)
         await _upload_images(response, map_images, container_name)
 
-    if correlation_id and sio_client:
-        sio_client.emit('create_report_api', {'recipient': correlation_id})
+    state.set_status(AnalysisStatus.CREATING_REPORT)
+    state.send_message()
 
     if BLOB_STORAGE_CONN_STR:
-        _LOGGER.info(f'Creating PDF report...')        
         report = create_pdf(response)
-        _LOGGER.info(f'Uploading PDF report...')
         response.report = await _upload_report(report, container_name)
 
     return response.to_dict()
 
 
-async def _run_analysis(config_id: UUID, should_analyze: bool, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int,
-                        context: str, include_guidance: bool, include_quality_measurement: bool, sio_client: SimpleClient) -> Analysis | None:
+async def _run_analysis(
+    config_id: UUID,
+    should_analyze: bool,
+    geometry: ogr.Geometry,
+    epsg: int,
+    orig_epsg: int,
+    buffer: int,
+    context: str,
+    include_guidance: bool,
+    include_quality_measurement: bool,
+    state: AnalysisState
+) -> Analysis | None:
     config = get_dataset_config(config_id)
 
     if config is None:
@@ -111,7 +117,6 @@ async def _run_analysis(config_id: UUID, should_analyze: bool, geometry: ogr.Geo
         return analysis
 
     start = time.time()
-    correlation_id = get_correlation_id()
 
     analysis = _create_analysis(
         config_id, config, geometry, epsg, orig_epsg, buffer)
@@ -120,7 +125,8 @@ async def _run_analysis(config_id: UUID, should_analyze: bool, geometry: ogr.Geo
         await analysis.run(context, include_guidance, include_quality_measurement)
     except Exception:
         err = traceback.format_exc()
-        _LOGGER.error('Analysis failed', config_id=str(config_id), dataset=config.name, error=err)
+        _LOGGER.error('Analysis failed', config_id=str(
+            config_id), dataset=config.name, error=err)
         await analysis.set_default_data()
         analysis.result_status = ResultStatus.ERROR
 
@@ -130,9 +136,8 @@ async def _run_analysis(config_id: UUID, should_analyze: bool, geometry: ogr.Geo
     _LOGGER.info('Dataset analyzed', config_id=str(config_id), dataset=config.name, duration=round(end - start, 2))
     # autopep8: on
 
-    if correlation_id and sio_client:
-        sio_client.emit('dataset_analyzed_api', {
-            'dataset': str(config_id), 'recipient': correlation_id})
+    state.set_status(AnalysisStatus.DATASET_ANALYZED)
+    state.send_message()
 
     return analysis
 
