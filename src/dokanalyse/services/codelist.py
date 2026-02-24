@@ -2,7 +2,7 @@ from os import path
 from pathlib import Path
 import json
 from typing import List, Dict
-import aiohttp
+from ..utils.event_loop_manager import get_session, get_semaphore
 from ..utils.constants import CACHE_DIR
 from ..utils.helpers.common import should_refresh_cache
 
@@ -66,8 +66,8 @@ async def _get_codelist(url: str) -> List[Dict]:
 
 async def _fetch_codelist(url: str) -> Dict:
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
+        async with get_semaphore():
+            async with get_session().get(url) as response:
                 if response.status != 200:
                     return None
 

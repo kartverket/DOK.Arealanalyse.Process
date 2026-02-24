@@ -104,7 +104,7 @@ class Analysis(ABC):
         self.run_on_dataset = await get_kartkatalog_metadata(self.config.metadata_id)
 
     async def __run_coverage_analysis(self, context: str) -> None:
-        quality_indicators = get_quality_indicator_configs(self.config_id)
+        quality_indicators = await get_quality_indicator_configs(self.config_id)
         ci = get_coverage_indicator(quality_indicators)
 
         if not ci:
@@ -187,7 +187,7 @@ class Analysis(ABC):
             self.possible_actions.append(line.lstrip('- '))
 
     async def __set_quality_measurements(self, context: str) -> None:
-        quality_indicators = get_quality_indicator_configs(self.config_id)
+        quality_indicators = await get_quality_indicator_configs(self.config_id)
 
         if len(quality_indicators) == 0:
             return

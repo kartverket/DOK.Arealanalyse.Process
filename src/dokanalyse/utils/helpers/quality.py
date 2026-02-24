@@ -1,7 +1,6 @@
 import os
 from urllib.parse import urlparse
 from typing import Dict, List
-from pydantic import FileUrl
 from ...models.config import QualityIndicator, QualityIndicatorType, CoverageBaseService, CoverageService, CoverageGeoJson, CoverageGeoPackage
 from ...models.exceptions import DokAnalysisException
 

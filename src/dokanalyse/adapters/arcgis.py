@@ -2,11 +2,11 @@ from typing import Tuple, Dict
 import asyncio
 from pydantic import HttpUrl
 from osgeo import ogr
-from . import log_http_error, get_service_credentials, get_http_session
+from . import log_http_error, get_service_credentials, get_auth
 from ..models.config import DatasetConfig, FeatureService, Auth
 from ..models.config.auth import Auth
+from ..utils.event_loop_manager import get_session, get_semaphore
 from ..utils.helpers.geometry import geometry_to_arcgis_geom
-from ..utils.constants import QUERY_TIMEOUT
 
 _RESOURCE = 'ArcGIS REST API'
 
@@ -40,9 +40,11 @@ async def query_arcgis(
 
 
 async def _query_arcgis(url: str, auth: Auth, data: Dict, dataset_config: DatasetConfig | None) -> Tuple[int, Dict]:
+    auth_params = get_auth(auth)
+
     try:
-        async with get_http_session(auth) as session:
-            async with session.post(url, data=data, timeout=QUERY_TIMEOUT) as response:
+        async with get_semaphore():
+            async with get_session().post(url, data=data, **auth_params) as response:        
                 if response.status != 200:
                     log_http_error(
                         _RESOURCE, url, response.status, dataset=dataset_config)

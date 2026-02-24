@@ -2,8 +2,8 @@ from os import path
 from uuid import UUID
 from typing import Dict
 import json
-import aiohttp
 from async_lru import alru_cache
+from ..utils.event_loop_manager import get_session, get_semaphore
 
 _GEOLETT_API_URL = 'https://register.geonorge.no/geolett/api'
 _LOCAL_GEOLETT_IDS = ['0c5dc043-e5b3-4349-8587-9b464d013aaa']
@@ -27,8 +27,8 @@ async def get_guidance_data(id: UUID) -> Dict:
 @alru_cache(maxsize=32, ttl=_CACHE_TTL)
 async def _fetch_guidance_data() -> Dict:
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(_GEOLETT_API_URL) as response:
+        async with get_semaphore():
+            async with get_session().get(_GEOLETT_API_URL) as response:
                 if response.status != 200:
                     return None
 

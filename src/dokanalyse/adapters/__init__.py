@@ -1,13 +1,14 @@
 import re
 from os import getenv
 from http import HTTPStatus
-from typing import Tuple
+from typing import Any, Dict, Tuple
 import aiohttp
 import structlog
 from structlog.stdlib import BoundLogger
 from pydantic import HttpUrl
 from ..models.config.auth import Auth, ApiKey, Basic
 from ..models.config import DatasetConfig, FeatureService
+from ..utils.event_loop_manager import get_session, get_semaphore
 
 _LOGGER: BoundLogger = structlog.get_logger(__name__)
 _CREDENTIAL_REGEX = r"^\$\{(?P<env_var>.*?)\}$"
@@ -31,7 +32,7 @@ def log_http_error(resource: str, url: str, status_code: int, **kwargs) -> None:
     dataset: DatasetConfig = kwargs.pop('dataset', None)
     err: Exception = kwargs.pop('err', None)
     extra_params = {}
-    
+
     if err:
         extra_params['error'] = str(err)
 
@@ -51,11 +52,11 @@ def get_service_credentials(service: str | HttpUrl | FeatureService) -> Tuple[st
 
     if isinstance(service, HttpUrl):
         return str(service), None
-   
+
     return str(service.url), service.auth
 
 
-def get_http_session(auth: Auth) -> aiohttp.ClientSession:
+def get_auth(auth: Auth) -> Dict[str, Any]:
     headers = {}
     basic_auth: aiohttp.BasicAuth = None
 
@@ -65,7 +66,10 @@ def get_http_session(auth: Auth) -> aiohttp.ClientSession:
         basic_auth = aiohttp.BasicAuth(get_credential(
             auth.username), get_credential(auth.password))
 
-    return aiohttp.ClientSession(headers=headers, auth=basic_auth)
+    return {
+        'auth': basic_auth,
+        'headers': headers
+    }
 
 
 def get_service_url(service: HttpUrl | FeatureService) -> str:
@@ -86,4 +90,4 @@ def get_credential(credential: str) -> str:
 
 
 __all__ = ['log_error_response', 'get_service_credentials',
-           'get_http_session', 'get_service_url', 'get_credentials']
+           'get_auth', 'get_service_url', 'get_credentials']

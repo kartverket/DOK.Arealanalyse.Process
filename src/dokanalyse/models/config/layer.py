@@ -1,5 +1,5 @@
 from pydantic import BaseModel, model_validator, field_validator
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Callable
 from ..result_status import ResultStatus
 import uuid
 
@@ -10,9 +10,14 @@ class Layer(BaseModel):
     ogc_api: Optional[str] = None
     wms: List[str]
     filter: Optional[str] = None
+    filter_func: Optional[Callable] = None
     result_status: ResultStatus
     planning_guidance_id: Optional[uuid.UUID] = None
     building_guidance_id: Optional[uuid.UUID] = None
+
+    model_config = {
+        'extra': 'ignore'
+    }
 
     @field_validator('result_status')
     @classmethod

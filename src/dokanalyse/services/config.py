@@ -1,26 +1,34 @@
+import json
 import yaml
 from pathlib import Path
-from uuid import UUID
-from typing import Dict, List, Tuple
+from uuid import UUID, uuid4
+from async_lru import alru_cache
+from typing import Dict, List, Tuple, Any
 import structlog
 from structlog.stdlib import BoundLogger
-from pydantic import ValidationError
-from cachetools import cached, TTLCache
+from pydantic import ValidationError, HttpUrl
+from pygeofilter.parsers.cql2_text import parse
+from pygeofilter.backends.native.evaluate import NativeEvaluator
+from .dok_status import get_dok_status
 from ..models.exceptions import DokAnalysisException
-from ..models.config import DatasetConfig, QualityConfig, QualityIndicator
-from ..utils.helpers.common import get_env_var
+from ..models.config import DatasetConfig, QualityConfig, QualityIndicator, Layer, FeatureService
+from ..utils.helpers.common import get_env_var, should_refresh_cache
+from ..utils.constants import CACHE_DIR
+from .xml_schema import compile_xml_schema
+import asyncio
 
 _LOGGER: BoundLogger = structlog.get_logger(__name__)
+_NOT_IMPLEMENTED_DATASETS_CACHE_DAYS = 2
 
 
-def get_dataset_configs() -> List[DatasetConfig]:
-    dataset_configs, _ = _load_config()
+async def get_dataset_configs() -> List[DatasetConfig]:
+    dataset_configs, _ = await _load_configs()
 
     return dataset_configs
 
 
-def get_dataset_config(config_id: UUID) -> DatasetConfig:
-    dataset_configs, _ = _load_config()
+async def get_dataset_config(config_id: UUID) -> DatasetConfig:
+    dataset_configs, _ = await _load_configs()
 
     config = next(
         (conf for conf in dataset_configs if conf.config_id == config_id), None)
@@ -28,8 +36,8 @@ def get_dataset_config(config_id: UUID) -> DatasetConfig:
     return config
 
 
-def get_quality_indicator_configs(config_id: UUID) -> List[QualityIndicator]:
-    _, quality_configs = _load_config()
+async def get_quality_indicator_configs(config_id: UUID) -> List[QualityIndicator]:
+    _, quality_configs = await _load_configs()
     indicators: List[QualityIndicator] = []
 
     for config in quality_configs:
@@ -43,55 +51,46 @@ def get_quality_indicator_configs(config_id: UUID) -> List[QualityIndicator]:
     return indicators
 
 
-@cached(cache=TTLCache(maxsize=1024, ttl=120))
-def _load_config() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
-    config_dir = get_env_var('DOKANALYSE_CONFIG_DIR')
+async def get_not_implemented_dataset_configs() -> List[DatasetConfig]:
+    dataset_configs, _ = await _load_configs()
+    metadata_ids = [str(config.metadata_id)
+                    for config in dataset_configs if config.metadata_id is not None]
+    datasets = await _get_not_implemented_datasets(metadata_ids)
+    configs: List[DatasetConfig] = []
+
+    for dataset in datasets:
+        configs.append(_create_dataset_config(dataset))
+
+    return configs
+
+
+async def _load_configs() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
+    config_dir = get_env_var('DOKANALYSE_DATASETS_CONFIG_DIR')
 
     if config_dir is None:
         raise DokAnalysisException(
-            'The environment variable "DOKANALYSE_CONFIG_DIR" is not set')
+            'The environment variable "DOKANALYSE_DATASETS_CONFIG_DIR" is not set')
 
     path = Path(config_dir)
 
     if not path.is_dir():
         raise DokAnalysisException(
-            f'The "DOKANALYSE_CONFIG_DIR" path ({path}) is not a directory')
+            f'The "DOKANALYSE_DATASETS_CONFIG_DIR" path ({path}) is not a directory')
 
     glob = path.glob('*.yml')
-    files = [path for path in glob if path.is_file()]
+    paths = [path for path in glob if path.is_file()]
 
-    if len(files) == 0:
-        raise DokAnalysisException(
-            f'The "DOKANALYSE_CONFIG_DIR" path ({path}) contains no YAML files')
-
-    return _create_configs(files)
-
-
-def _create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[QualityConfig]]:
     dataset_configs: List[DatasetConfig] = []
     quality_configs: List[QualityConfig] = []
 
-    for file_path in files:
-        with open(file_path, 'r') as file:
-            results = yaml.safe_load_all(file)
-            result: Dict
-            
-            for result in results:
-                if not result or result.get('disabled'):
-                    continue
-                
-                type = result.get('type')
+    for path in paths:
+        dataset_config, quality_config = await _load_config(path)
 
-                if type == 'dataset':
-                    config = _create_dataset_config(result)
+        if dataset_config:
+            dataset_configs.append(dataset_config)
 
-                    if config is not None:
-                        dataset_configs.append(config)
-                elif type == 'quality':
-                    config = _create_quality_config(result)
-
-                    if config is not None:
-                        quality_configs.append(config)
+        if quality_config:
+            quality_configs.append(quality_config)        
 
     if len(dataset_configs) == 0:
         raise DokAnalysisException(
@@ -100,9 +99,47 @@ def _create_configs(files: List[Path]) -> Tuple[List[DatasetConfig], List[Qualit
     return dataset_configs, quality_configs
 
 
-def _create_dataset_config(data: Dict) -> DatasetConfig:
+async def _load_config(path: Path) -> Tuple[DatasetConfig | None, QualityConfig | None]:
+    mtime_ns, size = _get_fingerprint(path)
+
+    return await _load_cached_config(str(path.resolve()), mtime_ns, size)
+
+
+@alru_cache(maxsize=4096)
+async def _load_cached_config(path_str: str, mtime_ns: int, size: int) -> Tuple[DatasetConfig | None, QualityConfig | None]:
+    path = Path(path_str)
+    results = yaml.safe_load_all(path.read_text(encoding='utf-8'))
+    result: Dict[str, Any]
+    dataset_config = None
+    quality_config = None
+
+    for result in results:
+        if not result or result.get('disabled'):
+            continue
+
+        type = result.get('type')
+
+        if type == 'dataset':
+            config = await _create_dataset_config(result)
+
+            if config is not None:
+                dataset_config = config
+        elif type == 'quality':
+            config = _create_quality_config(result)
+
+            if config is not None:
+                quality_config = config
+
+    return dataset_config, quality_config
+
+
+async def _create_dataset_config(data: Dict) -> DatasetConfig:
     try:
         config = DatasetConfig(**data)
+
+        if config.wfs:
+            _compile_wfs_filters(config.layers)
+            await _compile_wfs_xml_schema(config)
 
         return config if not config.disabled else None
     except ValidationError as err:
@@ -112,14 +149,72 @@ def _create_dataset_config(data: Dict) -> DatasetConfig:
 
 def _create_quality_config(data: Dict) -> QualityConfig:
     try:
-        return QualityConfig(**data)        
+        return QualityConfig(**data)
     except ValidationError as err:
         _LOGGER.error('Quality config creation failed', error=str(err))
         return None
 
 
+def _compile_wfs_filters(layers: List[Layer]) -> None:
+    for layer in layers:
+        if layer.filter:
+            ast: Any = parse(layer.filter)
+            layer.filter_func = NativeEvaluator(
+                use_getattr=False).evaluate(ast)
+
+
+async def _compile_wfs_xml_schema(config: DatasetConfig) -> None:
+    wfs_url = config.get_feature_service_url()
+    url = f'{wfs_url}?service=WFS&version=2.0.0&request=DescribeFeatureType'
+    schema = await compile_xml_schema(str(config.config_id), url)
+
+    if schema:
+        config.xml_schema = schema
+
+
+async def _get_not_implemented_datasets(metadata_ids: List[str]) -> List[Dict]:
+    file_path = Path(CACHE_DIR).joinpath('not-implemented-datasets.json')
+
+    if not file_path.exists() or should_refresh_cache(file_path, _NOT_IMPLEMENTED_DATASETS_CACHE_DAYS):
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        dok_status_all = await get_dok_status()
+        configs: List[Dict] = []
+
+        for dok_status in dok_status_all:
+            dataset_id: str = dok_status['dataset_id']
+
+            if dataset_id in metadata_ids:
+                continue
+
+            theme: str = dok_status.get('theme')
+
+            configs.append({
+                'config_id': str(uuid4()),
+                'metadata_id': dataset_id,
+                'themes': [theme] if theme else []
+            })
+
+        json_object = json.dumps(configs, indent=2)
+
+        with file_path.open('w', encoding='utf-8') as file:
+            file.write(json_object)
+
+        return configs
+    else:
+        with file_path.open(encoding='utf-8') as file:
+            configs = json.load(file)
+
+        return configs
+
+
+def _get_fingerprint(path: Path) -> Tuple[int, int]:
+    st = path.stat()
+    return st.st_mtime_ns, st.st_size
+
+
 __all__ = [
     'get_dataset_configs',
     'get_dataset_config',
-    'get_quality_indicator_configs'
+    'get_quality_indicator_configs',
+    'get_not_implemented_dataset_configs'
 ]

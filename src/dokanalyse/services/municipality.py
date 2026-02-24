@@ -1,8 +1,9 @@
+from io import BytesIO
 from typing import List, Dict, Tuple
-import aiohttp
 from lxml import etree as ET
 from osgeo import ogr, osr
 from ..adapters.wfs import query_wfs
+from ..utils.event_loop_manager import get_session, get_semaphore
 
 _WFS_URL = 'https://wfs.geonorge.no/skwms1/wfs.administrative_enheter'
 
@@ -36,7 +37,9 @@ async def _get_municipality_from_wfs(geometry: ogr.Geometry, epsg: int) -> Tuple
     ns = {'wfs': 'http://www.opengis.net/wfs/2.0',
           'app': 'https://skjema.geonorge.no/SOSI/produktspesifikasjon/AdmEnheter/20240101'}
 
-    root = ET.fromstring(bytes(response, encoding='utf-8'))
+    bytes_io = BytesIO(response)
+    root = ET.parse(bytes_io)
+        
     municipality_number = root.findtext(
         './/wfs:member/*/app:kommunenummer', namespaces=ns)
     municipality_name = root.findtext(
@@ -49,8 +52,8 @@ async def _fetch_municipality(x: float, y: float, epsg: int) -> Tuple[str, str]:
     try:
         url = f'https://api.kartverket.no/kommuneinfo/v1/punkt?nord={y}&ost={x}&koordsys={epsg}&filtrer=kommunenummer,kommunenavn'
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=5) as response:
+        async with get_semaphore():
+            async with get_session().get(url) as response: 
                 if response.status != 200:
                     return None
 

@@ -8,6 +8,7 @@ from .config.dataset_config import DatasetConfig
 from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
 from ..utils.helpers.geometry import create_buffered_geometry
+from ..utils.helpers.common import objectify_properties
 from ..adapters import get_service_url
 from ..adapters.ogc_api import query_ogc_api
 
@@ -111,8 +112,13 @@ class OgcApiAnalysis(Analysis):
     def __map_properties(self, feature: Dict, mappings: List[str]) -> Dict:
         props = {}
 
-        for mapping in mappings:
-            value = get(feature['properties'], mapping, None)
-            props[mapping] = value
+        for prop_name in mappings:
+            if prop_name in self.config.skip_properties:
+                continue
+
+            value = get(feature['properties'], prop_name, None)
+            props[prop_name] = value
+
+        props = objectify_properties(props)
 
         return props

@@ -1,5 +1,6 @@
 import logging
 import time
+from io import BytesIO
 from uuid import UUID
 from collections import Counter
 from typing import List, Dict
@@ -48,7 +49,8 @@ async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict]:
     if response is None:
         return []
 
-    root = ET.fromstring(bytes(response, encoding='utf-8'))
+    bytes_io = BytesIO(response)
+    root = ET.parse(bytes_io)
     path = '//*[local-name() = "bygningstype"]'
     elems = root.xpath(path)
     categories = []

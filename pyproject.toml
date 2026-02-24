@@ -16,7 +16,6 @@ dependencies = [
     "aiofiles",
     "cachetools",
     "async-lru",
-    "Pebble",
     "pydantic>=2.0",
     "jsonschema",
     "pydash",
@@ -36,9 +35,13 @@ dependencies = [
     "types-lxml",
     "shapely",
     "PyYAML",
-    "flask_http_middleware",
     "requests>=2.32.5",
     "structlog>=25.5.0",
+    "gdal==3.9.1",
+    "xmltodict>=1.0.4",
+    "pygeofilter>=0.3.3",
+    "xmlschema>=4.3.1",
+    "filelock>=3.20.3",
 ]
 
 [tool.setuptools.package-data]

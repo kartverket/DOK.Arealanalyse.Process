@@ -9,8 +9,9 @@ import aiohttp
 import aiofiles
 from . import log_http_error
 from .gdal import query_gdal
+from ..utils.event_loop_manager import get_session, get_semaphore
 from ..utils.helpers.common import should_refresh_cache
-from ..utils.constants import APP_FILES_DIR, QUERY_TIMEOUT
+from ..utils.constants import APP_FILES_DIR
 
 _CACHE_DAYS = 86400
 _RESOURCE = 'GeoPackage'
@@ -49,8 +50,8 @@ async def _get_file_path(url: Union[HttpUrl, FileUrl]) -> str | None:
 
 async def _fetch_geopackage(url: HttpUrl) -> Tuple[int, bytes | None]:
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(str(url), timeout=QUERY_TIMEOUT) as response:
+        async with get_semaphore():
+            async with get_session().get(url) as response:
                 if response.status != 200:
                     log_http_error(_RESOURCE, url, response.status)
                     return response.status, None

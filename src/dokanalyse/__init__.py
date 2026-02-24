@@ -1,17 +1,18 @@
 from typing import Dict, Tuple
-import asyncio
 from osgeo import ogr, osr
 from pygeoapi.process.base import BaseProcessor, ProcessorExecuteError
-from .services import analyses
+from .services import analyses, xml_schema
 from .utils.helpers.request import request_is_valid
 from .utils.socket_io import get_client
 from .utils import logger
 from .utils.correlation import set_correlation_id, clear_correlation_id
-
-logger.setup()
+from .utils.event_loop_manager import run
 
 osr.UseExceptions()
 ogr.UseExceptions()
+
+logger.setup()
+xml_schema.cache_opengis_schemas()
 
 PROCESS_METADATA = {
     'version': '0.1.0',
@@ -170,7 +171,9 @@ PROCESS_METADATA = {
             'includeGuidance': True,
             'includeQualityMeasurement': True,
             'includeFilterChosenDOK': True,
-            'includeFactSheet': True
+            'includeFactSheet': True,
+            'createBinaries': True,
+            'correlationId': '42054ecd-90eb-4b97-a271-07281a78d98f'
         }
     }
 }
@@ -181,8 +184,7 @@ class DokanalyseProcessor(BaseProcessor):
         super().__init__(processor_def, PROCESS_METADATA)
 
     def execute(self, data: Dict, outputs=None) -> Tuple[str, Dict | None]:
-        set_correlation_id()
-        mimetype = 'application/json'
+        set_correlation_id(data.get('correlationId'))
 
         if not request_is_valid(data):
             raise ProcessorExecuteError('Invalid payload')
@@ -190,14 +192,14 @@ class DokanalyseProcessor(BaseProcessor):
         sio_client = get_client()
 
         try:
-            outputs = asyncio.run(analyses.run(data, sio_client))
+            outputs = run(analyses.run(data, sio_client))
         finally:
             clear_correlation_id()
-            
+
             if sio_client:
                 sio_client.disconnect()
 
-        return mimetype, outputs or None
+        return 'application/json', outputs
 
     def __repr__(self) -> str:
         return f'<DokanalyseProcessor> {self.name}'

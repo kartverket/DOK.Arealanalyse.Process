@@ -3,13 +3,13 @@ import json
 from uuid import UUID
 from pathlib import Path
 from typing import List, Dict, Tuple
-import aiohttp
+from ..utils.event_loop_manager import get_session, get_semaphore
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR
 
 _API_URL = 'https://register.geonorge.no/api/dok-statusregisteret.json'
 
-_CACHE_DAYS = 7
+_CACHE_DAYS = 2
 
 _CATEGEORY_MAPPINGS = {
     'BuildingMatter': ('egnethet_byggesak', 'Byggesak'),
@@ -68,6 +68,7 @@ async def _get_dok_status() -> List[Dict]:
 
     for item in contained_items:
         dataset_id = _get_dataset_id(item)
+        theme: str = item.get('theme', '')
         categories = _get_relevant_categories(item)
         suitability = []
 
@@ -83,6 +84,7 @@ async def _get_dok_status() -> List[Dict]:
 
         datasets.append({
             'dataset_id': dataset_id,
+            'theme': theme,
             'suitability': suitability
         })
 
@@ -91,8 +93,8 @@ async def _get_dok_status() -> List[Dict]:
 
 async def _fetch_dok_status() -> Dict:
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(_API_URL) as response:
+        async with get_semaphore():
+            async with get_session().get(_API_URL) as response:
                 if response.status != 200:
                     return None
 

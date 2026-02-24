@@ -3,24 +3,29 @@ from typing import Dict, List
 from osgeo import ogr, osr
 from math import pi
 from re import search
+import structlog
+from structlog.stdlib import BoundLogger
 from shapely import wkt
 from shapely.wkt import dumps
 from ..constants import DEFAULT_EPSG, WGS84_EPSG
 
+_logger: BoundLogger = structlog.get_logger(__name__)
 _EARTH_RADIUS = 6371008.8
 
 
-def geometry_from_gml(gml_str: str) -> ogr.Geometry:
+def geometry_from_gml(gml_str: str) -> ogr.Geometry | None:
     try:
         return ogr.CreateGeometryFromGML(gml_str)
-    except:
+    except Exception as err:
+        _logger.error('Geometry from GML failed', gml=gml_str, error=err)
         return None
 
 
-def geometry_from_json(json_str: str) -> ogr.Geometry:
+def geometry_from_json(json_str: str) -> ogr.Geometry | None:
     try:
         return ogr.CreateGeometryFromJson(json_str)
-    except:
+    except Exception as err:
+        _logger.error('Geometry from GeoJSON failed', json=json_str, error=err)        
         return None
 
 
@@ -142,11 +147,12 @@ def get_epsg(geo_json: Dict) -> int:
     return WGS84_EPSG
 
 
-def get_epsg_from_geometry(geometry: ogr.Geometry) -> int:
-    sr: osr.SpatialReference = geometry.GetSpatialReference()
-    epsg: str = sr.GetAuthorityCode(None)
+def get_epsg_from_crs(crs: str) -> int | None:
+    sr = osr.SpatialReference()
+    sr.SetFromUserInput(crs)
+    code = sr.GetAuthorityCode(None)
 
-    return int(epsg) or 4326
+    return int(code) if code else None
 
 
 def add_geojson_crs(geojson: Dict, epsg: int) -> None:
@@ -173,6 +179,6 @@ __all__ = [
     'length_to_degrees',
     'create_run_on_input_geometry_json',
     'get_epsg',
-    'get_epsg_from_geometry',
+    'get_epsg_from_crs',
     'add_geojson_crs'
 ]

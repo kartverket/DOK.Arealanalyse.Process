@@ -3,9 +3,9 @@ from pathlib import Path
 import json
 from uuid import UUID
 from typing import List, Dict, Literal
-import aiohttp
 from ..models.config import DatasetConfig
 from ..services.config import get_dataset_configs
+from ..utils.event_loop_manager import get_session, get_semaphore
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR
 
@@ -24,10 +24,10 @@ def get_dataset_type(config: DatasetConfig) -> Literal['wfs', 'arcgis', 'ogc_api
     return None
 
 
-async def get_config_ids(data: dict, municipality_number: str) -> Dict[UUID, bool]:
+async def get_config_ids(data: Dict, municipality_number: str) -> Dict[UUID, bool]:
     include_chosen_dok = data.get('includeFilterChosenDOK', True)
     kartgrunnlag = await _get_kartgrunnlag(municipality_number) if include_chosen_dok else []
-    configs = _get_datasets_by_theme(data.get('theme'))
+    configs = await _get_datasets_by_theme(data.get('theme'))
 
     datasets: Dict[UUID, bool] = {}
 
@@ -40,8 +40,8 @@ async def get_config_ids(data: dict, municipality_number: str) -> Dict[UUID, boo
     return datasets
 
 
-def _get_datasets_by_theme(theme: str) -> List[DatasetConfig]:
-    dataset_configs = get_dataset_configs()
+async def _get_datasets_by_theme(theme: str) -> List[DatasetConfig]:
+    dataset_configs = await get_dataset_configs()
     configs: List[DatasetConfig] = []
 
     for config in dataset_configs:
@@ -98,8 +98,8 @@ async def _fetch_kartgrunnlag(municipality_number: str) -> dict:
     try:
         url = _API_BASE_URL + municipality_number
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
+        async with get_semaphore():
+            async with get_session().get(url) as response:
                 if response.status != 200:
                     return None
 

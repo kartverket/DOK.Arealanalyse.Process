@@ -2,16 +2,17 @@ from os import path
 import json
 from pathlib import Path
 from uuid import UUID
-from typing import Dict
-import aiohttp
+from typing import Any, Dict
 from ..models.metadata import Metadata
+from ..utils.event_loop_manager import get_session, get_semaphore
 from ..utils.helpers.common import should_refresh_cache
 from ..utils.constants import CACHE_DIR
 
 _API_BASE_URL = 'https://kartkatalog.geonorge.no/api/getdata'
 _CACHE_DAYS = 2
 
-async def get_kartkatalog_metadata(metadata_id: UUID) -> Metadata:
+
+async def get_kartkatalog_metadata(metadata_id: UUID) -> Metadata | None:
     if metadata_id is None:
         return None
 
@@ -23,7 +24,7 @@ async def get_kartkatalog_metadata(metadata_id: UUID) -> Metadata:
     return Metadata.from_dict(metadata)
 
 
-async def _get_kartkatalog_metadata(metadata_id: UUID) -> Dict:
+async def _get_kartkatalog_metadata(metadata_id: UUID) -> Dict[str, Any] | None:
     file_path = Path(
         path.join(CACHE_DIR, f'kartkatalog/{metadata_id}.json'))
 
@@ -48,12 +49,13 @@ async def _get_kartkatalog_metadata(metadata_id: UUID) -> Dict:
         return metadata
 
 
-def _map_response(metadata_id: UUID, response: Dict) -> Dict:
+def _map_response(metadata_id: UUID, response: Dict) -> Dict[str, Any]:
     title = response.get('NorwegianTitle')
     description = response.get('Abstract')
     owner = response.get('ContactOwner', {}).get('Organization')
     updated = response.get('DateUpdated')
-    dataset_description_uri = 'https://kartkatalog.geonorge.no/metadata/' + str(metadata_id)
+    dataset_description_uri = 'https://kartkatalog.geonorge.no/metadata/' + \
+        str(metadata_id)
 
     return {
         'datasetId': str(metadata_id),
@@ -65,12 +67,12 @@ def _map_response(metadata_id: UUID, response: Dict) -> Dict:
     }
 
 
-async def _fetch_kartkatalog_metadata(metadata_id: UUID) -> Dict:
+async def _fetch_kartkatalog_metadata(metadata_id: UUID) -> Dict[str, Any] | None:
     try:
         url = f'{_API_BASE_URL}/{str(metadata_id)}'
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
+        async with get_semaphore():
+            async with get_session().get(url) as response:
                 if response.status != 200:
                     return None
 

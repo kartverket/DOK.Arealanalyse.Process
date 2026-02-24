@@ -17,7 +17,7 @@ async def get_values_from_wfs(config: CoverageService, geometry: ogr.Geometry, e
     if response is None:
         return [], 0, []
 
-    source = BytesIO(response.encode('utf-8'))
+    source = BytesIO(response)
     context = ET.iterparse(source, huge_tree=True)
 
     prop_path = f'.//*[local-name() = "{config.property}"]/text()'

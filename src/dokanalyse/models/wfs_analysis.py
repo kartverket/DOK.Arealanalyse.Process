@@ -1,16 +1,13 @@
-from io import BytesIO
-from typing import List, Dict
+from typing import List
 from osgeo import ogr
-from lxml import etree as ET
 from uuid import UUID
 from .analysis import Analysis
 from .result_status import ResultStatus
+from .wfs_response_parser import WfsResponseParser
 from .config.dataset_config import DatasetConfig
-from .config.layer import Layer
 from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url
-from ..utils.helpers.common import parse_string, evaluate_condition, xpath_select_one
-from ..utils.helpers.geometry import create_buffered_geometry, geometry_from_gml
+from ..utils.helpers.geometry import create_buffered_geometry
 from ..adapters import get_service_url
 from ..adapters.wfs import query_wfs
 
@@ -22,7 +19,8 @@ class WfsAnalysis(Analysis):
     async def _run_queries(self, context: str) -> None:
         first_layer = self.config.layers[0]
 
-        guidance_id = first_layer.building_guidance_id if context.lower() == 'byggesak' else first_layer.planning_guidance_id
+        guidance_id = first_layer.building_guidance_id if context.lower(
+        ) == 'byggesak' else first_layer.planning_guidance_id
         guidance_data = await get_guidance_data(guidance_id)
 
         self._add_run_algorithm(f'query {get_service_url(self.config.wfs)}')
@@ -46,13 +44,15 @@ class WfsAnalysis(Analysis):
                 break
 
             if api_response:
-                response = self.__parse_response(api_response, layer)
+                parser = WfsResponseParser(self.config, layer)
+                response = parser.parse(api_response)
 
                 if len(response['properties']) > 0:
                     self._add_run_algorithm(
                         f'intersects layer {layer.wfs} (True)')
 
-                    guidance_id = layer.building_guidance_id if context.lower() == 'byggesak' else layer.planning_guidance_id
+                    guidance_id = layer.building_guidance_id if context.lower(
+                    ) == 'byggesak' else layer.planning_guidance_id
                     guidance_data = await get_guidance_data(guidance_id)
 
                     self.geometries = response['geometries']
@@ -80,7 +80,8 @@ class WfsAnalysis(Analysis):
             self.distance_to_object = -1
             return
 
-        response = self.__parse_response(api_response, layer)
+        parser = WfsResponseParser(self.config, layer)
+        response = parser.parse(api_response)
         geometries: List[ogr.Geometry] = response.get('geometries')
         distances = []
 
@@ -95,58 +96,3 @@ class WfsAnalysis(Analysis):
             self.distance_to_object = -1
         else:
             self.distance_to_object = distances[0]
-
-    def __parse_response(self, wfs_response: str, layer: Dict) -> Dict[str, List]:
-        data = {
-            'properties': [],
-            'geometries': []
-        }
-
-        source = BytesIO(wfs_response.encode('utf-8'))
-        context = ET.iterparse(source, huge_tree=True)
-
-        for _, elem in context:
-            localname = ET.QName(elem).localname
-
-            if localname != 'member':
-                continue
-
-            props = self.__map_properties(elem)
-
-            if self.__filter_member(props, layer):
-                data['properties'].append(props)
-                data['geometries'].append(
-                    self.__get_geometry_from_response(elem))
-
-        return data
-
-    def __filter_member(self, props: Dict, layer: Layer) -> bool:
-        if not layer.filter:
-            return True
-
-        return evaluate_condition(layer.filter, props)
-
-    def __map_properties(self, member: ET._Element) -> Dict:
-        props = {}
-
-        for mapping in self.config.properties:
-            path = f'.//*[local-name() = "{mapping}"]/text()'
-            value = xpath_select_one(member, path)
-
-            if value:
-                prop_name = mapping
-                props[prop_name] = parse_string(value)
-
-        return props
-
-    def __get_geometry_from_response(self, member: ET._Element) -> ogr.Geometry:
-        geom_field = self.config.geom_field
-        path = f'.//*[local-name() = "{geom_field}"]/*'
-        geom_elem = xpath_select_one(member, path)
-
-        if geom_elem is None:
-            return None
-
-        gml_str = ET.tostring(geom_elem, encoding='unicode')
-
-        return geometry_from_gml(gml_str)

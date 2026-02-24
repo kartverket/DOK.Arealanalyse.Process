@@ -1,7 +1,4 @@
 import structlog
-from flask import request, has_request_context
-
-_CORRELATION_ID_HEADER_NAME = 'x-correlation-id'
 
 
 def get_correlation_id() -> str | None:
@@ -9,17 +6,9 @@ def get_correlation_id() -> str | None:
     return ctx.get('correlation_id')
 
 
-def set_correlation_id() -> None:
+def set_correlation_id(id: str | None) -> None:
     clear_correlation_id()
-
-    if not has_request_context():
-        return None
-
-    headers = {key.lower(): value for key, value in request.headers.items()}
-    cid = headers.get(_CORRELATION_ID_HEADER_NAME)
-
-    if cid:
-        structlog.contextvars.bind_contextvars(correlation_id=cid)
+    structlog.contextvars.bind_contextvars(correlation_id=id)
 
 
 def clear_correlation_id() -> None:

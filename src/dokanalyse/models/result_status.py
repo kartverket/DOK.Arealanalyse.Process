@@ -6,5 +6,6 @@ class ResultStatus(str, Enum):
     HIT_YELLOW = 'HIT-YELLOW'
     HIT_RED = 'HIT-RED'
     NOT_RELEVANT = 'NOT-RELEVANT'
+    NOT_IMPLEMENTED = 'NOT-IMPLEMENTED'
     TIMEOUT = 'TIMEOUT'
     ERROR = 'ERROR'

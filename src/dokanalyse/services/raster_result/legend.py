@@ -2,8 +2,8 @@ import base64
 from io import BytesIO
 from typing import List
 import asyncio
-import aiohttp
 from PIL import Image
+from ...utils.event_loop_manager import get_session, get_semaphore
 
 
 async def create_legend(urls) -> str:
@@ -42,8 +42,8 @@ def _merge_images(img_data: List[bytes]) -> str:
 
 async def _fetch_image(url) -> bytes:
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
+        async with get_semaphore():
+            async with get_session().get(url) as response: 
                 if response.status != 200:
                     return None
 

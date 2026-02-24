@@ -11,57 +11,65 @@ from pydash import kebab_case
 from .dataset import get_config_ids, get_dataset_type
 from .fact_sheet import create_fact_sheet
 from .municipality import get_municipality
-from .config import get_dataset_config
+from .config import get_dataset_config, get_not_implemented_dataset_configs
 from .map_image import generate_map_images
 from .report import create_pdf
-from .blob_storage import create_container, upload_binary
 from ..utils.helpers.geometry import create_input_geometry, get_epsg
-from ..models.analysis_state import AnalysisState, AnalysisStatus
+from ..models.state_emitter import StateEmitter, StateStatus
 from ..models.config import DatasetConfig
-from ..models import Analysis, ArcGisAnalysis, OgcApiAnalysis, WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus
+from ..models import (Analysis, ArcGisAnalysis, OgcApiAnalysis,
+                      WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus)
+from ..models.file_storage import FileStorage, AzureBlobStorage, LocalFileShare
 from ..utils.correlation import get_correlation_id
-from ..utils.constants import DEFAULT_EPSG, BLOB_STORAGE_CONN_STR, DATASETS
+from ..utils.constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
+                               LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL, DATASETS)
 
-_LOGGER: BoundLogger = structlog.get_logger(__name__)
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 
 async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
+    correlation_id = get_correlation_id()
+    emitter = StateEmitter(correlation_id, sio_client)
+    emitter.send_message(StateStatus.STARTING_UP)
+
     geo_json = data['inputGeometry']
     geometry = create_input_geometry(geo_json)
     orig_epsg = get_epsg(geo_json)
-    buffer = data.get('requestedBuffer', 0)
-    context = data.get('context') or ''
-    include_guidance = data.get('includeGuidance', False)
-    include_quality_measurement = data.get('includeQualityMeasurement', False)
-    include_facts = data.get('includeFacts', True)
+    buffer: int = data.get('requestedBuffer', 0)
+    context: str = data.get('context') or ''
+    include_guidance: bool = data.get('includeGuidance', False)
+    include_quality_measurement: bool = data.get(
+        'includeQualityMeasurement', False)
+    include_facts: bool = data.get('includeFacts', True)
+    include_chosen_dok: bool = data.get('includeFilterChosenDOK', True)
+    create_binaries: bool = data.get('createBinaries', True)
+
     municipality_number, municipality_name = await get_municipality(geometry, DEFAULT_EPSG)
-
     datasets = await _get_datasets(data, municipality_number)
-    correlation_id = get_correlation_id()
 
-    state = AnalysisState(correlation_id, sio_client)
-    state.steps_total = 4 if include_facts else 3
-    state.analyses_total = len({key: value for (key, value)
-                                in datasets.items() if value == True})
+    emitter.analyses_total = _get_datasets_to_analyze_count(datasets)
+    emitter.send_message(StateStatus.ANALYZING_DATASETS)
 
-    if datasets:
-        state.send_message()
-
-    state.set_status(AnalysisStatus.ANALYZING_DATASETS)
     tasks: List[asyncio.Task] = []
 
     async with asyncio.TaskGroup() as tg:
         for config_id, should_analyze in datasets.items():
             task = tg.create_task(_run_analysis(
                 config_id, should_analyze, geometry, DEFAULT_EPSG, orig_epsg, buffer,
-                context, include_guidance, include_quality_measurement, state))
+                context, include_guidance, include_quality_measurement, emitter))
             tasks.append(task)
+
+        if include_chosen_dok:
+            not_implemented = await get_not_implemented_dataset_configs()
+
+            for config in not_implemented:
+                task = tg.create_task(_run_not_implemented_analysis(config))
+                tasks.append(task)
 
     fact_sheet = None
 
     if include_facts:
-        state.set_status(AnalysisStatus.CREATING_FACT_SHEET)
-        state.send_message()
+        emitter.send_message(StateStatus.CREATING_FACT_SHEET)
         fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer)
 
     response = AnalysisResponse.create(
@@ -76,19 +84,17 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
     analyses_with_map_image = [
         analysis for analysis in response.result_list if analysis.raster_result_map]
 
-    container_name = str(uuid4())
+    file_storage = _get_file_storage()
+    dirname = str(uuid4())
 
-    if BLOB_STORAGE_CONN_STR:
-        map_images = generate_map_images(
-            analyses_with_map_image, fact_sheet, state)
-        await _upload_images(response, map_images, container_name)
+    if create_binaries and file_storage:
+        map_images = await generate_map_images(
+            analyses_with_map_image, fact_sheet, emitter)
+        await _upload_images(response, map_images, dirname, file_storage)
 
-    state.set_status(AnalysisStatus.CREATING_REPORT)
-    state.send_message()
-
-    if BLOB_STORAGE_CONN_STR:
+        emitter.send_message(StateStatus.CREATING_REPORT)
         report = create_pdf(response)
-        response.report = await _upload_report(report, container_name)
+        response.report = await _upload_report(report, dirname, file_storage)
 
     return response.to_dict()
 
@@ -103,13 +109,13 @@ async def _run_analysis(
     context: str,
     include_guidance: bool,
     include_quality_measurement: bool,
-    state: AnalysisState
+    emitter: StateEmitter
 ) -> Analysis | None:
-    config = get_dataset_config(config_id)
+    config = await get_dataset_config(config_id)    
 
     if config is None:
         return None
-
+    
     if not should_analyze:
         analysis = EmptyAnalysis(
             config.config_id, config, ResultStatus.NOT_RELEVANT)
@@ -124,25 +130,39 @@ async def _run_analysis(
     try:
         await analysis.run(context, include_guidance, include_quality_measurement)
     except Exception:
-        err = traceback.format_exc()
-        _LOGGER.error('Analysis failed', config_id=str(
-            config_id), dataset=config.name, error=err)
         await analysis.set_default_data()
         analysis.result_status = ResultStatus.ERROR
+        end = time.time()
 
-    end = time.time()
+        err = traceback.format_exc()
+        _logger.error('Analysis failed', config_id=str(
+            config_id), dataset=config.name, duration=round(end - start, 2), error=err)
+    else:
+        end = time.time()
+        _logger.info('Dataset analyzed', config_id=str(config_id),
+                     dataset=config.name, duration=round(end - start, 2))
 
-    # autopep8: off
-    _LOGGER.info('Dataset analyzed', config_id=str(config_id), dataset=config.name, duration=round(end - start, 2))
-    # autopep8: on
-
-    state.set_status(AnalysisStatus.DATASET_ANALYZED)
-    state.send_message()
+    emitter.send_message(StateStatus.DATASET_ANALYZED)
 
     return analysis
 
 
-def _create_analysis(config_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> Analysis:
+async def _run_not_implemented_analysis(config: DatasetConfig) -> Analysis:
+    analysis = EmptyAnalysis(config.config_id, config,
+                             ResultStatus.NOT_IMPLEMENTED)
+    await analysis.run()
+
+    return analysis
+
+
+def _create_analysis(
+        config_id: UUID,
+        config: DatasetConfig,
+        geometry: ogr.Geometry,
+        epsg: int,
+        orig_epsg: int,
+        buffer: int
+) -> Analysis:
     dataset_type = get_dataset_type(config)
 
     match dataset_type:
@@ -156,21 +176,26 @@ def _create_analysis(config_id: UUID, config: DatasetConfig, geometry: ogr.Geome
             return None
 
 
-async def _upload_images(response: AnalysisResponse, map_images: List[Tuple[str, str, bytes | None]], container_name: str) -> None:
+async def _upload_images(
+        response: AnalysisResponse,
+        map_images: List[Tuple[str, str, bytes | None]],
+        dirname: str,
+        file_storage: FileStorage
+) -> None:
     filtered = [map_image for map_image in map_images if map_image[2]]
 
     if not filtered:
         return
 
-    await create_container(container_name)
+    await file_storage.create_dir(dirname)
 
     tasks: List[asyncio.Task[str]] = []
 
     async with asyncio.TaskGroup() as tg:
         for id, name, data in filtered:
-            blob_name = f'{kebab_case(name)}.png'
-            task = tg.create_task(upload_binary(
-                data, container_name, blob_name, 'image/png'), name=id)
+            filename = f'{kebab_case(name)}.png'
+            task = tg.create_task(file_storage.upload_binary(
+                data, dirname, filename, content_type='image/png'), name=id)
             tasks.append(task)
 
     for task in tasks:
@@ -186,9 +211,9 @@ async def _upload_images(response: AnalysisResponse, map_images: List[Tuple[str,
             analysis.raster_result_image = task.result()
 
 
-async def _upload_report(report: bytes, container_name: str) -> str:
-    await create_container(container_name)
-    pdf_url = await upload_binary(report, container_name, 'rapport.pdf', 'application/pdf')
+async def _upload_report(report: bytes, dirname: str, file_storage: FileStorage) -> str | None:
+    await file_storage.create_dir(dirname)
+    pdf_url = await file_storage.upload_binary(report, dirname, 'rapport.pdf', content_type='application/pdf')
 
     return pdf_url
 
@@ -203,6 +228,20 @@ async def _get_datasets(data: Dict, municipality_number: str) -> Dict[UUID, bool
         datasets[UUID(dataset)] = True
 
     return datasets
+
+
+def _get_file_storage() -> FileStorage | None:
+    if AZURE_BLOB_STORAGE_CONN_STR:
+        return AzureBlobStorage(AZURE_BLOB_STORAGE_CONN_STR)
+
+    if LOCAL_FILE_SHARE_DIR and LOCAL_FILE_SHARE_BASE_URL:
+        return LocalFileShare(LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL)
+
+    return None
+
+
+def _get_datasets_to_analyze_count(datasets: Dict[UUID, bool]) -> int:
+    return len({key: value for (key, value) in datasets.items() if value == True})
 
 
 def _find_analysis(analyses: List[Analysis], config_id: str) -> Analysis | None:

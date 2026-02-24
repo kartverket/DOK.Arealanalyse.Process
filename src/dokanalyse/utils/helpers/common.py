@@ -1,7 +1,7 @@
 import re
 import inspect
 from os import environ
-from typing import List
+from typing import Dict, Any
 from datetime import datetime, timezone
 from lxml import etree as ET
 from ...models.exceptions import DokAnalysisException
@@ -21,22 +21,6 @@ def from_camel_case(value):
     result = re.sub(regex, subst, value, 0)
 
     return result.capitalize()
-
-
-def to_camel_case(text: str) -> str:
-    if text[0].islower():
-        return text
-
-    matches = re.findall('[A-ZÆØÅ][^A-ZÆØÅ]*', text)
-    words: List[str] = list(map(lambda word: word.strip(' -_'), matches))
-    result = words[0].lower() + ''.join(word.capitalize()
-                                        for word in words[1:])
-
-    return result
-
-
-def keys_to_camel_case(data: dict) -> dict:
-    return {to_camel_case(key): keys_to_camel_case(value) if isinstance(value, dict) else value for key, value in data.items()}
 
 
 def parse_string(value: str) -> str | int | float | bool:
@@ -70,11 +54,11 @@ def should_refresh_cache(file_path: str, cache_days: int) -> bool:
     return diff.days > cache_days
 
 
-def xpath_select(element: ET._Element, path: str) -> any:
+def xpath_select(element: ET._Element, path: str) -> Any:
     return element.xpath(path)
 
 
-def xpath_select_one(element: ET._Element, path: str) -> any:
+def xpath_select_one(element: ET._Element, path: str) -> Any:
     result = element.xpath(path)
 
     if len(result) == 0:
@@ -86,7 +70,7 @@ def xpath_select_one(element: ET._Element, path: str) -> any:
     raise Exception('Found more than one element')
 
 
-def evaluate_condition(condition: str, data: dict[str, any]) -> bool:
+def evaluate_condition(condition: str, data: Dict[str, Any]) -> bool:
     parsed_condition = _parse_condition(condition)
     result = eval(parsed_condition, data.copy())
 
@@ -94,6 +78,24 @@ def evaluate_condition(condition: str, data: dict[str, any]) -> bool:
         return result
 
     raise Exception
+
+
+def objectify_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
+    result = {}
+
+    for key, value in properties.items():
+        parts = key.split('.')
+        current = result
+
+        for part in parts[:-1]:
+            if part not in current or not isinstance(current[part], Dict):
+                current[part] = {}
+
+            current = current[part]
+
+        current[parts[-1]] = value
+
+    return result
 
 
 def dbg(*args, **kwargs) -> None:
@@ -112,7 +114,7 @@ def _parse_condition(condition: str) -> str:
         condition, {' AND ': ' and ', ' OR ': ' or ', ' IN ': ' in ', ' NOT ': ' not '})
 
 
-def _replace_all(text: str, replacements: dict) -> str:
+def _replace_all(text: str, replacements: Dict) -> str:
     for i, j in replacements.items():
         text = text.replace(i, j)
     return text
@@ -122,13 +124,12 @@ __all__ = [
     'background_tasks',
     'get_env_var',
     'from_camel_case',
-    'to_camel_case',
-    'keys_to_camel_case',
     'parse_string',
     'parse_date_string',
     'should_refresh_cache',
     'xpath_select',
     'xpath_select_one',
     'evaluate_condition',
+    'objectify_properties'
     'dbg'
 ]
