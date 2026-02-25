@@ -7,7 +7,7 @@ from . import get_credential
 from ..models.config.auth import Basic, ApiKey
 from ..utils.helpers.geometry import create_feature_collection, transform_geometry
 from ..utils.helpers.gdal import normalize_object
-from ..utils.constants import QUERY_TIMEOUT
+from ..constants import QUERY_TIMEOUT
 from ..utils.helpers.common import dbg
 
 gdal_lock = threading.Lock()

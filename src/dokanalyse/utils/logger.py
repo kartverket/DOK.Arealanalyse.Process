@@ -6,7 +6,7 @@ from os import path, makedirs
 from functools import partial
 from logging.handlers import TimedRotatingFileHandler
 from typing import Literal
-from .constants import APP_FILES_DIR, LOG_LEVEL
+from ..constants import APP_FILES_DIR, LOG_LEVEL
 
 
 def setup() -> None:

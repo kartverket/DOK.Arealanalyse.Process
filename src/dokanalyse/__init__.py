@@ -12,7 +12,7 @@ osr.UseExceptions()
 ogr.UseExceptions()
 
 logger.setup()
-xml_schema.cache_opengis_schemas()
+xml_schema.cache_base_schemas()
 
 PROCESS_METADATA = {
     'version': '0.1.0',

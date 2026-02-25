@@ -1,6 +1,6 @@
 import socketio
 import logging
-from .constants import SOCKET_IO_SRV_URL
+from ..constants import SOCKET_IO_SRV_URL
 
 _LOGGER = logging.getLogger(__name__)
 

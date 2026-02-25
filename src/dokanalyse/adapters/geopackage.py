@@ -11,7 +11,7 @@ from . import log_http_error
 from .gdal import query_gdal
 from ..utils.event_loop_manager import get_session, get_semaphore
 from ..utils.helpers.common import should_refresh_cache
-from ..utils.constants import APP_FILES_DIR
+from ..constants import APP_FILES_DIR
 
 _CACHE_DAYS = 86400
 _RESOURCE = 'GeoPackage'

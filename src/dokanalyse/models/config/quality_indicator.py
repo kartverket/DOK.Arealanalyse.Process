@@ -1,7 +1,7 @@
 from pydantic import BaseModel, model_validator
 from typing import Optional, Dict
 from .quality_indicator_type import QualityIndicatorType
-from . import CoverageService, CoverageGeoJson, CoverageGeoPackage
+from . import CoverageService, CoverageWfs, CoverageGeoJson, CoverageGeoPackage
 
 
 class QualityIndicator(BaseModel):
@@ -12,7 +12,7 @@ class QualityIndicator(BaseModel):
     warning_threshold: Optional[str] = None
     property: Optional[str] = None
     input_filter: Optional[str] = None
-    wfs: Optional[CoverageService] = None
+    wfs: Optional[CoverageWfs] = None
     arcgis: Optional[CoverageService] = None
     geojson: Optional[CoverageGeoJson] = None
     gpkg: Optional[CoverageGeoPackage] = None

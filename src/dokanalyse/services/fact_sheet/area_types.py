@@ -6,7 +6,7 @@ from osgeo import ogr
 from ..codelist import get_codelist
 from ..kartkatalog import get_kartkatalog_metadata
 from ...models.fact_part import FactPart
-from ...utils.constants import AR5_FGDB_PATH
+from ...constants import AR5_FGDB_PATH
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -1,23 +1,22 @@
-from os import path
 import json
 from uuid import UUID
 from pathlib import Path
 from typing import List, Dict, Tuple
+from ..services.caching import cache_file, should_refresh_cache
 from ..utils.event_loop_manager import get_session, get_semaphore
-from ..utils.helpers.common import should_refresh_cache
-from ..utils.constants import CACHE_DIR
+from ..constants import CACHE_DIR
 
 _API_URL = 'https://register.geonorge.no/api/dok-statusregisteret.json'
 
 _CACHE_DAYS = 2
 
-_CATEGEORY_MAPPINGS = {
+_category_mappings = {
     'BuildingMatter': ('egnethet_byggesak', 'Byggesak'),
     'MunicipalLandUseElementPlan': ('egnethet_kommuneplan', 'Kommuneplan'),
     'ZoningPlan': ('egnethet_reguleringsplan', 'Reguleringsplan')
 }
 
-_VALUE_MAPPINGS = {
+_value_mappings = {
     0: 'Ikke egnet',
     1: 'Dårlig egnet',
     2: 'Noe egnet',
@@ -38,23 +37,21 @@ async def get_dok_status_for_dataset(metadata_id: UUID) -> Dict:
 
 
 async def get_dok_status() -> List[Dict]:
-    file_path = Path(
-        path.join(CACHE_DIR, 'dok-status.json'))
+    file_path = Path(CACHE_DIR).joinpath('dok-status.json')
 
     if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        dok_status = await _get_dok_status()
-        json_object = json.dumps(dok_status, indent=2)
+        async def producer() -> str:
+            dok_status = await _get_dok_status()
+            json_str = json.dumps(dok_status, indent=2, ensure_ascii=False)
 
-        with file_path.open('w', encoding='utf-8') as file:
-            file.write(json_object)
+            return json_str
 
-        return dok_status
-    else:
-        with file_path.open(encoding='utf-8') as file:
-            dok_status = json.load(file)
+        _ = await cache_file(file_path, producer)
 
-        return dok_status
+    with file_path.open() as file:
+        dok_status = json.load(file)
+
+    return dok_status
 
 
 async def _get_dok_status() -> List[Dict]:
@@ -73,13 +70,13 @@ async def _get_dok_status() -> List[Dict]:
         suitability = []
 
         for key, value in categories:
-            id, name = _CATEGEORY_MAPPINGS.get(key)
+            id, name = _category_mappings.get(key)
 
             suitability.append({
                 'quality_dimension_id': id,
                 'quality_dimension_name': name,
                 'value': value,
-                'comment': _VALUE_MAPPINGS.get(value)
+                'comment': _value_mappings.get(value)
             })
 
         datasets.append({
@@ -113,7 +110,7 @@ def _get_dataset_id(item) -> List[Tuple]:
 def _get_relevant_categories(item) -> List[Tuple]:
     suitability: Dict = item.get('Suitability')
     categories = [(key, value) for key, value in suitability.items()
-                  if key in _CATEGEORY_MAPPINGS.keys()]
+                  if key in _category_mappings.keys()]
 
     return categories
 

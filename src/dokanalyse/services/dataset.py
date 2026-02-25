@@ -7,7 +7,7 @@ from ..models.config import DatasetConfig
 from ..services.config import get_dataset_configs
 from ..utils.event_loop_manager import get_session, get_semaphore
 from ..utils.helpers.common import should_refresh_cache
-from ..utils.constants import CACHE_DIR
+from ..constants import CACHE_DIR
 
 _API_BASE_URL = 'https://register.geonorge.no/api/det-offentlige-kartgrunnlaget-kommunalt.json?municipality='
 _CACHE_DAYS = 7

@@ -5,7 +5,7 @@ from .area_types import get_area_types
 from .buildings import get_buildings
 from .roads import get_roads
 from ...utils.helpers.geometry import create_buffered_geometry
-from ...utils.constants import DEFAULT_EPSG
+from ...constants import DEFAULT_EPSG
 from ...models.fact_sheet import FactSheet
 
 

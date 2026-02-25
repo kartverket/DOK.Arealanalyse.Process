@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, List
+from typing import List, Literal, Optional
 from pydantic import BaseModel, HttpUrl
 from xmlschema import XMLSchema
 from .feature_service import FeatureService
@@ -18,7 +18,7 @@ class DatasetConfig(BaseModel):
     wms: Optional[HttpUrl] = None
     layers: Optional[List[Layer]] = []
     geom_field: Optional[str] = None
-    properties: Optional[List[str]] = []
+    properties: List[str] | Literal['*'] = []
     skip_properties: Optional[List[str]] = []
     themes: List[str]
     xml_schema: Optional[XMLSchema] = None

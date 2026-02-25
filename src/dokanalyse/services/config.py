@@ -1,21 +1,23 @@
 import json
 import yaml
+import hashlib
 from pathlib import Path
 from uuid import UUID, uuid4
 from async_lru import alru_cache
 from typing import Dict, List, Tuple, Any
 import structlog
 from structlog.stdlib import BoundLogger
-from pydantic import ValidationError, HttpUrl
+from pydantic import ValidationError
 from pygeofilter.parsers.cql2_text import parse
 from pygeofilter.backends.native.evaluate import NativeEvaluator
+from xmlschema import XMLSchema
 from .dok_status import get_dok_status
 from ..models.exceptions import DokAnalysisException
 from ..models.config import DatasetConfig, QualityConfig, QualityIndicator, Layer, FeatureService
 from ..utils.helpers.common import get_env_var, should_refresh_cache
-from ..utils.constants import CACHE_DIR
+from ..constants import CACHE_DIR
 from .xml_schema import compile_xml_schema
-import asyncio
+
 
 _LOGGER: BoundLogger = structlog.get_logger(__name__)
 _NOT_IMPLEMENTED_DATASETS_CACHE_DAYS = 2
@@ -57,9 +59,9 @@ async def get_not_implemented_dataset_configs() -> List[DatasetConfig]:
                     for config in dataset_configs if config.metadata_id is not None]
     datasets = await _get_not_implemented_datasets(metadata_ids)
     configs: List[DatasetConfig] = []
-
+    
     for dataset in datasets:
-        configs.append(_create_dataset_config(dataset))
+        configs.append(await _create_dataset_config(dataset))
 
     return configs
 
@@ -90,7 +92,7 @@ async def _load_configs() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
             dataset_configs.append(dataset_config)
 
         if quality_config:
-            quality_configs.append(quality_config)        
+            quality_configs.append(quality_config)
 
     if len(dataset_configs) == 0:
         raise DokAnalysisException(
@@ -125,7 +127,7 @@ async def _load_cached_config(path_str: str, mtime_ns: int, size: int) -> Tuple[
             if config is not None:
                 dataset_config = config
         elif type == 'quality':
-            config = _create_quality_config(result)
+            config = await _create_quality_config(result)
 
             if config is not None:
                 quality_config = config
@@ -139,7 +141,7 @@ async def _create_dataset_config(data: Dict) -> DatasetConfig:
 
         if config.wfs:
             _compile_wfs_filters(config.layers)
-            await _compile_wfs_xml_schema(config)
+            config.xml_schema = await _compile_wfs_xml_schema(config.get_feature_service_url())
 
         return config if not config.disabled else None
     except ValidationError as err:
@@ -147,9 +149,15 @@ async def _create_dataset_config(data: Dict) -> DatasetConfig:
         return None
 
 
-def _create_quality_config(data: Dict) -> QualityConfig:
+async def _create_quality_config(data: Dict) -> QualityConfig:
     try:
-        return QualityConfig(**data)
+        config = QualityConfig(**data)
+        coverage_services = [indicator.wfs for indicator in config.indicators if indicator.wfs]
+        
+        for wfs in coverage_services:
+            wfs.xml_schema = await _compile_wfs_xml_schema(str(wfs.url))
+
+        return config
     except ValidationError as err:
         _LOGGER.error('Quality config creation failed', error=str(err))
         return None
@@ -163,13 +171,12 @@ def _compile_wfs_filters(layers: List[Layer]) -> None:
                 use_getattr=False).evaluate(ast)
 
 
-async def _compile_wfs_xml_schema(config: DatasetConfig) -> None:
-    wfs_url = config.get_feature_service_url()
+async def _compile_wfs_xml_schema(wfs_url: str) -> XMLSchema | None:
+    id = _hash_url(wfs_url)
     url = f'{wfs_url}?service=WFS&version=2.0.0&request=DescribeFeatureType'
-    schema = await compile_xml_schema(str(config.config_id), url)
+    schema = await compile_xml_schema(id, url)
 
-    if schema:
-        config.xml_schema = schema
+    return schema
 
 
 async def _get_not_implemented_datasets(metadata_ids: List[str]) -> List[Dict]:
@@ -210,6 +217,14 @@ async def _get_not_implemented_datasets(metadata_ids: List[str]) -> List[Dict]:
 def _get_fingerprint(path: Path) -> Tuple[int, int]:
     st = path.stat()
     return st.st_mtime_ns, st.st_size
+
+
+def _hash_url(url: str) -> str:
+    url_bytes = url.encode('utf-8')
+    hash_object = hashlib.sha256(url_bytes)
+    hex_digest = hash_object.hexdigest()
+
+    return hex_digest
 
 
 __all__ = [

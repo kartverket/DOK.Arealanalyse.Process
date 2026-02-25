@@ -10,7 +10,7 @@ from typing import List, Tuple, Dict, Any
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 from ..models.analysis_response import AnalysisResponse
-from ..utils.constants import PDF_TEMPLATES_DIR
+from ..constants import PDF_TEMPLATES_DIR
 
 logging.getLogger('weasyprint').setLevel(logging.ERROR)
 logging.getLogger('fontTools.subset').setLevel(logging.ERROR)

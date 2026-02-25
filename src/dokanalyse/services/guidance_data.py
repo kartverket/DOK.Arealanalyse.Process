@@ -6,15 +6,16 @@ from async_lru import alru_cache
 from ..utils.event_loop_manager import get_session, get_semaphore
 
 _GEOLETT_API_URL = 'https://register.geonorge.no/geolett/api'
-_LOCAL_GEOLETT_IDS = ['0c5dc043-e5b3-4349-8587-9b464d013aaa']
 _CACHE_TTL = 86400 * 7
+
+_local_geolett_ids = ['0c5dc043-e5b3-4349-8587-9b464d013aaa']
 
 
 async def get_guidance_data(id: UUID) -> Dict:
     if id is None:
         return None
 
-    if id in _LOCAL_GEOLETT_IDS:
+    if id in _local_geolett_ids:
         guidance_data = _fetch_local_guidance_data()
     else:
         guidance_data = await _fetch_guidance_data()

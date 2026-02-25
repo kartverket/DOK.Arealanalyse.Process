@@ -1,14 +1,16 @@
-from io import BytesIO
 from typing import List, Tuple, Dict, Union, Any
 from lxml import etree as ET
 from osgeo import ogr
+from .wfs_response import CoverageWfsResponseParser
 from ..models.config import CoverageService, CoverageGeoJson, CoverageGeoPackage
 from ..adapters.wfs import query_wfs
 from ..adapters.arcgis import query_arcgis
 from ..adapters.geojson import query_geojson
 from ..adapters.geopackage import query_geopackage
-from ..utils.helpers.common import xpath_select_one, parse_string
-from ..utils.helpers.geometry import geometry_from_gml
+from ..utils.helpers.common import xpath_select_one, parse_string, dbg
+from ..utils.helpers.geometry import geometry_from_gml, get_epsg_from_crs, transform_geometry
+from ..constants import DEFAULT_EPSG
+import xmltodict
 
 
 async def get_values_from_wfs(config: CoverageService, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
@@ -17,38 +19,10 @@ async def get_values_from_wfs(config: CoverageService, geometry: ogr.Geometry, e
     if response is None:
         return [], 0, []
 
-    source = BytesIO(response)
-    context = ET.iterparse(source, huge_tree=True)
+    parser = CoverageWfsResponseParser(config)
+    values, feature_geoms, data = parser.parse(response)
 
-    prop_path = f'.//*[local-name() = "{config.property}"]/text()'
-    geom_path = f'.//*[local-name() = "{config.geom_field}"]/*'
-    values: List[str] = []
-    data: List[Dict] = []
-    feature_geoms: List[ogr.Geometry] = []
-    hit_area_percent = 0
-
-    for _, elem in context:
-        localname = ET.QName(elem).localname
-
-        if localname == 'member':
-            value = xpath_select_one(elem, prop_path)
-            values.append(value)
-
-            if value == 'ikkeKartlagt':
-                geom_element = xpath_select_one(elem, geom_path)
-                gml_str = ET.tostring(geom_element, encoding='unicode')
-                feature_geom = geometry_from_gml(gml_str)
-
-                if feature_geom:
-                    feature_geoms.append(feature_geom)
-
-            if len(config.properties) > 0:
-                props = _map_wfs_properties(elem, config.properties)
-                data.append(props)
-
-    if len(feature_geoms) > 0:
-        hit_area_percent = _get_hit_area_percent(geometry, feature_geoms)
-
+    hit_area_percent = _get_hit_area_percent(geometry, feature_geoms) if feature_geoms else 0
     distinct_values = list(set(values))
 
     return distinct_values, hit_area_percent, data
@@ -69,7 +43,7 @@ async def get_values_from_arcgis(config: CoverageService, geometry: ogr.Geometry
     data: List[Dict] = []
 
     for feature in features:
-        props: Dict = feature['properties']        
+        props: Dict = feature['properties']
         value = props.get(config.property)
         values.append(value)
 
@@ -138,20 +112,6 @@ def _get_hit_area_percent(geometry: ogr.Geometry, feature_geometries: List[ogr.G
     percent = (hit_area / geom_area) * 100
 
     return round(percent, 2)
-
-
-def _map_wfs_properties(member: ET._Element, mappings: List[str]) -> Dict:
-    props = {}
-
-    for mapping in mappings:
-        path = f'.//*[local-name() = "{mapping}"]/text()'
-        value = xpath_select_one(member, path)
-
-        if value:
-            prop_name = mapping
-            props[prop_name] = parse_string(value)
-
-    return props
 
 
 def _map_geojson_properties(feature: Dict, mappings: List[str]) -> Dict:

@@ -1,6 +1,6 @@
 from os import getenv
 from typing import Final
-from ..utils.helpers.common import get_env_var
+from .utils.helpers.common import get_env_var
 
 
 APP_FILES_DIR: Final[str] = get_env_var('DOKANALYSE_APP_FILES_DIR')

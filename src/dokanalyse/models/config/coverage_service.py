@@ -7,3 +7,4 @@ class CoverageService(CoverageBaseService):
     url: HttpUrl
     layer: str
     geom_field: Optional[str] = None
+    

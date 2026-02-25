@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 from typing import List, Dict
 from ..utils.event_loop_manager import get_session, get_semaphore
-from ..utils.constants import CACHE_DIR
+from ..constants import CACHE_DIR
 from ..utils.helpers.common import should_refresh_cache
 
 _CACHE_DAYS = 7

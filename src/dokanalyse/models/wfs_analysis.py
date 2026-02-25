@@ -3,7 +3,7 @@ from osgeo import ogr
 from uuid import UUID
 from .analysis import Analysis
 from .result_status import ResultStatus
-from .wfs_response_parser import WfsResponseParser
+from ..services.wfs_response import WfsResponseParser
 from .config.dataset_config import DatasetConfig
 from ..services.guidance_data import get_guidance_data
 from ..services.raster_result import get_wms_url, get_cartography_url

@@ -1,12 +1,11 @@
-from os import path
 import json
 from pathlib import Path
 from uuid import UUID
 from typing import Any, Dict
 from ..models.metadata import Metadata
+from ..services.caching import cache_file, should_refresh_cache
 from ..utils.event_loop_manager import get_session, get_semaphore
-from ..utils.helpers.common import should_refresh_cache
-from ..utils.constants import CACHE_DIR
+from ..constants import CACHE_DIR
 
 _API_BASE_URL = 'https://kartkatalog.geonorge.no/api/getdata'
 _CACHE_DAYS = 2
@@ -25,28 +24,22 @@ async def get_kartkatalog_metadata(metadata_id: UUID) -> Metadata | None:
 
 
 async def _get_kartkatalog_metadata(metadata_id: UUID) -> Dict[str, Any] | None:
-    file_path = Path(
-        path.join(CACHE_DIR, f'kartkatalog/{metadata_id}.json'))
+    file_path = Path(CACHE_DIR).joinpath(f'kartkatalog/{metadata_id}.json')
 
     if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        response = await _fetch_kartkatalog_metadata(metadata_id)
+        async def producer() -> str:
+            response = await _fetch_kartkatalog_metadata(metadata_id)
+            metadata = _map_response(metadata_id, response)
+            json_str = json.dumps(metadata, indent=2, ensure_ascii=False)
 
-        if response is None:
-            return None
+            return json_str
 
-        metadata = _map_response(metadata_id, response)
-        json_object = json.dumps(metadata, indent=2)
+        _ = await cache_file(file_path, producer)
 
-        with file_path.open('w', encoding='utf-8') as file:
-            file.write(json_object)
+    with file_path.open() as file:
+        metadata = json.load(file)
 
-        return metadata
-    else:
-        with file_path.open(encoding='utf-8') as file:
-            metadata = json.load(file)
-
-        return metadata
+    return metadata
 
 
 def _map_response(metadata_id: UUID, response: Dict) -> Dict[str, Any]:
@@ -54,8 +47,7 @@ def _map_response(metadata_id: UUID, response: Dict) -> Dict[str, Any]:
     description = response.get('Abstract')
     owner = response.get('ContactOwner', {}).get('Organization')
     updated = response.get('DateUpdated')
-    dataset_description_uri = 'https://kartkatalog.geonorge.no/metadata/' + \
-        str(metadata_id)
+    dataset_description_uri = f'https://kartkatalog.geonorge.no/metadata/{metadata_id}'
 
     return {
         'datasetId': str(metadata_id),

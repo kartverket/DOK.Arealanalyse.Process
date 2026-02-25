@@ -14,14 +14,14 @@ from .municipality import get_municipality
 from .config import get_dataset_config, get_not_implemented_dataset_configs
 from .map_image import generate_map_images
 from .report import create_pdf
-from ..utils.helpers.geometry import create_input_geometry, get_epsg
+from ..utils.helpers.geometry import create_input_geometry, get_epsg_from_geojson
 from ..models.state_emitter import StateEmitter, StateStatus
 from ..models.config import DatasetConfig
 from ..models import (Analysis, ArcGisAnalysis, OgcApiAnalysis,
                       WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus)
 from ..models.file_storage import FileStorage, AzureBlobStorage, LocalFileShare
 from ..utils.correlation import get_correlation_id
-from ..utils.constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
+from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
                                LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL, DATASETS)
 
 _logger: BoundLogger = structlog.get_logger(__name__)
@@ -32,9 +32,9 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
     emitter = StateEmitter(correlation_id, sio_client)
     emitter.send_message(StateStatus.STARTING_UP)
 
-    geo_json = data['inputGeometry']
-    geometry = create_input_geometry(geo_json)
-    orig_epsg = get_epsg(geo_json)
+    geojson = data['inputGeometry']
+    geometry = create_input_geometry(geojson)
+    orig_epsg = get_epsg_from_geojson(geojson)
     buffer: int = data.get('requestedBuffer', 0)
     context: str = data.get('context') or ''
     include_guidance: bool = data.get('includeGuidance', False)
@@ -73,7 +73,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
         fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer)
 
     response = AnalysisResponse.create(
-        geo_json, geometry, DEFAULT_EPSG, orig_epsg, buffer, fact_sheet, municipality_number, municipality_name)
+        geojson, geometry, DEFAULT_EPSG, orig_epsg, buffer, fact_sheet, municipality_number, municipality_name)
 
     for task in tasks:
         result = task.result()

@@ -3,12 +3,12 @@ import time
 import os
 from io import BytesIO
 from urllib.parse import urlparse, parse_qs
-from typing import List, Dict, Tuple
+from typing import Any, List, Dict, Tuple
 from concurrent.futures import TimeoutError
 import multiprocessing as mp
 import structlog
 from structlog.stdlib import BoundLogger
-from osgeo import ogr, osr
+from osgeo import ogr
 import pandas as pd
 import geopandas as gpd
 import matplotlib
@@ -20,27 +20,24 @@ import cartopy.io.ogc_clients as ogcc
 from cartopy.mpl.geoaxes import GeoAxes
 from cartopy.mpl.slippy_image_artist import SlippyImageArtist
 from shapely import box, Polygon
-from PIL import Image
-from PIL.ImageFile import ImageFile
 from ..models.analysis import Analysis
 from ..models.fact_sheet import FactSheet
 from ..models.state_emitter import StateEmitter, StateStatus
-from ..utils.helpers.common import should_refresh_cache
-from ..utils.constants import CACHE_DIR
+from ..utils.helpers.geometry import get_epsg_from_geometry, transform_geometry
+from ..constants import CACHE_DIR
 
 matplotlib.use('agg')
 
 ogcc.METERS_PER_UNIT['EPSG:3857'] = 1
 ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR
 
-_LOGGER: BoundLogger = structlog.get_logger(__name__)
+_logger: BoundLogger = structlog.get_logger(__name__)
+_semaphore = asyncio.Semaphore(min(mp.cpu_count(), 8))
 
-_SEMAPHORE = asyncio.Semaphore(min(mp.cpu_count(), 8))
-_TIMEOUT_SECONDS = 120
-
-_DPI = 100
 _WMTS_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml?request=GetCapabilities'
 _BASEMAPS_CACHE_DIR = f'{CACHE_DIR}/basemaps'
+_TIMEOUT_SECONDS = 120
+_DPI = 100
 
 if not os.path.exists(_BASEMAPS_CACHE_DIR):
     os.makedirs(_BASEMAPS_CACHE_DIR)
@@ -71,22 +68,22 @@ async def generate_map_images(
 
     results = [task.result() for task in tasks if task]
 
-    _LOGGER.info('Generated map images', count=len(results),
+    _logger.info('Generated map images', count=len(results),
                  duration=round(time.time() - start, 2))
 
     return results
 
 
 async def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None] | None:
-    async with _SEMAPHORE:
+    async with _semaphore:
         try:
             async with asyncio.timeout(_TIMEOUT_SECONDS):
                 return await asyncio.to_thread(_create_map_image, **kwargs)
         except TimeoutError as err:
-            _LOGGER.error('Map image generation timed out', error=str(err))
+            _logger.error('Map image generation timed out', error=str(err))
             return None
         except Exception as err:
-            _LOGGER.error('Map image generation failed', error=str(err))
+            _logger.error('Map image generation failed', error=str(err))
             return None
 
 
@@ -96,7 +93,7 @@ def _create_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
     wkt_str: str = kwargs['geometry']
     grayscale: bool = kwargs.get('grayscale', False)
 
-    _LOGGER.info('Generating map image', config_id=id, dataset=name)
+    _logger.info('Generating map image', config_id=id, dataset=name)
 
     gdf = gpd.GeoSeries.from_wkt([wkt_str])
     crs_epsg = ccrs.epsg('3857')
@@ -141,8 +138,8 @@ def _create_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
     return id, name, bytes_out
 
 
-def _get_params_for_analyses(analyses: List[Analysis]) -> List[Dict]:
-    params: List[Dict] = []
+def _get_params_for_analyses(analyses: List[Analysis]) -> List[Dict[str, Any]]:
+    params: List[Dict[str, Any]] = []
 
     for analysis in analyses:
         url, layers = _parse_wms_url(analysis.raster_result_map)
@@ -171,7 +168,7 @@ def _get_params_for_analyses(analyses: List[Analysis]) -> List[Dict]:
     return params
 
 
-def _get_params_for_fact_sheet(fact_sheet: FactSheet) -> Dict:
+def _get_params_for_fact_sheet(fact_sheet: FactSheet) -> Dict[str, Any]:
     buffered_geom = None
 
     if fact_sheet.buffer > 0:
@@ -242,30 +239,10 @@ def _convert_to_bytes(fig: Figure) -> bytes:
 
 
 def _get_wkt_str(geometry: ogr.Geometry) -> str:
-    src_epsg = _get_epsg_code(geometry)
-    coord_trans = _get_coordinate_transformation(src_epsg, 3857)
-    clone: ogr.Geometry = geometry.Clone()
+    src_epsg = get_epsg_from_geometry(geometry) or 4326
+    transd_geom = transform_geometry(geometry, src_epsg, 3857)
 
-    clone.Transform(coord_trans)
-
-    return clone.ExportToWkt()
-
-
-def _get_epsg_code(geometry: ogr.Geometry) -> int:
-    sr: osr.SpatialReference = geometry.GetSpatialReference()
-    epsg_str: str = sr.GetAuthorityCode(None)
-
-    return int(epsg_str)
-
-
-def _get_coordinate_transformation(src_epsg: int, target_epsg: int) -> osr.CoordinateTransformation:
-    source: osr.SpatialReference = osr.SpatialReference()
-    source.ImportFromEPSG(src_epsg)
-
-    target: osr.SpatialReference = osr.SpatialReference()
-    target.ImportFromEPSG(target_epsg)
-
-    return osr.CoordinateTransformation(source, target)
+    return transd_geom.ExportToWkt()
 
 
 def _get_figsize(width: int, height: int) -> Tuple[int, int]:
