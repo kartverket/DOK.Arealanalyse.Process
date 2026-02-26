@@ -1,9 +1,10 @@
-import logging
 import time
 from io import BytesIO
 from uuid import UUID
 from collections import Counter
-from typing import List, Dict
+from typing import Any, List, Dict
+import structlog
+from structlog.stdlib import BoundLogger
 from lxml import etree as ET
 from osgeo import ogr
 from ...adapters.wfs import query_wfs
@@ -11,7 +12,7 @@ from ...utils.helpers.common import parse_string
 from ...services.kartkatalog import get_kartkatalog_metadata
 from ...models.fact_part import FactPart
 
-_LOGGER = logging.getLogger(__name__)
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 _METADATA_ID = UUID('24d7e9d1-87f6-45a0-b38e-3447f8d7f9a1')
 _LAYER_NAME = 'Bygning'
@@ -36,14 +37,12 @@ async def get_buildings(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffe
     data = await _get_data(geometry, epsg)
     end = time.time()
 
-    # autopep8: off
-    _LOGGER.info(f'Fact sheet: Got buildings from Matrikkel WFS: {round(end - start, 2)} sec.')
-    # autopep8: on
+    _logger.info('Fact sheet: Got buildings from Matrikkel WFS', duration=round(end - start, 2))
 
     return FactPart(geometry, epsg, orig_epsg, buffer, dataset, [f'intersect {_LAYER_NAME}'], data)
 
 
-async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict]:
+async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict[str, Any]]:
     _, response = await query_wfs(_WFS_URL, _LAYER_NAME, 'representasjonspunkt', geometry, epsg)
 
     if response is None:

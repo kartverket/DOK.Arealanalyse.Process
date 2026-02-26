@@ -4,7 +4,7 @@ import structlog
 from structlog.stdlib import BoundLogger
 from .file_storage import FileStorage
 
-_LOGGER: BoundLogger = structlog.get_logger(__name__)
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 
 class LocalFileShare(FileStorage):
@@ -26,7 +26,7 @@ class LocalFileShare(FileStorage):
 
             return f'{self.__base_url}/{dirname}/{filename}'
         except Exception as err:
-            _LOGGER.error('Binary upload failed', error=str(err))
+            _logger.error('Binary upload failed', error=str(err))
             return None
 
     async def create_dir(self, dirname: str) -> str | None:
@@ -38,5 +38,5 @@ class LocalFileShare(FileStorage):
 
             return str(dirpath)
         except Exception as err:
-            _LOGGER.error('Directory creation failed', error=str(err))
+            _logger.error('Directory creation failed', error=str(err))
             return None

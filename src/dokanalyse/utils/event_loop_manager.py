@@ -85,3 +85,6 @@ def _thread_main() -> None:
 async def _init_and_signal() -> None:
     await _init_resources()
     _ready.set()
+
+
+__all__ = ['start', 'get_session', 'get_semaphore', 'run', 'shutdown']

@@ -1,17 +1,19 @@
-import logging
 import time
 from uuid import UUID
-from typing import Dict
+from typing import Any, Dict, List
+import structlog
+from structlog.stdlib import BoundLogger
 from osgeo import ogr
 from ..codelist import get_codelist
 from ..kartkatalog import get_kartkatalog_metadata
 from ...models.fact_part import FactPart
 from ...constants import AR5_FGDB_PATH
 
-_LOGGER = logging.getLogger(__name__)
-
-_METADATA_ID = UUID('166382b4-82d6-4ea9-a68e-6fd0c87bf788')
 _LAYER_NAME = 'fkb_ar5_omrade'
+
+_logger: BoundLogger = structlog.get_logger(__name__)
+
+_metadata_id = UUID('166382b4-82d6-4ea9-a68e-6fd0c87bf788')
 
 
 async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> FactPart | None:
@@ -19,18 +21,18 @@ async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buff
         return None
 
     start = time.time()
-    dataset = await get_kartkatalog_metadata(_METADATA_ID)
-    data = await _get_data(geometry)
+    dataset = await get_kartkatalog_metadata(_metadata_id)
+    data = _get_data(geometry)
     end = time.time()
 
     # autopep8: off
-    _LOGGER.info(f'Fact sheet: Got area types from FKB AR5: {round(end - start, 2)} sec.')
+    _logger.info('Fact sheet: Got area types from FKB AR5', duration=round(end - start, 2))
     # autopep8: on
 
     return FactPart(geometry, epsg, orig_epsg, buffer, dataset, [f'intersect {_LAYER_NAME}'], data)
 
 
-async def _get_data(geometry: ogr.Geometry) -> Dict:
+def _get_data(geometry: ogr.Geometry) -> Dict[str, Any]:
     driver: ogr.Driver = ogr.GetDriverByName('OpenFileGDB')
     data_source: ogr.DataSource = driver.Open(AR5_FGDB_PATH, 0)
     layer: ogr.Layer = data_source.GetLayerByName(_LAYER_NAME)
@@ -57,8 +59,8 @@ async def _get_data(geometry: ogr.Geometry) -> Dict:
     }
 
 
-def _map_area_types(area_types: Dict) -> Dict:
-    codelist = get_codelist('arealressurs_arealtype')
+def _map_area_types(area_types: Dict[str, Any]) -> List[Dict[str, Any]]:
+    codelist = get_codelist('arealressurs_arealtype') or []
     mapped = []
 
     for entry in codelist:

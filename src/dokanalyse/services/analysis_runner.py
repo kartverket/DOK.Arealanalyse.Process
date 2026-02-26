@@ -63,10 +63,6 @@ async def set_defaults(analysis: Analysis) -> None:
     analysis.run_on_dataset = await get_kartkatalog_metadata(analysis.config.metadata_id)
 
 
-# ---------------------------------------------------------------------------
-# Generic query runner (strategy-based)
-# ---------------------------------------------------------------------------
-
 async def _run_queries(analysis: Analysis, context: str) -> None:
     strategy = get_query_strategy(analysis)
 
@@ -77,7 +73,8 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
     guidance_id = _get_guidance_id(first_layer, context)
     guidance_data = get_guidance_data(guidance_id)
 
-    analysis.run_algorithm.append(f'query {strategy.get_service_url(analysis.config)}')
+    analysis.run_algorithm.append(
+        f'query {strategy.get_service_url(analysis.config)}')
 
     for layer in analysis.config.layers:
         if layer.filter is not None:
@@ -89,18 +86,22 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
 
         if status_code == 408:
             analysis.result_status = ResultStatus.TIMEOUT
-            analysis.run_algorithm.append(f'intersects layer {layer_name} (Timeout)')
+            analysis.run_algorithm.append(
+                f'intersects layer {layer_name} (Timeout)')
             break
         elif status_code != 200:
             analysis.result_status = ResultStatus.ERROR
-            analysis.run_algorithm.append(f'intersects layer {layer_name} (Error)')
+            analysis.run_algorithm.append(
+                f'intersects layer {layer_name} (Error)')
             break
 
         if api_response:
-            parsed = strategy.parse_response(api_response, analysis.config, layer)
+            parsed = strategy.parse_response(
+                api_response, analysis.config, layer)
 
             if len(parsed['properties']) > 0:
-                analysis.run_algorithm.append(f'intersects layer {layer_name} (True)')
+                analysis.run_algorithm.append(
+                    f'intersects layer {layer_name} (True)')
 
                 guidance_id = _get_guidance_id(layer, context)
                 guidance_data = get_guidance_data(guidance_id)
@@ -114,7 +115,8 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
                 analysis.result_status = layer.result_status
                 break
 
-            analysis.run_algorithm.append(f'intersects layer {layer_name} (False)')
+            analysis.run_algorithm.append(
+                f'intersects layer {layer_name} (False)')
 
     analysis.guidance_data = guidance_data
 
@@ -151,10 +153,6 @@ async def _set_distance_to_object(analysis: Analysis) -> None:
     else:
         analysis.distance_to_object = distances[0]
 
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 async def _run_coverage_analysis(analysis: Analysis, context: str) -> None:
     quality_indicators = get_quality_indicator_configs(analysis.config_id)
@@ -225,7 +223,7 @@ async def _evaluate_quality(analysis: Analysis, context: str) -> None:
 def _get_guidance_id(layer: Layer, context: str) -> UUID | None:
     if context.lower() == 'byggesak':
         return layer.building_guidance_id
-    
+
     return layer.planning_guidance_id
 
 

@@ -3,9 +3,9 @@ from asyncio import Task, TaskGroup
 from osgeo import ogr
 from .area_types import get_area_types
 from .buildings import get_buildings
+from ...models.fact_sheet import FactSheet
 from ...utils.helpers.geometry import create_buffered_geometry
 from ...constants import DEFAULT_EPSG
-from ...models.fact_sheet import FactSheet
 
 
 async def create_fact_sheet(geometry: ogr.Geometry, orig_epsg: int, buffer: int) -> FactSheet:

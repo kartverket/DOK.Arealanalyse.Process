@@ -64,7 +64,7 @@ class ArcGisQueryStrategy:
 
         for feature in features:
             data['properties'].append(
-                _map_properties(feature, config.properties))
+                _map_properties(feature, config.properties, config.skip_properties))
             data['geometries'].append(
                 _geometry_from_feature_json(feature))
 
@@ -89,7 +89,6 @@ class OgcApiQueryStrategy:
         return layer.ogc_api
 
     async def query(self, config: DatasetConfig, layer: Layer, geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]:
-        # query_ogc_api is synchronous (GDAL/OGR based)
         return query_ogc_api(config.ogc_api, layer.ogc_api, geometry, layer.filter, epsg, config)
 
     def parse_response(self, response: Any, config: DatasetConfig, layer: Layer) -> Dict[str, list]:
@@ -100,7 +99,7 @@ class OgcApiQueryStrategy:
 
         for feature in response['features']:
             data['properties'].append(
-                _map_ogc_api_properties(feature, config.properties, config.skip_properties))
+                _map_properties(feature, config.properties, config.skip_properties))
             data['geometries'].append(feature['geometry'])
 
         return data
@@ -116,10 +115,6 @@ class OgcApiQueryStrategy:
         return geometries
 
 
-# ---------------------------------------------------------------------------
-# Strategy resolution
-# ---------------------------------------------------------------------------
-
 _strategies: Dict[type, QueryStrategy] = {
     WfsAnalysis: WfsQueryStrategy(),
     ArcGisAnalysis: ArcGisQueryStrategy(),
@@ -131,24 +126,10 @@ def get_query_strategy(analysis: Analysis) -> QueryStrategy | None:
     return _strategies.get(type(analysis))
 
 
-# ---------------------------------------------------------------------------
-# Shared response parsing helpers
-# ---------------------------------------------------------------------------
-
-def _map_properties(feature: Dict, mappings: List[str]) -> Dict:
-    props = {}
-    feature_props: Dict = feature['properties']
-
-    for mapping in mappings:
-        props[mapping] = feature_props.get(mapping)
-
-    return props
-
-
-def _map_ogc_api_properties(feature: Dict, mappings: List[str], skip_properties: List[str]) -> Dict:
+def _map_properties(feature: Dict[str, Any], properties: List[str], skip_properties: List[str]) -> Dict[str, Any]:
     props = {}
 
-    for prop_name in mappings:
+    for prop_name in properties:
         if prop_name in skip_properties:
             continue
 
@@ -158,7 +139,7 @@ def _map_ogc_api_properties(feature: Dict, mappings: List[str], skip_properties:
     return objectify_properties(props)
 
 
-def _geometry_from_feature_json(feature: Dict) -> ogr.Geometry:
+def _geometry_from_feature_json(feature: Dict[str, Any]) -> ogr.Geometry:
     json_str = json.dumps(feature['geometry'])
     return geometry_from_json(json_str)
 

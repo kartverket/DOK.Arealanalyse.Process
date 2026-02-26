@@ -9,11 +9,11 @@ from shapely import wkt
 from shapely.wkt import dumps
 from ...constants import DEFAULT_EPSG, WGS84_EPSG
 
+_EARTH_RADIUS = 6371008.8
+
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 _crs_regex = re.compile(r'^(http:\/\/www\.opengis\.net\/def\/crs\/EPSG\/0\/|^urn:ogc:def:crs:EPSG::|^EPSG:)(?P<epsg>\d+)$')
-
-_EARTH_RADIUS = 6371008.8
 
 
 def geometry_from_gml(gml_str: str) -> ogr.Geometry | None:
@@ -100,13 +100,6 @@ def create_feature(geometry: ogr.Geometry, properties: Dict[str, Any] = {}) -> D
 
 
 def transform_geometry(geometry: ogr.Geometry, src_epsg: int, dest_epsg: int) -> ogr.Geometry:
-    # source = osr.SpatialReference()
-    # source.ImportFromEPSG(src_epsg)
-    # # source.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-
-    # target = osr.SpatialReference()
-    # target.ImportFromEPSG(dest_epsg)
-
     transform = get_coordinate_transformation(src_epsg, dest_epsg)
     clone: ogr.Geometry = geometry.Clone()
     clone.Transform(transform)

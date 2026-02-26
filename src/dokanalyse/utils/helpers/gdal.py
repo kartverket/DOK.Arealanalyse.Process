@@ -2,7 +2,7 @@ import json
 import re
 from typing import Any, Dict, List
 
-_DATE_RE = re.compile(
+_date_re = re.compile(
     r"""
     ^
     \b
@@ -19,7 +19,7 @@ _DATE_RE = re.compile(
     re.VERBOSE
 )
 
-_DATETIME_RE = re.compile(
+_datetime_re = re.compile(
     r"""
     \b
     ^
@@ -73,12 +73,12 @@ def _normalize_string(value: str) -> Any:
         except json.JSONDecodeError:
             pass
 
-    match = _DATE_RE.search(value)
+    match = _date_re.search(value)
 
     if match:
         return _parse_date(match.groupdict())
 
-    match = _DATETIME_RE.search(value)
+    match = _datetime_re.search(value)
 
     if match:
         return _parse_datetime(match.groupdict())

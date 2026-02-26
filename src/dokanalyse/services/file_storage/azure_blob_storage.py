@@ -4,7 +4,7 @@ from azure.storage.blob.aio import BlobServiceClient
 from azure.storage.blob import PublicAccess, ContentSettings
 from .file_storage import FileStorage
 
-_LOGGER: BoundLogger = structlog.get_logger(__name__)
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 
 class AzureBlobStorage(FileStorage):
@@ -26,7 +26,7 @@ class AzureBlobStorage(FileStorage):
 
             return blob_client.url
         except Exception as err:
-            _LOGGER.error('Binary upload failed', error=str(err))
+            _logger.error('Binary upload failed', error=str(err))
             return None
         finally:
             if blob_client:
@@ -49,7 +49,7 @@ class AzureBlobStorage(FileStorage):
 
             return container.url
         except Exception as err:
-            _LOGGER.error('Container creation failed', error=str(err))
+            _logger.error('Container creation failed', error=str(err))
             return None
         finally:
             await service.close()
