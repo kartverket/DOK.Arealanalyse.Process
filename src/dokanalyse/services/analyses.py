@@ -14,6 +14,7 @@ from .municipality import get_municipality
 from .config import get_dataset_config, get_not_implemented_dataset_configs
 from .map_image import generate_map_images
 from .report import create_pdf
+from .analysis_runner import run_analysis as run_single_analysis, run_empty_analysis, set_defaults as set_analysis_defaults
 from ..services.file_storage import FileStorage, AzureBlobStorage, LocalFileShare
 from ..utils.helpers.geometry import create_input_geometry, get_epsg_from_geojson
 from ..models.state_emitter import StateEmitter, StateStatus
@@ -60,7 +61,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
             tasks.append(task)
 
         if include_chosen_dok:
-            not_implemented = await get_not_implemented_dataset_configs()
+            not_implemented = get_not_implemented_dataset_configs()
 
             for config in not_implemented:
                 task = tg.create_task(_run_not_implemented_analysis(config))
@@ -111,7 +112,7 @@ async def _run_analysis(
     include_quality_measurement: bool,
     emitter: StateEmitter
 ) -> Analysis | None:
-    config = await get_dataset_config(config_id)    
+    config = get_dataset_config(config_id)    
 
     if config is None:
         return None
@@ -119,7 +120,7 @@ async def _run_analysis(
     if not should_analyze:
         analysis = EmptyAnalysis(
             config.config_id, config, ResultStatus.NOT_RELEVANT)
-        await analysis.run()
+        await run_empty_analysis(analysis)
         return analysis
 
     start = time.time()
@@ -128,9 +129,9 @@ async def _run_analysis(
         config_id, config, geometry, epsg, orig_epsg, buffer)
 
     try:
-        await analysis.run(context, include_guidance, include_quality_measurement)
+        await run_single_analysis(analysis, context, include_guidance, include_quality_measurement)
     except Exception:
-        await analysis.set_default_data()
+        await set_analysis_defaults(analysis)
         analysis.result_status = ResultStatus.ERROR
         end = time.time()
 
@@ -150,7 +151,7 @@ async def _run_analysis(
 async def _run_not_implemented_analysis(config: DatasetConfig) -> Analysis:
     analysis = EmptyAnalysis(config.config_id, config,
                              ResultStatus.NOT_IMPLEMENTED)
-    await analysis.run()
+    await run_empty_analysis(analysis)
 
     return analysis
 

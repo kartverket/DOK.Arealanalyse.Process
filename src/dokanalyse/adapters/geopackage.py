@@ -5,12 +5,11 @@ from pydantic import HttpUrl, FileUrl
 from pathlib import Path
 from osgeo import ogr
 import asyncio
-import aiohttp
 import aiofiles
 from . import log_http_error
 from .gdal import query_gdal
+from ..services.caching import should_refresh_cache
 from ..utils.event_loop_manager import get_session, get_semaphore
-from ..utils.helpers.common import should_refresh_cache
 from ..constants import APP_FILES_DIR
 
 _CACHE_DAYS = 86400
@@ -31,7 +30,7 @@ async def _get_file_path(url: Union[HttpUrl, FileUrl]) -> str | None:
         return _file_uri_to_path(url)
     else:
         filename = _get_filename(url)
-        file_path = Path(os.path.join(APP_FILES_DIR, f'geopackage/{filename}'))
+        file_path = Path(APP_FILES_DIR).joinpath(f'geopackage/{filename}')
 
         if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
             status, response = await _fetch_geopackage(url)

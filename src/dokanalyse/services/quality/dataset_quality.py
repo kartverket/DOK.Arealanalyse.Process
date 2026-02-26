@@ -1,8 +1,7 @@
-from typing import List, Dict
+from typing import Any, List, Dict
 from uuid import UUID
 from . import get_threshold_values
 from ..dok_status import get_dok_status_for_dataset
-from ...utils.helpers.common import evaluate_condition
 from ...models.quality_measurement import QualityMeasurement
 from ...models.config import DatasetConfig
 from ...models.config.quality_indicator import QualityIndicator
@@ -75,11 +74,11 @@ async def _get_dataset_quality_measurements(metadata_id: UUID) -> List[Dict]:
     return qms
 
 
-def _get_dataset_quality_warning_text(value: any, quality_indicator: QualityIndicator, data: Dict[str, any]) -> str:
-    input_filter = quality_indicator.input_filter
+def _get_dataset_quality_warning_text(value: any, quality_indicator: QualityIndicator, data: Dict[str, Any]) -> str | None:
+    predicate = quality_indicator.input_filter_func
 
-    if input_filter is not None:
-        result = evaluate_condition(input_filter, data)
+    if predicate:
+        result = predicate(data)
 
         if not result:
             return None

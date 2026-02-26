@@ -40,12 +40,12 @@ async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict]:
     _LOGGER.info('Fact sheet: Got roads from Elveg OGC API', duration=round(end - start, 2))
     # autopep8: on
 
-    return await _map_response(response)
+    return _map_response(response)
 
 
-async def _map_response(response: Dict) -> List[Dict]:
+def _map_response(response: Dict) -> List[Dict]:
     features: List[Dict] = response.get('features', [])
-    road_categories = await get_codelist('vegkategori')
+    road_categories = get_codelist('vegkategori')
     road_types = {}
 
     for feature in features:

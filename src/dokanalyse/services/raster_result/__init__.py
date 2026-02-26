@@ -66,7 +66,7 @@ def _dynamic_legend_supported(wms_url: str) -> bool:
             return False
 
         return True
-    except:
+    except Exception:
         return False
 
 

@@ -1,5 +1,4 @@
-from typing import List, Tuple, Dict, Union, Any
-from lxml import etree as ET
+from typing import List, Tuple, Dict, Union
 from osgeo import ogr
 from .wfs_response import CoverageWfsResponseParser
 from ..models.config import CoverageService, CoverageGeoJson, CoverageGeoPackage
@@ -7,10 +6,6 @@ from ..adapters.wfs import query_wfs
 from ..adapters.arcgis import query_arcgis
 from ..adapters.geojson import query_geojson
 from ..adapters.geopackage import query_geopackage
-from ..utils.helpers.common import xpath_select_one, parse_string, dbg
-from ..utils.helpers.geometry import geometry_from_gml, get_epsg_from_crs, transform_geometry
-from ..constants import DEFAULT_EPSG
-import xmltodict
 
 
 async def get_values_from_wfs(config: CoverageService, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:

@@ -4,16 +4,16 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 import shutil
-from typing import Awaitable, Callable
+from typing import Callable
 
 
 class CacheLockTimeout(Exception):
     ...
 
 
-async def cache_file(
+def cache_file(
     target: Path,
-    producer: Callable[..., Awaitable[bytes | str]],
+    producer: Callable[..., bytes | str],
     *,
     encoding: str = 'utf-8',
     timeout_sec: float = 300.0,
@@ -59,7 +59,7 @@ async def cache_file(
         tmp = Path(tmp_name)
 
         try:
-            payload = await producer()
+            payload = producer()
             data = payload.encode(encoding) if isinstance(
                 payload, str) else payload
 

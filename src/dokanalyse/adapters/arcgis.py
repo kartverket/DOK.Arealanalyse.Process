@@ -4,7 +4,6 @@ from pydantic import HttpUrl
 from osgeo import ogr
 from . import log_http_error, get_service_credentials, get_auth
 from ..models.config import DatasetConfig, FeatureService, Auth
-from ..models.config.auth import Auth
 from ..utils.event_loop_manager import get_session, get_semaphore
 from ..utils.helpers.geometry import geometry_to_arcgis_geom
 

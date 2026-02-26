@@ -62,27 +62,5 @@ async def _query_wfs(
         return 500, None
 
 
-async def _query_wfs2(base_url: HttpUrl, auth: Auth, xml_body: str, dataset_config: DatasetConfig | None) -> Tuple[int, str]:
-    url = f'{base_url}?service=WFS&version=2.0.0'
-    auth_params = get_auth(auth)
-
-    try:
-        async with get_semaphore():
-            async with get_session().post(url, data=xml_body, **auth_params) as response:
-                if response.status == 200:
-                    txt = await response.text()
-                    return 200, txt
-
-                log_http_error(_RESOURCE, url, response.status,
-                               dataset=dataset_config)
-
-                return response.status, None
-    except asyncio.TimeoutError:
-        log_http_error(_RESOURCE, url, 408, dataset=dataset_config)
-        return 408, None
-    except Exception as err:
-        log_http_error(_RESOURCE, url, 500, dataset=dataset_config, err=err)
-        return 500, None
-
 
 __all__ = ['query_wfs']

@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple
+from typing import Any, List, Dict, Tuple
 from osgeo import ogr
 from . import get_threshold_values
 from ..coverage import get_values_from_wfs, get_values_from_arcgis, get_values_from_geojson
@@ -15,6 +15,7 @@ async def get_coverage_quality(quality_indicator: QualityIndicator, geometry: og
         return CoverageQualityResponse([], None, False, True, [])
 
     measurements: List[QualityMeasurement] = []
+    value: Dict[str, Any]
 
     for value in quality_data.get('values'):
         measurements.append(QualityMeasurement(quality_data.get('id'), quality_data.get(
@@ -31,7 +32,7 @@ async def _get_coverage_quality_data(quality_indicator: QualityIndicator, geomet
     if len(values) == 0 and quality_indicator.warning_threshold is not None:
         return None, False, True, []
 
-    codelist = await get_codelist('fullstendighet_dekning')
+    codelist = get_codelist('fullstendighet_dekning')
     meas_values: List[Dict] = []
 
     if len(values) == 0 and quality_indicator.warning_threshold is None:

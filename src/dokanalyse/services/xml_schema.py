@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict
 import structlog
 from structlog.stdlib import BoundLogger
+import requests
 import xmlschema
 from xmlschema import XMLSchema
 from .caching import cache_file, cache_dir
@@ -31,14 +32,14 @@ def cache_base_schemas() -> None:
             schema = xmlschema.XMLSchema(url)
             schema.export(target, save_remote=True)
 
-        try:
-            _logger.info('Caching XML schema', url=url)
+        try:            
             cache_dir(path, producer)
+            _logger.info('Cached XML schema', url=url)
         except Exception as err:
             _logger.error('XML schema caching failed', url=url, error=str(err))
 
 
-async def compile_xml_schema(id: str, url: str) -> XMLSchema | None:
+def compile_xml_schema(id: str, url: str) -> XMLSchema | None:
     filename = f'{id}.xsd'
     schema = _schema_cache.get(filename)
 
@@ -49,7 +50,7 @@ async def compile_xml_schema(id: str, url: str) -> XMLSchema | None:
 
     try:
         if not filepath.exists():
-            await _save_xml_schema_to_disk(url, filepath)
+            _save_xml_schema_to_disk(url, filepath)
 
         schema = xmlschema.XMLSchema([
             str(_xsd_cache_dir.joinpath('gml_321/gml.xsd').resolve()),
@@ -57,7 +58,7 @@ async def compile_xml_schema(id: str, url: str) -> XMLSchema | None:
         ])
 
         _schema_cache[filename] = schema
-        _logger.info(f'Compiled schema for {url}')
+        _logger.info('Compiled XML schema', url=url)
 
         return schema
     except Exception as err:
@@ -66,11 +67,11 @@ async def compile_xml_schema(id: str, url: str) -> XMLSchema | None:
         return None
 
 
-async def _save_xml_schema_to_disk(url: str, filepath: Path) -> Path:
-    async def producer() -> bytes:
-        async with get_semaphore():
-            async with get_session().get(url) as response:
-                response.raise_for_status()
-                return await response.read()
+def _save_xml_schema_to_disk(url: str, filepath: Path) -> Path:
+    def producer() -> bytes:
+        response = requests.get(url)
+        response.raise_for_status()
 
-    return await cache_file(filepath, producer)
+        return response.content
+
+    return cache_file(filepath, producer)

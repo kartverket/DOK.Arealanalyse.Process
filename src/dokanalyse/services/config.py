@@ -3,7 +3,7 @@ import yaml
 import hashlib
 from pathlib import Path
 from uuid import UUID, uuid4
-from async_lru import alru_cache
+from functools import lru_cache
 from typing import Any, Callable, Dict, List, Tuple
 import structlog
 from structlog.stdlib import BoundLogger
@@ -24,14 +24,14 @@ _NOT_IMPLEMENTED_DATASETS_CACHE_DAYS = 2
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-async def get_dataset_configs() -> List[DatasetConfig]:
-    dataset_configs, _ = await _load_configs()
+def get_dataset_configs() -> List[DatasetConfig]:
+    dataset_configs, _ = _load_configs()
 
     return dataset_configs
 
 
-async def get_dataset_config(config_id: UUID) -> DatasetConfig:
-    dataset_configs, _ = await _load_configs()
+def get_dataset_config(config_id: UUID) -> DatasetConfig:
+    dataset_configs, _ = _load_configs()
 
     config = next(
         (conf for conf in dataset_configs if conf.config_id == config_id), None)
@@ -39,8 +39,8 @@ async def get_dataset_config(config_id: UUID) -> DatasetConfig:
     return config
 
 
-async def get_quality_indicator_configs(config_id: UUID) -> List[QualityIndicator]:
-    _, quality_configs = await _load_configs()
+def get_quality_indicator_configs(config_id: UUID) -> List[QualityIndicator]:
+    _, quality_configs = _load_configs()
     indicators: List[QualityIndicator] = []
 
     for config in quality_configs:
@@ -54,20 +54,20 @@ async def get_quality_indicator_configs(config_id: UUID) -> List[QualityIndicato
     return indicators
 
 
-async def get_not_implemented_dataset_configs() -> List[DatasetConfig]:
-    dataset_configs, _ = await _load_configs()
+def get_not_implemented_dataset_configs() -> List[DatasetConfig]:
+    dataset_configs, _ = _load_configs()
     metadata_ids = [str(config.metadata_id)
                     for config in dataset_configs if config.metadata_id is not None]
-    datasets = await _get_not_implemented_datasets(metadata_ids)
+    datasets = _get_not_implemented_datasets(metadata_ids)
     configs: List[DatasetConfig] = []
 
     for dataset in datasets:
-        configs.append(await _create_dataset_config(dataset))
+        configs.append(_create_dataset_config(dataset))
 
     return configs
 
 
-async def _load_configs() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
+def _load_configs() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
     config_dir = get_env_var('DOKANALYSE_DATASETS_CONFIG_DIR')
 
     if config_dir is None:
@@ -87,7 +87,7 @@ async def _load_configs() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
     quality_configs: List[QualityConfig] = []
 
     for path in paths:
-        dataset_config, quality_config = await _load_config(path)
+        dataset_config, quality_config = _load_config(path)
 
         if dataset_config:
             dataset_configs.append(dataset_config)
@@ -102,14 +102,14 @@ async def _load_configs() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
     return dataset_configs, quality_configs
 
 
-async def _load_config(path: Path) -> Tuple[DatasetConfig | None, QualityConfig | None]:
+def _load_config(path: Path) -> Tuple[DatasetConfig | None, QualityConfig | None]:
     mtime_ns, size = _get_fingerprint(path)
 
-    return await _load_cached_config(str(path.resolve()), mtime_ns, size)
+    return _load_cached_config(str(path.resolve()), mtime_ns, size)
 
 
-@alru_cache(maxsize=4096)
-async def _load_cached_config(path_str: str, mtime_ns: int, size: int) -> Tuple[DatasetConfig | None, QualityConfig | None]:
+@lru_cache(maxsize=4096)
+def _load_cached_config(path_str: str, mtime_ns: int, size: int) -> Tuple[DatasetConfig | None, QualityConfig | None]:
     path = Path(path_str)
     results = yaml.safe_load_all(path.read_text(encoding='utf-8'))
     result: Dict[str, Any]
@@ -123,12 +123,12 @@ async def _load_cached_config(path_str: str, mtime_ns: int, size: int) -> Tuple[
         type = result.get('type')
 
         if type == 'dataset':
-            config = await _create_dataset_config(result)
+            config = _create_dataset_config(result)
 
             if config is not None:
                 dataset_config = config
         elif type == 'quality':
-            config = await _create_quality_config(result)
+            config = _create_quality_config(result)
 
             if config is not None:
                 quality_config = config
@@ -136,7 +136,7 @@ async def _load_cached_config(path_str: str, mtime_ns: int, size: int) -> Tuple[
     return dataset_config, quality_config
 
 
-async def _create_dataset_config(data: Dict) -> DatasetConfig | None:
+def _create_dataset_config(data: Dict) -> DatasetConfig | None:
     try:
         config = DatasetConfig(**data)
 
@@ -149,8 +149,7 @@ async def _create_dataset_config(data: Dict) -> DatasetConfig | None:
             for layer in layers:
                 layer.filter_func = _compile_cql_filter(layer.filter)
 
-            if config.name == 'stormflo':
-                config.xml_schema = await _compile_wfs_xml_schema(config.get_feature_service_url())
+            config.xml_schema = _compile_wfs_xml_schema(config.get_feature_service_url())
 
         return config
     except ValidationError as err:
@@ -158,13 +157,13 @@ async def _create_dataset_config(data: Dict) -> DatasetConfig | None:
         return None
 
 
-async def _create_quality_config(data: Dict) -> QualityConfig | None:
+def _create_quality_config(data: Dict) -> QualityConfig | None:
     try:
         config = QualityConfig(**data)
 
         for indicator in config.indicators:
             if indicator.wfs:
-                indicator.wfs.xml_schema = await _compile_wfs_xml_schema(str(indicator.wfs.url))
+                indicator.wfs.xml_schema = _compile_wfs_xml_schema(str(indicator.wfs.url))
 
             if indicator.input_filter:
                 indicator.input_filter_func = _compile_cql_filter(
@@ -183,21 +182,21 @@ def _compile_cql_filter(cql_text: str) -> Callable[[Dict], bool]:
     return predicate
 
 
-async def _compile_wfs_xml_schema(wfs_url: str) -> XMLSchema | None:
+def _compile_wfs_xml_schema(wfs_url: str) -> XMLSchema | None:
     id = _hash_url(wfs_url)
     url = f'{wfs_url}?service=WFS&version=2.0.0&request=DescribeFeatureType'
-    schema = await compile_xml_schema(id, url)
+    schema = compile_xml_schema(id, url)
 
     return schema
 
 
-async def _get_not_implemented_datasets(metadata_ids: List[str]) -> List[Dict[str, Any]]:
+def _get_not_implemented_datasets(metadata_ids: List[str]) -> List[Dict[str, Any]]:
     file_path = Path(CACHE_DIR).joinpath('not-implemented-datasets.json')
 
     if not file_path.exists() or should_refresh_cache(file_path, _NOT_IMPLEMENTED_DATASETS_CACHE_DAYS):
         try:
-            async def producer() -> str:
-                dok_status_all = await get_dok_status()
+            def producer() -> str:
+                dok_status_all = get_dok_status()
                 configs: List[Dict] = []
 
                 for dok_status in dok_status_all:
@@ -218,7 +217,7 @@ async def _get_not_implemented_datasets(metadata_ids: List[str]) -> List[Dict[st
 
                 return json_str
 
-            _ = await cache_file(file_path, producer)
+            _ = cache_file(file_path, producer)
         except Exception as err:
             _logger.error(
                 'Getting not implemented datasets failed', error=str(err))

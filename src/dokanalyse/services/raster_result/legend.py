@@ -48,7 +48,7 @@ async def _fetch_image(url) -> bytes:
                     return None
 
                 return await response.read()
-    except:
+    except Exception:
         return None
 
 

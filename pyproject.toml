@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dokanalyse"
 description = "Arealanalyse av DOK-datasett"
-version = "0.0.17"
+version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -37,7 +37,6 @@ dependencies = [
     "PyYAML",
     "requests>=2.32.5",
     "structlog>=25.5.0",
-    "gdal==3.9.1",
     "xmltodict>=1.0.4",
     "pygeofilter>=0.3.3",
     "xmlschema>=4.3.1",

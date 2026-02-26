@@ -63,7 +63,7 @@ async def _fetch_municipality(x: float, y: float, epsg: int) -> Tuple[str, str]:
                 municipality_name = json.get('kommunenavn', None)
 
                 return municipality_number, municipality_name
-    except:
+    except Exception:
         return None
 
 

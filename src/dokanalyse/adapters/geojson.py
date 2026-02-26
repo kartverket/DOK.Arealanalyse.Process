@@ -3,7 +3,6 @@ from urllib.parse import urlparse
 from typing import Dict, Tuple, Union
 from pydantic import HttpUrl, FileUrl
 from osgeo import ogr
-import aiohttp
 import asyncio
 from async_lru import alru_cache
 from . import log_http_error
@@ -58,7 +57,7 @@ def _load_geojson(file_uri: FileUrl) -> str | None:
     try:
         with open(path) as file:
             return file.read()
-    except:
+    except Exception:
         return None
 
 

@@ -2,10 +2,10 @@ import json
 from uuid import UUID
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import requests
 import structlog
 from structlog.stdlib import BoundLogger
 from ..services.caching import cache_file, should_refresh_cache
-from ..utils.event_loop_manager import get_session, get_semaphore
 from ..constants import CACHE_DIR
 
 _API_URL = 'https://register.geonorge.no/api/dok-statusregisteret.json'
@@ -30,7 +30,7 @@ _value_mappings = {
 
 
 async def get_dok_status_for_dataset(metadata_id: UUID) -> Dict[str, Any] | None:
-    dok_status_all = await get_dok_status()
+    dok_status_all = get_dok_status()
 
     for dok_status in dok_status_all:
         if dok_status.get('dataset_id') == str(metadata_id):
@@ -39,18 +39,18 @@ async def get_dok_status_for_dataset(metadata_id: UUID) -> Dict[str, Any] | None
     return None
 
 
-async def get_dok_status() -> List[Dict[str, Any]]:
+def get_dok_status() -> List[Dict[str, Any]]:
     file_path = Path(CACHE_DIR).joinpath('dok-status.json')
 
     if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
         try:
-            async def producer() -> str:
-                dok_status = await _get_dok_status()
+            def producer() -> str:
+                dok_status = _get_dok_status()
                 json_str = json.dumps(dok_status, indent=2, ensure_ascii=False)
 
                 return json_str
 
-            _ = await cache_file(file_path, producer)
+            _ = cache_file(file_path, producer)
         except Exception as err:
             _logger.error('DOK-status download failed', error=str(err))
             return []
@@ -61,8 +61,8 @@ async def get_dok_status() -> List[Dict[str, Any]]:
     return dok_status
 
 
-async def _get_dok_status() -> List[Dict]:
-    response = await _fetch_dok_status()
+def _get_dok_status() -> List[Dict]:
+    response = _fetch_dok_status()
     contained_items: List[Dict[str, Any]] = response.get('containeditems', [])
     datasets: List[Dict[str, Any]] = []
 
@@ -91,11 +91,11 @@ async def _get_dok_status() -> List[Dict]:
     return datasets
 
 
-async def _fetch_dok_status() -> Dict[str, Any]:
-    async with get_semaphore():
-        async with get_session().get(_API_URL) as response:
-            response.raise_for_status()
-            return await response.json()
+def _fetch_dok_status() -> Dict[str, Any]:
+    response = requests.get(_API_URL)
+    response.raise_for_status()
+
+    return response.json()
 
 
 def _get_dataset_id(item: Dict[str, Any]) -> str:

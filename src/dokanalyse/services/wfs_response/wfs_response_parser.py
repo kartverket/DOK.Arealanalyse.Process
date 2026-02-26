@@ -4,7 +4,7 @@ import structlog
 from structlog.stdlib import BoundLogger
 from lxml import etree as ET
 from .wfs_response_parser_base import WfsResponseParserBase
-from ..config import DatasetConfig, Layer
+from ...models.config import DatasetConfig, Layer
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 

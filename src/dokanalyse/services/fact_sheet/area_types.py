@@ -53,12 +53,12 @@ async def _get_data(geometry: ogr.Geometry) -> Dict:
 
     return {
         'inputArea': round(input_area, 2),
-        'areaTypes': await _map_area_types(area_types)
+        'areaTypes': _map_area_types(area_types)
     }
 
 
-async def _map_area_types(area_types: Dict) -> Dict:
-    codelist = await get_codelist('arealressurs_arealtype')
+def _map_area_types(area_types: Dict) -> Dict:
+    codelist = get_codelist('arealressurs_arealtype')
     mapped = []
 
     for entry in codelist:

@@ -1,22 +1,20 @@
-from os import path
-from pathlib import Path
 import json
+from pathlib import Path
 import structlog
 from structlog.stdlib import BoundLogger
 from jsonschema import validate
 
+
+_FILENAME = 'no.geonorge.dokanalyse.v1.input.schema.json'
+
+_filepath = Path(__file__).parent.parent.parent.joinpath(
+    'resources').joinpath(_FILENAME).resolve()
+
 _logger: BoundLogger = structlog.get_logger(__name__)
-
-print('HOOORE')
-print(Path(__file__).resolve())
-
-_FILENAME = 'resources/no.geonorge.dokanalyse.v1.input.schema.json'
-_DIR_PATH = path.dirname(path.realpath(__file__))
-_FILE_PATH = path.abspath(path.join(_DIR_PATH, '../..', _FILENAME))
 
 
 def request_is_valid(data) -> bool:
-    with open(_FILE_PATH, 'r') as file:
+    with _filepath.open() as file:
         schema = json.load(file)
 
     try:

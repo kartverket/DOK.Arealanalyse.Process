@@ -1,51 +1,58 @@
-from os import path
-from uuid import UUID
-from typing import Dict
 import json
-from async_lru import alru_cache
-from ..utils.event_loop_manager import get_session, get_semaphore
+from uuid import UUID
+from pathlib import Path
+from typing import Any, Dict, List
+import requests
+import structlog
+from structlog.stdlib import BoundLogger
+from .caching import cache_file, should_refresh_cache
+from ..constants import CACHE_DIR
 
 _GEOLETT_API_URL = 'https://register.geonorge.no/geolett/api'
-_CACHE_TTL = 86400 * 7
+_CACHE_DAYS = 1
 
-_local_geolett_ids = ['0c5dc043-e5b3-4349-8587-9b464d013aaa']
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 
-async def get_guidance_data(id: UUID) -> Dict:
+def get_guidance_data(id: UUID) -> Dict[str, Any] | None:
     if id is None:
         return None
 
-    if id in _local_geolett_ids:
-        guidance_data = _fetch_local_guidance_data()
-    else:
-        guidance_data = await _fetch_guidance_data()
+    guidance_data = _get_guidance_data()
+    result = next(
+        (item for item in guidance_data if str(id) == item['id']), None)
 
-    result = list(filter(lambda item: item['id'] == str(id), guidance_data))
-
-    return result[0] if len(result) > 0 else None
+    return result
 
 
-@alru_cache(maxsize=32, ttl=_CACHE_TTL)
-async def _fetch_guidance_data() -> Dict:
-    try:
-        async with get_semaphore():
-            async with get_session().get(_GEOLETT_API_URL) as response:
-                if response.status != 200:
-                    return None
+def _get_guidance_data() -> List[Dict[str, Any]]:
+    file_path = Path(CACHE_DIR).joinpath('veiledningstekster.json')
 
-                return await response.json()
-    except:
-        return None
+    if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
+        try:
+            def producer() -> str:
+                guidance_data = _fetch_guidance_data()
+                json_str = json.dumps(
+                    guidance_data, indent=2, ensure_ascii=False)
+
+                return json_str
+
+            _ = cache_file(file_path, producer)
+        except Exception as err:
+            _logger.error('Veiledningstekster download failed', error=str(err))
+            return []
+
+    with file_path.open() as file:
+        dok_status = json.load(file)
+
+    return dok_status
 
 
-def _fetch_local_guidance_data() -> Dict:
-    dir_path = path.dirname(path.realpath(__file__))
+def _fetch_guidance_data() -> Dict[str, Any]:
+    response = requests.get(_GEOLETT_API_URL)
+    response.raise_for_status()
 
-    file_path = path.join(
-        path.dirname(dir_path), 'resources/geolett.local.json')
-
-    with open(file_path, 'r') as file:
-        return json.load(file)
+    return response.json()
 
 
 __all__ = ['get_guidance_data']

@@ -1,9 +1,8 @@
 from os import getenv
 from typing import Final
-from .utils.helpers.common import get_env_var
 
 
-APP_FILES_DIR: Final[str] = get_env_var('DOKANALYSE_APP_FILES_DIR')
+APP_FILES_DIR: Final[str] = getenv('DOKANALYSE_APP_FILES_DIR')
 CACHE_DIR:  Final[str] = f'{APP_FILES_DIR}/cache'
 AR5_FGDB_PATH: Final[str | None] = getenv('DOKANALYSE_AR5_FGDB_PATH')
 SOCKET_IO_SRV_URL: Final[str | None] = getenv('DOKANALYSE_SOCKET_IO_SRV_URL')

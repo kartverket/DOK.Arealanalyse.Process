@@ -89,5 +89,5 @@ def get_credential(credential: str) -> str:
     return credential
 
 
-__all__ = ['log_error_response', 'get_service_credentials',
-           'get_auth', 'get_service_url', 'get_credentials']
+__all__ = ['log_http_error', 'get_service_credentials',
+           'get_auth', 'get_service_url', 'get_credential']

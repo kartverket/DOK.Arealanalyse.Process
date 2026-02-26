@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from typing import List, Dict
 from uuid import UUID
 from osgeo import ogr
@@ -6,14 +5,7 @@ from .quality_measurement import QualityMeasurement
 from .metadata import Metadata
 from .result_status import ResultStatus
 from .config import DatasetConfig
-from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json
-from ..utils.helpers.quality import get_coverage_indicator, get_coverage_service_config_data
-from ..services.config import get_quality_indicator_configs
-from ..services.kartkatalog import get_kartkatalog_metadata
-from ..services.quality.coverage_quality import get_coverage_quality
-from ..services.quality.dataset_quality import get_dataset_quality
-from ..services.quality.object_quality import get_object_quality
-from ..services.guidance_data import get_guidance_data
+from ..utils.helpers.geometry import create_buffered_geometry
 
 
 _QMS_SORT_ORDER = [
@@ -25,7 +17,7 @@ _QMS_SORT_ORDER = [
 ]
 
 
-class Analysis(ABC):
+class Analysis:
     def __init__(self, config_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
         self.config_id = config_id
         self.config = config
@@ -60,90 +52,18 @@ class Analysis(ABC):
         self.has_coverage: bool = True
         self.is_relevant = True
 
-    async def run(self, context: str, include_guidance: bool, include_quality_measurement: bool) -> None:
-        self.__set_input_geometry()
-
-        await self.__run_coverage_analysis(context)
-
-        if self.has_coverage:
-            await self._run_queries(context)
-
-            if self.result_status == ResultStatus.TIMEOUT or self.result_status == ResultStatus.ERROR:
-                await self.set_default_data()
-                return
-        elif not self.is_relevant:
-            self.result_status = ResultStatus.NO_HIT_GREEN
-        else:
-            self.result_status = ResultStatus.NO_HIT_YELLOW
-
-        if self.result_status in [ResultStatus.NO_HIT_GREEN, ResultStatus.NO_HIT_YELLOW] and self.is_relevant:
-            await self._set_distance_to_object()
-
-        self.__set_geometry_areas()
-
-        self._add_run_algorithm('deliver result')
-
-        self.run_on_input_geometry_json = create_run_on_input_geometry_json(
-            self.run_on_input_geometry, self.epsg, self.orig_epsg)
-
-        await self.set_default_data()
-
-        if include_guidance and self.guidance_data is not None:
-            self.__set_guidance_data()
-
-        if include_quality_measurement:
-            await self.__set_quality_measurements(context)
-
-    def _add_run_algorithm(self, algorithm) -> None:
-        self.run_algorithm.append(algorithm)
-
-    async def set_default_data(self) -> None:
-        self.title = self.guidance_data.get(
-            'tittel') if self.guidance_data else self.config.title
-        self.themes = self.config.themes
-        self.run_on_dataset = await get_kartkatalog_metadata(self.config.metadata_id)
-
-    async def __run_coverage_analysis(self, context: str) -> None:
-        quality_indicators = await get_quality_indicator_configs(self.config_id)
-        ci = get_coverage_indicator(quality_indicators)
-
-        if not ci:
-            return
-
-        coverage_svc = get_coverage_service_config_data(ci)
-
-        self._add_run_algorithm(f'check coverage {coverage_svc.get("url")}')
-        response = await get_coverage_quality(ci, self.run_on_input_geometry, self.epsg)
-        self._add_run_algorithm(
-            f'intersects layer {coverage_svc.get("layer")} ({response.has_coverage})')
-
-        if not response.has_coverage:
-            self.data = response.data
-            guidance_id = coverage_svc.get(
-                'building_guidance_id') if context.lower() == 'byggesak' else coverage_svc.get('planning_guidance_id')
-
-            if guidance_id:
-                self.guidance_data = await get_guidance_data(guidance_id)
-
-        self.quality_measurement.extend(response.quality_measurements)
-        self.has_coverage = response.has_coverage
-        self.is_relevant = response.is_relevant
-
-        if response.warning_text is not None:
-            self.quality_warning.append(response.warning_text)
-
-    def __set_input_geometry(self) -> None:
-        self._add_run_algorithm('set input_geometry')
+    def set_input_geometry(self) -> None:
+        self.run_algorithm.append('set input_geometry')
 
         if self.buffer > 0:
             buffered_geom = create_buffered_geometry(
                 self.geometry, self.buffer, self.epsg)
-            self._add_run_algorithm(f'add buffer ({self.buffer})')
+            self.run_algorithm.append(f'add buffer ({self.buffer})')
             self.run_on_input_geometry = buffered_geom
         else:
             self.run_on_input_geometry = self.geometry.Clone()
 
-    def __set_geometry_areas(self) -> None:
+    def calculate_geometry_areas(self) -> None:
         self.input_geometry_area = round(
             self.run_on_input_geometry.GetArea(), 2)
 
@@ -167,54 +87,8 @@ class Analysis(ABC):
             if geom_type == ogr.wkbPolygon or geom_type == ogr.wkbMultiPolygon:
                 hit_area += intersection.GetArea()
 
-        self._add_run_algorithm('calculate hit area')
+        self.run_algorithm.append('calculate hit area')
         self.hit_area = round(hit_area, 2)
-
-    def __set_guidance_data(self) -> None:
-        if self.result_status != ResultStatus.NO_HIT_GREEN:
-            self.description = self.guidance_data.get('forklarendeTekst')
-            self.guidance_text = self.guidance_data.get('dialogtekst')
-
-        for link in self.guidance_data.get('lenker', []):
-            self.guidance_uri.append({
-                'href': link['href'],
-                'title': link['tittel']
-            })
-
-        possible_actions: str = self.guidance_data.get('muligeTiltak', '')
-
-        for line in possible_actions.splitlines():
-            self.possible_actions.append(line.lstrip('- '))
-
-    async def __set_quality_measurements(self, context: str) -> None:
-        quality_indicators = await get_quality_indicator_configs(self.config_id)
-
-        if len(quality_indicators) == 0:
-            return
-
-        dataset_qms, dataset_warnings = await get_dataset_quality(self.config, quality_indicators, context=context, themes=self.themes)
-        object_qms, object_warnings = [], []
-
-        if self.has_coverage:
-            object_qms, object_warnings = get_object_quality(
-                quality_indicators, self.data)
-
-        self.quality_measurement.extend(dataset_qms)
-        self.quality_measurement.extend(object_qms)
-        self.quality_warning.extend(dataset_warnings)
-        self.quality_warning.extend(object_warnings)
-
-    def __sort_quality_measurements(self) -> List[QualityMeasurement]:
-        qms: List[QualityMeasurement] = []
-
-        for id in _QMS_SORT_ORDER:
-            result = [
-                qm for qm in self.quality_measurement if qm.quality_dimension_id == id]
-
-            if len(result) > 0:
-                qms.extend(result)
-
-        return qms
 
     def to_dict(self) -> Dict:
         sorted_qms = self.__sort_quality_measurements()
@@ -244,10 +118,14 @@ class Analysis(ABC):
             'qualityWarning': self.quality_warning
         }
 
-    @abstractmethod
-    async def _run_queries(self, context: str) -> None:
-        pass
+    def __sort_quality_measurements(self) -> List[QualityMeasurement]:
+        qms: List[QualityMeasurement] = []
 
-    @abstractmethod
-    def _set_distance_to_object(self) -> None:
-        pass
+        for id in _QMS_SORT_ORDER:
+            result = [
+                qm for qm in self.quality_measurement if qm.quality_dimension_id == id]
+
+            if len(result) > 0:
+                qms.extend(result)
+
+        return qms
