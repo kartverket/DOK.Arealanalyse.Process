@@ -4,7 +4,7 @@ from pydantic import HttpUrl
 from osgeo import ogr
 from . import log_http_error, get_service_credentials, get_auth
 from ..models.config import DatasetConfig, FeatureService, Auth
-from ..utils.event_loop_manager import get_session, get_semaphore
+from ..utils.http_context import get_session
 from ..utils.helpers.geometry import geometry_to_arcgis_geom
 
 _RESOURCE = 'ArcGIS REST API'
@@ -17,7 +17,7 @@ async def query_arcgis(
         geometry: ogr.Geometry,
         epsg: int,
         dataset_config: DatasetConfig | None = None
-) -> Tuple[int, Dict]:
+) -> Tuple[int, Dict | None]:
     url, auth = get_service_credentials(arcgis)
     api_url = f'{url}/{layer}/query'
     arcgis_geom = geometry_to_arcgis_geom(geometry, epsg)
@@ -38,31 +38,30 @@ async def query_arcgis(
     return await _query_arcgis(api_url, auth, data, dataset_config)
 
 
-async def _query_arcgis(url: str, auth: Auth, data: Dict, dataset_config: DatasetConfig | None) -> Tuple[int, Dict]:
+async def _query_arcgis(url: str, auth: Auth | None, data: Dict, dataset_config: DatasetConfig | None) -> Tuple[int, Dict | None]:
     auth_params = get_auth(auth)
 
     try:
-        async with get_semaphore():
-            async with get_session().post(url, data=data, **auth_params) as response:        
-                if response.status != 200:
-                    log_http_error(
-                        _RESOURCE, url, response.status, dataset=dataset_config)
-                    return response.status, None
+        async with get_session().post(url, data=data, **auth_params) as response:
+            if response.status != 200:
+                log_http_error(
+                    _RESOURCE, url, response.status, dataset=dataset_config)
+                return response.status, None
 
-                json = await response.json()
+            json = await response.json()
 
-                if 'error' in json:
-                    log_http_error(_RESOURCE, url, 400,
-                                       dataset=dataset_config)
-                    return 400, None
+            if 'error' in json:
+                log_http_error(_RESOURCE, url, 400,
+                               dataset=dataset_config)
+                return 400, None
 
-                return 200, json
+            return 200, json
     except asyncio.TimeoutError:
         log_http_error(_RESOURCE, url, 408, dataset=dataset_config)
         return 408, None
     except Exception as err:
         log_http_error(_RESOURCE, url, 500,
-                           dataset=dataset_config, err=err)
+                       dataset=dataset_config, err=err)
         return 500, None
 
 

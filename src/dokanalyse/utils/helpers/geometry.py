@@ -1,7 +1,7 @@
 import json
 import re
 from math import pi
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from osgeo import ogr, osr
 import structlog
 from structlog.stdlib import BoundLogger
@@ -13,7 +13,8 @@ _EARTH_RADIUS = 6371008.8
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
-_crs_regex = re.compile(r'^(http:\/\/www\.opengis\.net\/def\/crs\/EPSG\/0\/|^urn:ogc:def:crs:EPSG::|^EPSG:)(?P<epsg>\d+)$')
+_crs_regex = re.compile(
+    r'^(http:\/\/www\.opengis\.net\/def\/crs\/EPSG\/0\/|^urn:ogc:def:crs:EPSG::|^EPSG:)(?P<epsg>\d+)$')
 
 
 def geometry_from_gml(gml_str: str) -> ogr.Geometry | None:
@@ -34,10 +35,10 @@ def geometry_from_json(json_str: str) -> ogr.Geometry | None:
 
 def geometry_to_wkt(geometry: ogr.Geometry, epsg: int) -> str:
     wkt_str = geometry.ExportToWkt()
-    geometry = wkt.loads(wkt_str)
+    wkt_geometry = wkt.loads(wkt_str)
     coord_precision = 2 if epsg != WGS84_EPSG else -1
 
-    return dumps(geometry, trim=True, rounding_precision=coord_precision)
+    return dumps(wkt_geometry, trim=True, rounding_precision=coord_precision)
 
 
 def geometry_to_arcgis_geom(geometry: ogr.Geometry, epsg: int) -> str:
@@ -58,6 +59,22 @@ def geometry_to_arcgis_geom(geometry: ogr.Geometry, epsg: int) -> str:
     }
 
     return json.dumps(arcgis_geom)
+
+
+def envelope_to_polygon(envelope: Tuple[float, float, float, float]) -> ogr.Geometry:
+    minx, maxx, miny, maxy = envelope
+    ring = ogr.Geometry(ogr.wkbLinearRing)
+
+    ring.AddPoint_2D(minx, miny)
+    ring.AddPoint_2D(maxx, miny)
+    ring.AddPoint_2D(maxx, maxy)
+    ring.AddPoint_2D(minx, maxy)
+    ring.AddPoint_2D(minx, miny)
+
+    polygon = ogr.Geometry(ogr.wkbPolygon)
+    polygon.AddGeometry(ring)
+
+    return polygon
 
 
 def create_input_geometry(geojson: Dict[str, Any]) -> ogr.Geometry:
@@ -155,7 +172,7 @@ def get_epsg_from_crs(crs: str) -> int | None:
 
 def get_epsg_from_geojson(geojson: Dict[str, Any]) -> int:
     crs = geojson.get('crs', {}).get('properties', {}).get('name')
-    
+
     if crs is None:
         return WGS84_EPSG
 
@@ -184,6 +201,7 @@ __all__ = [
     'geometry_from_json',
     'geometry_to_wkt',
     'geometry_to_arcgis_geom',
+    'envelope_to_polygon',
     'create_input_geometry',
     'create_buffered_geometry',
     'create_feature_collection',

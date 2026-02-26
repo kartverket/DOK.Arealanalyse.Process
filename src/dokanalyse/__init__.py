@@ -1,12 +1,14 @@
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
+import asyncio
+import aiohttp
 from osgeo import ogr, osr
 from pygeoapi.process.base import BaseProcessor, ProcessorExecuteError
 from .services import analyses, xml_schema
 from .utils.helpers.request import request_is_valid
+from .utils.http_context import session_var
 from .utils.socket_io import get_client
 from .utils import logger
 from .utils.correlation import set_correlation_id, clear_correlation_id
-from .utils.event_loop_manager import run
 
 osr.UseExceptions()
 ogr.UseExceptions()
@@ -183,23 +185,36 @@ class DokanalyseProcessor(BaseProcessor):
     def __init__(self, processor_def):
         super().__init__(processor_def, PROCESS_METADATA)
 
-    def execute(self, data: Dict, outputs=None) -> Tuple[str, Dict | None]:
+    def execute(self, data: Dict[str, Any], outputs=None) -> Tuple[str, Dict[str, Any] | None]:
         set_correlation_id(data.get('correlationId'))
 
         if not request_is_valid(data):
             raise ProcessorExecuteError('Invalid payload')
 
-        sio_client = get_client()
-
-        try:
-            outputs = run(analyses.run(data, sio_client))
-        finally:
-            clear_correlation_id()
-
-            if sio_client:
-                sio_client.disconnect()
+        outputs = asyncio.run(self._run_analyses(data))
 
         return 'application/json', outputs
+
+    async def _run_analyses(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        sio_client = get_client()
+
+        timeout = aiohttp.ClientTimeout(total=30)
+
+        connector = aiohttp.TCPConnector(
+            limit=100, limit_per_host=10, ttl_dns_cache=300)
+
+        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+            token = session_var.set(session)
+
+            try:
+                return await analyses.run(data, sio_client)
+            finally:
+                session_var.reset(token)
+
+                clear_correlation_id()
+
+                if sio_client:
+                    sio_client.disconnect()
 
     def __repr__(self) -> str:
         return f'<DokanalyseProcessor> {self.name}'

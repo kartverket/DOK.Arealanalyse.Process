@@ -3,7 +3,7 @@ from io import BytesIO
 from typing import List
 import asyncio
 from PIL import Image
-from ...utils.event_loop_manager import get_session, get_semaphore
+from ...utils.http_context import get_session
 
 
 async def create_legend(urls) -> str:
@@ -42,12 +42,11 @@ def _merge_images(img_data: List[bytes]) -> str:
 
 async def _fetch_image(url) -> bytes:
     try:
-        async with get_semaphore():
-            async with get_session().get(url) as response: 
-                if response.status != 200:
-                    return None
+        async with get_session().get(url) as response:
+            if response.status != 200:
+                return None
 
-                return await response.read()
+            return await response.read()
     except Exception:
         return None
 

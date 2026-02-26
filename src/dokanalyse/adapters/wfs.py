@@ -5,7 +5,7 @@ import asyncio
 from osgeo import ogr
 from . import log_http_error, get_service_credentials, get_auth
 from ..models.config import DatasetConfig, FeatureService, Auth
-from ..utils.event_loop_manager import get_session, get_semaphore
+from ..utils.http_context import get_session
 
 _RESOURCE = 'WFS'
 
@@ -45,22 +45,20 @@ async def _query_wfs(
     auth_params = get_auth(auth)
 
     try:
-        async with get_semaphore():
-            async with get_session().post(url, data=xml_body, **auth_params) as response:
-                if response.status == 200:
-                    return response.status, await response.read()
+        async with get_session().post(url, data=xml_body, **auth_params) as response:
+            if response.status == 200:
+                return response.status, await response.read()
 
-                log_http_error(_RESOURCE, url, response.status,
-                               dataset=dataset_config)
+            log_http_error(_RESOURCE, url, response.status,
+                           dataset=dataset_config)
 
-                return response.status, None
+            return response.status, None
     except asyncio.TimeoutError:
         log_http_error(_RESOURCE, url, 408, dataset=dataset_config)
         return 408, None
     except Exception as err:
         log_http_error(_RESOURCE, url, 500, dataset=dataset_config, err=err)
         return 500, None
-
 
 
 __all__ = ['query_wfs']

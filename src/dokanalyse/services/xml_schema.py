@@ -6,7 +6,7 @@ import requests
 import xmlschema
 from xmlschema import XMLSchema
 from .caching import cache_file, cache_dir
-from ..utils.event_loop_manager import get_session, get_semaphore
+from ..utils.http_context import get_session
 from ..constants import CACHE_DIR
 
 _logger: BoundLogger = structlog.get_logger(__name__)

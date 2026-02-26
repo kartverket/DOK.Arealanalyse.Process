@@ -20,9 +20,14 @@ from ..utils.helpers.common import objectify_properties
 class QueryStrategy(Protocol):
     def get_service_url(self, config: DatasetConfig) -> str: ...
     def get_layer_name(self, layer: Layer) -> str: ...
-    async def query(self, config: DatasetConfig, layer: Layer, geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]: ...
-    def parse_response(self, response: Any, config: DatasetConfig, layer: Layer) -> Dict[str, list]: ...
-    def extract_geometries(self, response: Any, config: DatasetConfig, layer: Layer) -> List[ogr.Geometry]: ...
+
+    async def query(self, config: DatasetConfig, layer: Layer,
+                    geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]: ...
+
+    def parse_response(self, response: Any, config: DatasetConfig,
+                       layer: Layer) -> Dict[str, list]: ...
+    def extract_geometries(self, response: Any, config: DatasetConfig,
+                           layer: Layer) -> List[ogr.Geometry]: ...
 
 
 class WfsQueryStrategy:
@@ -89,26 +94,29 @@ class OgcApiQueryStrategy:
         return layer.ogc_api
 
     async def query(self, config: DatasetConfig, layer: Layer, geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]:
-        return query_ogc_api(config.ogc_api, layer.ogc_api, geometry, layer.filter, epsg, config)
+        return await query_ogc_api(config.ogc_api, layer.ogc_api, config.geom_field, geometry, layer.filter, epsg, config)
 
-    def parse_response(self, response: Any, config: DatasetConfig, layer: Layer) -> Dict[str, list]:
+    def parse_response(self, response: List[Dict[str, Any]], config: DatasetConfig, layer: Layer) -> Dict[str, list]:
         data = {
             'properties': [],
             'geometries': []
         }
 
-        for feature in response['features']:
+        feature: Dict[str, Any]
+
+        for feature in response:
             data['properties'].append(
                 _map_properties(feature, config.properties, config.skip_properties))
             data['geometries'].append(feature['geometry'])
 
         return data
 
-    def extract_geometries(self, response: Any, config: DatasetConfig, layer: Layer) -> List[ogr.Geometry]:
-        geometries = []
+    def extract_geometries(self, response: List[Dict[str, Any]], config: DatasetConfig, layer: Layer) -> List[ogr.Geometry]:
+        geometries: List[ogr.Geometry] = []
 
-        for feature in response.get('features', []):
+        for feature in response:
             geom: ogr.Geometry = feature['geometry']
+
             if geom:
                 geometries.append(geom)
 

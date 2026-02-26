@@ -38,8 +38,8 @@ def query_gdal(driver_name: str, data_source: Any, filter: str, geometry: ogr.Ge
 
 
 def _query(driver_name: str, data_source: Any, layer_name: str | None, filter: str, geometry: ogr.Geometry, epsg: int) -> Dict[str, Any]:
-    driver: ogr.Driver = ogr.GetDriverByName(driver_name)
-    ds: ogr.DataSource = driver.Open(data_source)
+    driver: gdal.Driver = ogr.GetDriverByName(driver_name)
+    ds: gdal.Dataset = driver.Open(data_source)
     layer: ogr.Layer = ds.GetLayerByName(
         layer_name) if layer_name else ds.GetLayer(0)
 

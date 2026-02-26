@@ -65,7 +65,7 @@ async def set_defaults(analysis: Analysis) -> None:
 
 async def _run_queries(analysis: Analysis, context: str) -> None:
     strategy = get_query_strategy(analysis)
-
+    
     if strategy is None:
         return
 
@@ -81,8 +81,10 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
             analysis.run_algorithm.append(f'add filter {layer.filter}')
 
         layer_name = strategy.get_layer_name(layer)
+
         status_code, api_response = await strategy.query(
             analysis.config, layer, analysis.run_on_input_geometry, analysis.epsg)
+
 
         if status_code == 408:
             analysis.result_status = ResultStatus.TIMEOUT

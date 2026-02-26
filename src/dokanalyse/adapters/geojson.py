@@ -7,7 +7,7 @@ import asyncio
 from async_lru import alru_cache
 from . import log_http_error
 from .gdal import query_gdal
-from ..utils.event_loop_manager import get_session, get_semaphore
+from ..utils.http_context import get_session
 
 _CACHE_TTL = 86400
 _RESOURCE = 'GeoJSON'
@@ -34,15 +34,14 @@ async def _get_geojson(url: Union[HttpUrl, FileUrl]) -> str | None:
 
 async def _fetch_geojson(url: str) -> Tuple[int, str | None]:
     try:
-        async with get_semaphore():
-            async with get_session().get(url) as response:
-                if response.status != 200:
-                    log_http_error(_RESOURCE, url, response.status)
-                    return response.status, None
+        async with get_session().get(url) as response:
+            if response.status != 200:
+                log_http_error(_RESOURCE, url, response.status)
+                return response.status, None
 
-                json_str = await response.text()
+            json_str = await response.text()
 
-                return 200, json_str
+            return 200, json_str
     except asyncio.TimeoutError:
         log_http_error(_RESOURCE, url, 408)
         return 408, None

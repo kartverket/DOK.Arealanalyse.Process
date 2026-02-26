@@ -3,7 +3,7 @@ from typing import List, Dict, Tuple
 from lxml import etree as ET
 from osgeo import ogr, osr
 from ..adapters.wfs import query_wfs
-from ..utils.event_loop_manager import get_session, get_semaphore
+from ..utils.http_context import get_session
 
 _WFS_URL = 'https://wfs.geonorge.no/skwms1/wfs.administrative_enheter'
 
@@ -39,7 +39,7 @@ async def _get_municipality_from_wfs(geometry: ogr.Geometry, epsg: int) -> Tuple
 
     bytes_io = BytesIO(response)
     root = ET.parse(bytes_io)
-        
+
     municipality_number = root.findtext(
         './/wfs:member/*/app:kommunenummer', namespaces=ns)
     municipality_name = root.findtext(
@@ -52,17 +52,16 @@ async def _fetch_municipality(x: float, y: float, epsg: int) -> Tuple[str, str]:
     try:
         url = f'https://api.kartverket.no/kommuneinfo/v1/punkt?nord={y}&ost={x}&koordsys={epsg}&filtrer=kommunenummer,kommunenavn'
 
-        async with get_semaphore():
-            async with get_session().get(url) as response: 
-                if response.status != 200:
-                    return None
+        async with get_session().get(url) as response:
+            if response.status != 200:
+                return None
 
-                json: Dict = await response.json()
+            json: Dict = await response.json()
 
-                municipality_number = json.get('kommunenummer', None)
-                municipality_name = json.get('kommunenavn', None)
+            municipality_number: str = json.get('kommunenummer', None)
+            municipality_name: str = json.get('kommunenavn', None)
 
-                return municipality_number, municipality_name
+            return municipality_number, municipality_name
     except Exception:
         return None
 

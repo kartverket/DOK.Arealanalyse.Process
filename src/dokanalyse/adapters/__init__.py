@@ -8,7 +8,7 @@ from structlog.stdlib import BoundLogger
 from pydantic import HttpUrl
 from ..models.config.auth import Auth, ApiKey, Basic
 from ..models.config import DatasetConfig, FeatureService
-from ..utils.event_loop_manager import get_session, get_semaphore
+from ..utils.http_context import get_session
 
 _LOGGER: BoundLogger = structlog.get_logger(__name__)
 _CREDENTIAL_REGEX = r"^\$\{(?P<env_var>.*?)\}$"
@@ -56,9 +56,9 @@ def get_service_credentials(service: str | HttpUrl | FeatureService) -> Tuple[st
     return str(service.url), service.auth
 
 
-def get_auth(auth: Auth) -> Dict[str, Any]:
+def get_auth(auth: Auth | None) -> Dict[str, Any]:
     headers = {}
-    basic_auth: aiohttp.BasicAuth = None
+    basic_auth: aiohttp.BasicAuth | None = None
 
     if isinstance(auth, ApiKey):
         headers['x-api-key'] = get_credential(auth.api_key)
