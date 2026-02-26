@@ -16,10 +16,8 @@ _base_schemas = [
 
 _schema_cache: Dict[str, XMLSchema] = {}
 
-_xsd_cache_dir = Path(f'{CACHE_DIR}/xsds')
-
-if not _xsd_cache_dir.exists():
-    _xsd_cache_dir.mkdir(parents=True)
+_xsd_cache_dir = Path(CACHE_DIR).joinpath('xsds')
+_xsd_cache_dir.mkdir(parents=True, exist_ok=True)
 
 
 def cache_base_schemas() -> None:

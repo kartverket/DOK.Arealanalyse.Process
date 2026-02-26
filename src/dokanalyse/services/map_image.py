@@ -2,6 +2,7 @@ import asyncio
 import time
 import os
 from io import BytesIO
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from typing import Any, List, Dict, Tuple
 from concurrent.futures import TimeoutError
@@ -31,16 +32,15 @@ matplotlib.use('agg')
 ogcc.METERS_PER_UNIT['EPSG:3857'] = 1
 ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR
 
-_logger: BoundLogger = structlog.get_logger(__name__)
-_semaphore = asyncio.Semaphore(min(mp.cpu_count(), 8))
-
 _WMTS_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml?request=GetCapabilities'
-_BASEMAPS_CACHE_DIR = f'{CACHE_DIR}/basemaps'
 _TIMEOUT_SECONDS = 120
 _DPI = 100
 
-if not os.path.exists(_BASEMAPS_CACHE_DIR):
-    os.makedirs(_BASEMAPS_CACHE_DIR)
+_logger: BoundLogger = structlog.get_logger(__name__)
+_semaphore = asyncio.Semaphore(min(mp.cpu_count(), 8))
+
+_basemaps_cache_dir = Path(CACHE_DIR).joinpath('basemaps')
+_basemaps_cache_dir.mkdir(parents=True, exist_ok=True)
 
 
 async def generate_map_images(
@@ -190,9 +190,9 @@ def _get_params_for_fact_sheet(fact_sheet: FactSheet) -> Dict[str, Any]:
 
 def _add_wmts(ax: GeoAxes, grayscale: bool) -> SlippyImageArtist:
     layer_name = 'topograatone' if grayscale else 'topo'
-    cache_dir = f'{_BASEMAPS_CACHE_DIR}/{layer_name}'
+    cache_dir = _basemaps_cache_dir / layer_name
 
-    return ax.add_wmts(_WMTS_URL, layer_name, cache=cache_dir)
+    return ax.add_wmts(_WMTS_URL, layer_name, cache=str(cache_dir))
 
 
 def _add_wms(ax: GeoAxes, url: str, layers: List[str]) -> SlippyImageArtist:

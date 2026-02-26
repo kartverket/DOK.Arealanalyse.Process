@@ -1,14 +1,17 @@
-from os import path
-from pathlib import Path
 import json
-from typing import List, Dict
+from pathlib import Path
+from typing import Any, Dict, List
+import structlog
+from structlog.stdlib import BoundLogger
+from ..services.caching import cache_file, should_refresh_cache
 from ..utils.event_loop_manager import get_session, get_semaphore
 from ..constants import CACHE_DIR
-from ..utils.helpers.common import should_refresh_cache
 
 _CACHE_DAYS = 7
 
-_CODELISTS = {
+_logger: BoundLogger = structlog.get_logger(__name__)
+
+_codelists = {
     'arealressurs_arealtype': 'https://register.geonorge.no/api/sosi-kodelister/fkb/ar5/5.0/arealressursarealtype.json',
     'fullstendighet_dekning': 'https://register.geonorge.no/api/sosi-kodelister/temadata/fullstendighetsdekningskart/dekningsstatus.json',
     'vegkategori': 'https://register.geonorge.no/api/sosi-kodelister/kartdata/vegkategori.json'
@@ -16,42 +19,36 @@ _CODELISTS = {
 
 
 async def get_codelist(type: str) -> List[Dict] | None:
-    url = _CODELISTS.get(type)
+    url = _codelists.get(type)
 
     if url is None:
         return None
 
-    file_path = Path(
-        path.join(CACHE_DIR, f'codelists/{type}.json'))
+    file_path = Path(CACHE_DIR).joinpath(f'codelists/{type}.json')
 
     if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        codelist = await _get_codelist(url)
+        try:
+            async def producer() -> str:
+                codelist = await _get_codelist(url)
+                json_str = json.dumps(codelist, indent=2, ensure_ascii=False)
 
-        if codelist is None:
+                return json_str
+
+            _ = await cache_file(file_path, producer)
+        except Exception as err:
+            _logger.error('Codelist download failed', url=url, error=str(err))
             return None
 
-        json_object = json.dumps(codelist, indent=2)
+    with file_path.open() as file:
+        codelist = json.load(file)
 
-        with file_path.open('w', encoding='utf-8') as file:
-            file.write(json_object)
-
-        return codelist
-    else:
-        with file_path.open(encoding='utf-8') as file:
-            codelist = json.load(file)
-
-        return codelist
+    return codelist
 
 
-async def _get_codelist(url: str) -> List[Dict]:
+async def _get_codelist(url: str) -> List[Dict[str, Any]]:
     response = await _fetch_codelist(url)
-
-    if response is None:
-        return None
-
-    contained_items: List[Dict] = response.get('containeditems', [])
-    entries: List[Dict] = []
+    contained_items: List[Dict[str, Any]] = response.get('containeditems', [])
+    entries: List[Dict[str, Any]] = []
 
     for item in contained_items:
         if item.get('status') == 'Gyldig':
@@ -64,16 +61,11 @@ async def _get_codelist(url: str) -> List[Dict]:
     return entries
 
 
-async def _fetch_codelist(url: str) -> Dict:
-    try:
-        async with get_semaphore():
-            async with get_session().get(url) as response:
-                if response.status != 200:
-                    return None
-
-                return await response.json()
-    except:
-        return None
+async def _fetch_codelist(url: str) -> Dict[str, Any]:
+    async with get_semaphore():
+        async with get_session().get(url) as response:
+            response.raise_for_status()
+            return await response.json()
 
 
 __all__ = ['get_codelist']

@@ -14,12 +14,12 @@ from .municipality import get_municipality
 from .config import get_dataset_config, get_not_implemented_dataset_configs
 from .map_image import generate_map_images
 from .report import create_pdf
+from ..services.file_storage import FileStorage, AzureBlobStorage, LocalFileShare
 from ..utils.helpers.geometry import create_input_geometry, get_epsg_from_geojson
 from ..models.state_emitter import StateEmitter, StateStatus
 from ..models.config import DatasetConfig
 from ..models import (Analysis, ArcGisAnalysis, OgcApiAnalysis,
                       WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus)
-from ..models.file_storage import FileStorage, AzureBlobStorage, LocalFileShare
 from ..utils.correlation import get_correlation_id
 from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
                                LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL, DATASETS)

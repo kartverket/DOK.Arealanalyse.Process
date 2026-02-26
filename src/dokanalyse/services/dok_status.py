@@ -1,14 +1,17 @@
 import json
 from uuid import UUID
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import Any, Dict, List, Tuple
+import structlog
+from structlog.stdlib import BoundLogger
 from ..services.caching import cache_file, should_refresh_cache
 from ..utils.event_loop_manager import get_session, get_semaphore
 from ..constants import CACHE_DIR
 
 _API_URL = 'https://register.geonorge.no/api/dok-statusregisteret.json'
-
 _CACHE_DAYS = 2
+
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 _category_mappings = {
     'BuildingMatter': ('egnethet_byggesak', 'Byggesak'),
@@ -26,7 +29,7 @@ _value_mappings = {
 }
 
 
-async def get_dok_status_for_dataset(metadata_id: UUID) -> Dict:
+async def get_dok_status_for_dataset(metadata_id: UUID) -> Dict[str, Any] | None:
     dok_status_all = await get_dok_status()
 
     for dok_status in dok_status_all:
@@ -36,17 +39,21 @@ async def get_dok_status_for_dataset(metadata_id: UUID) -> Dict:
     return None
 
 
-async def get_dok_status() -> List[Dict]:
+async def get_dok_status() -> List[Dict[str, Any]]:
     file_path = Path(CACHE_DIR).joinpath('dok-status.json')
 
     if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
-        async def producer() -> str:
-            dok_status = await _get_dok_status()
-            json_str = json.dumps(dok_status, indent=2, ensure_ascii=False)
+        try:
+            async def producer() -> str:
+                dok_status = await _get_dok_status()
+                json_str = json.dumps(dok_status, indent=2, ensure_ascii=False)
 
-            return json_str
+                return json_str
 
-        _ = await cache_file(file_path, producer)
+            _ = await cache_file(file_path, producer)
+        except Exception as err:
+            _logger.error('DOK-status download failed', error=str(err))
+            return []
 
     with file_path.open() as file:
         dok_status = json.load(file)
@@ -56,12 +63,8 @@ async def get_dok_status() -> List[Dict]:
 
 async def _get_dok_status() -> List[Dict]:
     response = await _fetch_dok_status()
-
-    if response is None:
-        return []
-
-    contained_items: List[Dict] = response.get('containeditems', [])
-    datasets: List[Dict] = []
+    contained_items: List[Dict[str, Any]] = response.get('containeditems', [])
+    datasets: List[Dict[str, Any]] = []
 
     for item in contained_items:
         dataset_id = _get_dataset_id(item)
@@ -88,27 +91,22 @@ async def _get_dok_status() -> List[Dict]:
     return datasets
 
 
-async def _fetch_dok_status() -> Dict:
-    try:
-        async with get_semaphore():
-            async with get_session().get(_API_URL) as response:
-                if response.status != 200:
-                    return None
-
-                return await response.json()
-    except:
-        return None
+async def _fetch_dok_status() -> Dict[str, Any]:
+    async with get_semaphore():
+        async with get_session().get(_API_URL) as response:
+            response.raise_for_status()
+            return await response.json()
 
 
-def _get_dataset_id(item) -> List[Tuple]:
-    metadata_url: str = item.get('MetadataUrl')
+def _get_dataset_id(item: Dict[str, Any]) -> str:
+    metadata_url: str = item['MetadataUrl']
     dataset_id = metadata_url.split('/')[-1]
 
     return dataset_id
 
 
-def _get_relevant_categories(item) -> List[Tuple]:
-    suitability: Dict = item.get('Suitability')
+def _get_relevant_categories(item: Dict[str, Any]) -> List[Tuple[str, str]]:
+    suitability: Dict[str, str] = item['Suitability']
     categories = [(key, value) for key, value in suitability.items()
                   if key in _category_mappings.keys()]
 

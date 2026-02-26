@@ -63,10 +63,10 @@ async def cache_file(
             data = payload.encode(encoding) if isinstance(
                 payload, str) else payload
 
-            with os.fdopen(fd, 'wb') as f:
-                f.write(data)
-                f.flush()
-                os.fsync(f.fileno())
+            with os.fdopen(fd, 'wb') as file:
+                file.write(data)
+                file.flush()
+                os.fsync(file.fileno())
 
             os.replace(tmp, target)
 

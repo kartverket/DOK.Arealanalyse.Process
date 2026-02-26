@@ -1,5 +1,5 @@
 from pydantic import BaseModel, model_validator
-from typing import Optional, Dict
+from typing import Callable, Dict, Optional
 from .quality_indicator_type import QualityIndicatorType
 from . import CoverageService, CoverageWfs, CoverageGeoJson, CoverageGeoPackage
 
@@ -17,6 +17,11 @@ class QualityIndicator(BaseModel):
     geojson: Optional[CoverageGeoJson] = None
     gpkg: Optional[CoverageGeoPackage] = None
     disabled: Optional[bool] = False
+    input_filter_func: Optional[Callable[[Dict], bool]] = None
+
+    model_config = {
+        'extra': 'ignore'
+    }
 
     @model_validator(mode='before')
     @classmethod

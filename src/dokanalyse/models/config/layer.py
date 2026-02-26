@@ -10,7 +10,7 @@ class Layer(BaseModel):
     ogc_api: Optional[str] = None
     wms: List[str]
     filter: Optional[str] = None
-    filter_func: Optional[Callable] = None
+    filter_func: Optional[Callable[[Dict], bool]] = None
     result_status: ResultStatus
     planning_guidance_id: Optional[uuid.UUID] = None
     building_guidance_id: Optional[uuid.UUID] = None

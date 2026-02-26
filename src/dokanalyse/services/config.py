@@ -4,23 +4,24 @@ import hashlib
 from pathlib import Path
 from uuid import UUID, uuid4
 from async_lru import alru_cache
-from typing import Dict, List, Tuple, Any
+from typing import Any, Callable, Dict, List, Tuple
 import structlog
 from structlog.stdlib import BoundLogger
 from pydantic import ValidationError
 from pygeofilter.parsers.cql2_text import parse
 from pygeofilter.backends.native.evaluate import NativeEvaluator
 from xmlschema import XMLSchema
+from .xml_schema import compile_xml_schema
+from .caching import cache_file, should_refresh_cache
 from .dok_status import get_dok_status
 from ..models.exceptions import DokAnalysisException
-from ..models.config import DatasetConfig, QualityConfig, QualityIndicator, Layer, FeatureService
-from ..utils.helpers.common import get_env_var, should_refresh_cache
+from ..models.config import DatasetConfig, QualityConfig, QualityIndicator
+from ..utils.helpers.common import get_env_var
 from ..constants import CACHE_DIR
-from .xml_schema import compile_xml_schema
 
-
-_LOGGER: BoundLogger = structlog.get_logger(__name__)
 _NOT_IMPLEMENTED_DATASETS_CACHE_DAYS = 2
+
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 
 async def get_dataset_configs() -> List[DatasetConfig]:
@@ -59,7 +60,7 @@ async def get_not_implemented_dataset_configs() -> List[DatasetConfig]:
                     for config in dataset_configs if config.metadata_id is not None]
     datasets = await _get_not_implemented_datasets(metadata_ids)
     configs: List[DatasetConfig] = []
-    
+
     for dataset in datasets:
         configs.append(await _create_dataset_config(dataset))
 
@@ -135,40 +136,51 @@ async def _load_cached_config(path_str: str, mtime_ns: int, size: int) -> Tuple[
     return dataset_config, quality_config
 
 
-async def _create_dataset_config(data: Dict) -> DatasetConfig:
+async def _create_dataset_config(data: Dict) -> DatasetConfig | None:
     try:
         config = DatasetConfig(**data)
 
+        if config.disabled:
+            return None
+
         if config.wfs:
-            _compile_wfs_filters(config.layers)
-            config.xml_schema = await _compile_wfs_xml_schema(config.get_feature_service_url())
+            layers = [layer for layer in config.layers if layer.filter]
 
-        return config if not config.disabled else None
-    except ValidationError as err:
-        _LOGGER.error('Dataset config creation failed', error=str(err))
-        return None
+            for layer in layers:
+                layer.filter_func = _compile_cql_filter(layer.filter)
 
-
-async def _create_quality_config(data: Dict) -> QualityConfig:
-    try:
-        config = QualityConfig(**data)
-        coverage_services = [indicator.wfs for indicator in config.indicators if indicator.wfs]
-        
-        for wfs in coverage_services:
-            wfs.xml_schema = await _compile_wfs_xml_schema(str(wfs.url))
+            if config.name == 'stormflo':
+                config.xml_schema = await _compile_wfs_xml_schema(config.get_feature_service_url())
 
         return config
     except ValidationError as err:
-        _LOGGER.error('Quality config creation failed', error=str(err))
+        _logger.error('Dataset config creation failed', error=str(err))
         return None
 
 
-def _compile_wfs_filters(layers: List[Layer]) -> None:
-    for layer in layers:
-        if layer.filter:
-            ast: Any = parse(layer.filter)
-            layer.filter_func = NativeEvaluator(
-                use_getattr=False).evaluate(ast)
+async def _create_quality_config(data: Dict) -> QualityConfig | None:
+    try:
+        config = QualityConfig(**data)
+
+        for indicator in config.indicators:
+            if indicator.wfs:
+                indicator.wfs.xml_schema = await _compile_wfs_xml_schema(str(indicator.wfs.url))
+
+            if indicator.input_filter:
+                indicator.input_filter_func = _compile_cql_filter(
+                    indicator.input_filter)
+
+        return config
+    except ValidationError as err:
+        _logger.error('Quality config creation failed', error=str(err))
+        return None
+
+
+def _compile_cql_filter(cql_text: str) -> Callable[[Dict], bool]:
+    ast: Any = parse(cql_text)
+    predicate = NativeEvaluator(use_getattr=False).evaluate(ast)
+
+    return predicate
 
 
 async def _compile_wfs_xml_schema(wfs_url: str) -> XMLSchema | None:
@@ -179,39 +191,43 @@ async def _compile_wfs_xml_schema(wfs_url: str) -> XMLSchema | None:
     return schema
 
 
-async def _get_not_implemented_datasets(metadata_ids: List[str]) -> List[Dict]:
+async def _get_not_implemented_datasets(metadata_ids: List[str]) -> List[Dict[str, Any]]:
     file_path = Path(CACHE_DIR).joinpath('not-implemented-datasets.json')
 
     if not file_path.exists() or should_refresh_cache(file_path, _NOT_IMPLEMENTED_DATASETS_CACHE_DAYS):
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        dok_status_all = await get_dok_status()
-        configs: List[Dict] = []
+        try:
+            async def producer() -> str:
+                dok_status_all = await get_dok_status()
+                configs: List[Dict] = []
 
-        for dok_status in dok_status_all:
-            dataset_id: str = dok_status['dataset_id']
+                for dok_status in dok_status_all:
+                    dataset_id: str = dok_status['dataset_id']
 
-            if dataset_id in metadata_ids:
-                continue
+                    if dataset_id in metadata_ids:
+                        continue
 
-            theme: str = dok_status.get('theme')
+                    theme: str = dok_status.get('theme')
 
-            configs.append({
-                'config_id': str(uuid4()),
-                'metadata_id': dataset_id,
-                'themes': [theme] if theme else []
-            })
+                    configs.append({
+                        'config_id': str(uuid4()),
+                        'metadata_id': dataset_id,
+                        'themes': [theme] if theme else []
+                    })
 
-        json_object = json.dumps(configs, indent=2)
+                json_str = json.dumps(configs, indent=2, ensure_ascii=False)
 
-        with file_path.open('w', encoding='utf-8') as file:
-            file.write(json_object)
+                return json_str
 
-        return configs
-    else:
-        with file_path.open(encoding='utf-8') as file:
-            configs = json.load(file)
+            _ = await cache_file(file_path, producer)
+        except Exception as err:
+            _logger.error(
+                'Getting not implemented datasets failed', error=str(err))
+            return []
 
-        return configs
+    with file_path.open() as file:
+        configs = json.load(file)
+
+    return configs
 
 
 def _get_fingerprint(path: Path) -> Tuple[int, int]:
