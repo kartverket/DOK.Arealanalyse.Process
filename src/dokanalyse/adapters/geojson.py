@@ -4,12 +4,10 @@ from typing import Dict, Tuple, Union
 from pydantic import HttpUrl, FileUrl
 from osgeo import ogr
 import asyncio
-from async_lru import alru_cache
 from . import log_http_error
 from .gdal import query_gdal
 from ..utils.http_context import get_session
 
-_CACHE_TTL = 86400
 _RESOURCE = 'GeoJSON'
 
 
@@ -22,7 +20,6 @@ async def query_geojson(url: Union[HttpUrl, FileUrl], filter: str, geometry: ogr
     return query_gdal('GeoJSON', geojson, filter, geometry, epsg)
 
 
-@alru_cache(maxsize=32, ttl=_CACHE_TTL)
 async def _get_geojson(url: Union[HttpUrl, FileUrl]) -> str | None:
     if url.scheme == 'file':
         geojson = _load_geojson(url)

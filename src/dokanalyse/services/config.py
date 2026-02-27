@@ -17,7 +17,7 @@ from .dok_status import get_dok_status
 from ..models.exceptions import DokAnalysisException
 from ..models.config import DatasetConfig, QualityConfig, QualityIndicator
 from ..utils.helpers.common import get_env_var
-from ..constants import CACHE_DIR
+from ..constants import CACHE_DIR, USE_XML_SCHEMAS
 
 _NOT_IMPLEMENTED_DATASETS_CACHE_DAYS = 2
 
@@ -149,7 +149,8 @@ def _create_dataset_config(data: Dict) -> DatasetConfig | None:
             for layer in layers:
                 layer.filter_func = _compile_cql_filter(layer.filter)
 
-            config.xml_schema = _compile_wfs_xml_schema(config.get_feature_service_url())
+            if USE_XML_SCHEMAS:
+                config.xml_schema = _compile_wfs_xml_schema(config.get_feature_service_url())
 
         return config
     except ValidationError as err:
@@ -162,7 +163,7 @@ def _create_quality_config(data: Dict) -> QualityConfig | None:
         config = QualityConfig(**data)
 
         for indicator in config.indicators:
-            if indicator.wfs:
+            if indicator.wfs and USE_XML_SCHEMAS:
                 indicator.wfs.xml_schema = _compile_wfs_xml_schema(str(indicator.wfs.url))
 
             if indicator.input_filter:

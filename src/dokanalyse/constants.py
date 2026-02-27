@@ -16,5 +16,6 @@ PDF_TEMPLATES_DIR: Final[str | None] = getenv('DOKANALYSE_PDF_TEMPLATES_DIR')
 QUERY_TIMEOUT: Final[int] = int(getenv('DOKANALYSE_QUERY_TIMEOUT', 30))
 DATASETS: Final[str | None] = getenv('DOKANALYSE_DATASETS')
 LOG_LEVEL: Final[str] = getenv('DOKANALYSE_LOG_LEVEL', 'INFO')
+USE_XML_SCHEMAS: Final[bool] = (getenv('DOKANALYSE_USE_XML_SCHEMAS', 'False').lower() == 'true')
 DEFAULT_EPSG: Final[int] = 25833
 WGS84_EPSG: Final[int] = 4326
