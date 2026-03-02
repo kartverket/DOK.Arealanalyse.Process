@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import Any, List, Dict
 from uuid import UUID
 from osgeo import ogr
 from .quality_measurement import QualityMeasurement
@@ -22,30 +22,30 @@ class Analysis:
         self.config_id = config_id
         self.config = config
         self.geometry = geometry
-        self.run_on_input_geometry: ogr.Geometry = None
+        self.run_on_input_geometry: ogr.Geometry | None = None
         self.epsg = epsg
         self.orig_epsg = orig_epsg
         self.geometries: List[ogr.Geometry] = []
-        self.guidance_data: Dict = None
-        self.title: str = None
-        self.description: str = None
-        self.guidance_text: str = None
-        self.guidance_uri: List[Dict] = []
+        self.guidance_data: Dict[str, Any] | None = None
+        self.title: str | None = None
+        self.description: str | None = None
+        self.guidance_text: str | None = None
+        self.guidance_uri: List[Dict[str, Any]] = []
         self.possible_actions: List[str] = []
         self.quality_measurement: List[QualityMeasurement] = []
         self.quality_warning: List[str] = []
         self.buffer = buffer or 0
-        self.input_geometry_area: ogr.Geometry = None
-        self.run_on_input_geometry_json: Dict = None
-        self.hit_area: float = None
+        self.input_geometry_area: ogr.Geometry | None = None
+        self.run_on_input_geometry_json: Dict[str, Any] | None = None
+        self.hit_area: float | None = None
         self.distance_to_object: int = 0
-        self.raster_result_map: str = None
-        self.raster_result_image: str = None
-        self.raster_result_image_bytes: bytes = None
-        self.cartography: str = None
+        self.raster_result_map: str | None = None
+        self.raster_result_image: str | None = None
+        self.raster_result_image_bytes: bytes | None = None
+        self.cartography: str | None = None
         self.data: List[Dict] = []
-        self.themes: List[str] = None
-        self.run_on_dataset: Metadata = None
+        self.themes: List[str] | None = None
+        self.run_on_dataset: Metadata | None = None
         self.run_algorithm: List[str] = []
         self.result_status: ResultStatus = ResultStatus.NO_HIT_GREEN
         self.coverage_statuses: List[str] = []

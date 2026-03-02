@@ -1,17 +1,12 @@
 import json
-from pathlib import Path
 from uuid import UUID
 from typing import Any, Dict, List, Literal
-import requests
 import structlog
 from structlog.stdlib import BoundLogger
 from .config import get_dataset_configs
-from .caching import cache_file, should_refresh_cache
+from ..caching.kartgrunnlag import get_or_create_kartgrunnlag
+from ..utils.http_context import get_session
 from ..models.config import DatasetConfig
-from ..constants import CACHE_DIR
-
-_API_BASE_URL = 'https://register.geonorge.no/api/det-offentlige-kartgrunnlaget-kommunalt.json?municipality='
-_CACHE_DAYS = 7
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
@@ -44,7 +39,7 @@ async def get_config_ids(data: Dict[str, Any], municipality_number: str) -> Dict
     return datasets
 
 
-def _get_datasets_by_theme(theme: str) -> List[DatasetConfig]:
+def _get_datasets_by_theme(theme: str | None) -> List[DatasetConfig]:
     dataset_configs = get_dataset_configs()
     configs: List[DatasetConfig] = []
 
@@ -57,55 +52,19 @@ def _get_datasets_by_theme(theme: str) -> List[DatasetConfig]:
     return configs
 
 
-async def _get_kartgrunnlag(municipality_number: str) -> List[str]:
+async def _get_kartgrunnlag(municipality_number: str | None) -> List[str]:
     if municipality_number is None:
         return []
 
-    file_path = Path(CACHE_DIR).joinpath(
-        'dok-datasets').joinpath(f'{municipality_number}.json')
+    try:
+        path = await get_or_create_kartgrunnlag(municipality_number, get_session())
 
-    if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
-        try:
-            def producer() -> str:
-                dataset_ids = _fetch_dataset_ids(municipality_number)
-                json_str = json.dumps(
-                    dataset_ids, indent=2, ensure_ascii=False)
-
-                return json_str
-
-            _ = cache_file(file_path, producer)
-        except Exception as err:
-            _logger.error('Kartgrunnlag download failed',
-                          municipality_number=municipality_number, error=str(err))
-            return []
-        
-    with file_path.open() as file:
-        dataset_ids = json.load(file)
-
-    return dataset_ids
-
-
-def _fetch_dataset_ids(municipality_number: str) -> List[str]:
-    response = _fetch_kartgrunnlag(municipality_number)
-    contained_items: List[Dict[str, Any]] = response.get('containeditems', [])
-    datasets: List[str] = []
-
-    for dataset in contained_items:
-        if dataset.get('ConfirmedDok') == 'JA' and dataset.get('dokStatus') == 'Godkjent':
-            metadata_url: str = dataset.get('MetadataUrl')
-            splitted = metadata_url.split('/')
-            datasets.append(splitted[-1])
-
-    return datasets
-
-
-def _fetch_kartgrunnlag(municipality_number: str) -> Dict[str, Any]:
-    url = _API_BASE_URL + municipality_number
-
-    response = requests.get(url)
-    response.raise_for_status()
-
-    return response.json()
+        with path.open() as file:
+            return json.load(file)
+    except Exception as err:
+        _logger.error('Kartgrunnlag download failed',
+                      municipality_number=municipality_number, error=str(err))
+        return []
 
 
 __all__ = ['get_dataset_type', 'get_config_ids']

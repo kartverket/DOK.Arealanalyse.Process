@@ -5,7 +5,8 @@ from structlog.stdlib import BoundLogger
 import requests
 import xmlschema
 from xmlschema import XMLSchema
-from .caching import cache_file, cache_dir
+from .caching import cache_dir
+from ..caching.xsd import get_or_create_xml_schema
 from ..utils.http_context import get_session
 from ..constants import CACHE_DIR
 
@@ -39,22 +40,19 @@ def cache_base_schemas() -> None:
             _logger.error('XML schema caching failed', url=url, error=str(err))
 
 
-def compile_xml_schema(id: str, url: str) -> XMLSchema | None:
+async def compile_xml_schema(id: str, url: str) -> XMLSchema | None:
     filename = f'{id}.xsd'
     schema = _schema_cache.get(filename)
 
     if schema:
         return schema
 
-    filepath = _xsd_cache_dir.joinpath(filename)
-
     try:
-        if not filepath.exists():
-            _save_xml_schema_to_disk(url, filepath)
+        path = await get_or_create_xml_schema(url, get_session())
 
         schema = xmlschema.XMLSchema([
             str(_xsd_cache_dir.joinpath('gml_321/gml.xsd').resolve()),
-            str(filepath.resolve())
+            str(path.resolve())
         ])
 
         _schema_cache[filename] = schema
@@ -67,11 +65,3 @@ def compile_xml_schema(id: str, url: str) -> XMLSchema | None:
         return None
 
 
-def _save_xml_schema_to_disk(url: str, filepath: Path) -> Path:
-    def producer() -> bytes:
-        response = requests.get(url)
-        response.raise_for_status()
-
-        return response.content
-
-    return cache_file(filepath, producer)

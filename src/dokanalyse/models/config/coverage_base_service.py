@@ -5,6 +5,6 @@ import uuid
 
 class CoverageBaseService(BaseModel):
     property: str
-    planning_guidance_id: uuid.UUID = None
-    building_guidance_id: uuid.UUID = None
+    planning_guidance_id: uuid.UUID | None = None
+    building_guidance_id: uuid.UUID | None = None
     properties: List[str] | Literal['*'] = []

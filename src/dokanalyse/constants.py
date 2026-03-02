@@ -2,6 +2,7 @@ from os import getenv
 from typing import Final
 
 APP_FILES_DIR: Final[str] = getenv('DOKANALYSE_APP_FILES_DIR')
+DATASETS_CONFIG_DIR: Final[str] = getenv('DOKANALYSE_DATASETS_CONFIG_DIR')
 CACHE_DIR:  Final[str] = f'{APP_FILES_DIR}/cache'
 AR5_FGDB_PATH: Final[str | None] = getenv('DOKANALYSE_AR5_FGDB_PATH')
 SOCKET_IO_SRV_URL: Final[str | None] = getenv('DOKANALYSE_SOCKET_IO_SRV_URL')
