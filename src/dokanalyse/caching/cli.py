@@ -15,6 +15,8 @@ from .not_implemented_datasets import get_or_create_not_implemented_datasets
 from .xsd import get_or_create_xml_schema, cache_base_xml_schemas
 from ..utils.logger import setup as setup_logger
 from ..utils.helpers.common import get_config_file_paths
+from ..utils.async_executor import exec_async
+
 
 setup_logger()
 
@@ -25,7 +27,7 @@ _logger: BoundLogger = structlog.get_logger(__name__)
 
 @app.command()
 def build_cache() -> None:
-    asyncio.run(_cache_resources())
+    exec_async(_cache_resources())
 
 
 def main() -> None:
@@ -61,8 +63,9 @@ async def _cache_resources() -> None:
 
             tasks.append(tg.create_task(_run_task(get_or_create_not_implemented_datasets,
                          metadata_ids, session, with_lock=False, semaphore=semaphore)))
-            
-            tasks.append(tg.create_task(_run_task(get_or_create_guidance_data, session, with_lock=False, semaphore=semaphore)))
+
+            tasks.append(tg.create_task(_run_task(
+                get_or_create_guidance_data, session, with_lock=False, semaphore=semaphore)))
 
             for url in geojson_and_gpkg_urls:
                 task = tg.create_task(_run_task(
@@ -78,14 +81,17 @@ async def _run_task(func: Callable[..., Awaitable[Path]], *args, **kwargs) -> No
 
 
 async def _get_dataset_ids_from_dok_status(session: aiohttp.ClientSession) -> List[str]:
-    path = await get_or_create_dok_status(session, with_lock=False)
+    try:
+        path = await get_or_create_dok_status(session, with_lock=False)
 
-    with path.open() as file:
-        datasets: List[Dict[str, Any]] = json.loads(file.read())
+        with path.open() as file:
+            datasets: List[Dict[str, Any]] = json.loads(file.read())
 
-    dataset_ids: List[str] = [dataset['dataset_id'] for dataset in datasets]
+        dataset_ids: List[str] = [dataset['dataset_id'] for dataset in datasets]
 
-    return list(set(dataset_ids))
+        return list(set(dataset_ids))
+    except:
+        return []
 
 
 def _get_config_data() -> Tuple[List[str], List[str], List[str]]:

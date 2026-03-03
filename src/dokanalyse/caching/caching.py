@@ -40,11 +40,11 @@ async def get_or_create_file(
 
 
 def cache_dir(target_dir: Path, producer: Callable[[Path], None]) -> None:
-    res_target_dir = target_dir.resolve()
-    res_target_dir.mkdir(parents=True, exist_ok=True)
+    target_dir = target_dir.resolve()
+    target_dir.mkdir(parents=True, exist_ok=True)
 
-    marker_path = res_target_dir / _CACHED_MARKER
-    lock_path = res_target_dir / _LOCK_FILE
+    marker_path = target_dir / _CACHED_MARKER
+    lock_path = target_dir / _LOCK_FILE
 
     if marker_path.exists():
         return
@@ -55,7 +55,7 @@ def cache_dir(target_dir: Path, producer: Callable[[Path], None]) -> None:
         if marker_path.exists():
             return
 
-        tmp_dir = res_target_dir.with_name(res_target_dir.name + ".tmp")
+        tmp_dir = target_dir.with_name(target_dir.name + ".tmp")
 
         if tmp_dir.exists():
             shutil.rmtree(tmp_dir)
@@ -66,12 +66,12 @@ def cache_dir(target_dir: Path, producer: Callable[[Path], None]) -> None:
 
         (tmp_dir / _CACHED_MARKER).touch()
 
-        if res_target_dir.exists():
-            shutil.rmtree(res_target_dir)
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
 
-        tmp_dir.replace(res_target_dir)
+        tmp_dir.replace(target_dir)
 
-        _logger.info('Directory cached', path=str(res_target_dir))
+        _logger.info('Directory cached', path=str(target_dir))
 
 
 def should_refresh_cache(
@@ -133,7 +133,7 @@ async def _download_and_create_file_with_mapper(
     mapped = await mapper(data)
     json_str = json.dumps(mapped, indent=2, ensure_ascii=False)
 
-    async with aiofiles.open(path, 'w') as file:
+    async with aiofiles.open(tmp_path, 'w') as file:
         await file.write(json_str)
 
     tmp_path.replace(path)

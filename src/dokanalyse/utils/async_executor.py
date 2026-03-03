@@ -37,7 +37,7 @@ class AsyncExecutor:
 _async_exec = AsyncExecutor()
 
 
-def exec_async(coro: Coroutine[Any, Any, Dict[str, Any]]) -> Dict[str, Any]:
+def exec_async(coro: Coroutine[Any, Any, Any]) -> Any:
     event_loop = _get_running_event_loop()
 
     if event_loop:

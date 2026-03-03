@@ -206,17 +206,18 @@ class DokanalyseProcessor(BaseProcessor):
         connector = aiohttp.TCPConnector(
             limit=100, limit_per_host=10, ttl_dns_cache=300)
 
-        async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
-            token = set_session(session)
+        async with asyncio.Semaphore(30):
+            async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+                token = set_session(session)
 
-            try:
-                return await analyses.run(data, sio_client)
-            finally:
-                reset_session(token)
-                clear_correlation_id()
+                try:
+                    return await analyses.run(data, sio_client)
+                finally:
+                    reset_session(token)
+                    clear_correlation_id()
 
-                if sio_client:
-                    sio_client.disconnect()
+                    if sio_client:
+                        sio_client.disconnect()
 
     def __repr__(self) -> str:
         return f'<DokanalyseProcessor> {self.name}'

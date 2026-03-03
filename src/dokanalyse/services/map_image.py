@@ -29,7 +29,7 @@ from ..constants import CACHE_DIR
 matplotlib.use('agg')
 
 ogcc.METERS_PER_UNIT['EPSG:3857'] = 1
-ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR
+ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR # type: ignore
 
 _WMTS_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml?request=GetCapabilities'
 _TIMEOUT_SECONDS = 120
@@ -65,7 +65,13 @@ async def generate_map_images(
         tasks = [tg.create_task(
             _generate_map_image(**kwargs)) for kwargs in params]
 
-    results = [task.result() for task in tasks if task]
+    results: List[Tuple[str, str, bytes | None]] = []
+
+    for task in tasks:
+        result = task.result()
+
+        if result:
+            results.append(result)
 
     _logger.info('Generated map images', count=len(results),
                  duration=round(time.time() - start, 2))
@@ -168,8 +174,6 @@ def _get_params_for_analyses(analyses: List[Analysis]) -> List[Dict[str, Any]]:
 
 
 def _get_params_for_fact_sheet(fact_sheet: FactSheet) -> Dict[str, Any]:
-    buffered_geom = None
-
     if fact_sheet.buffer > 0:
         buffered_geom: ogr.Geometry = fact_sheet.geometry.Buffer(
             fact_sheet.buffer)
@@ -191,7 +195,7 @@ def _add_wmts(ax: GeoAxes, grayscale: bool) -> SlippyImageArtist:
     layer_name = 'topograatone' if grayscale else 'topo'
     cache_dir = _basemaps_cache_dir / layer_name
 
-    return ax.add_wmts(_WMTS_URL, layer_name, cache=str(cache_dir))
+    return ax.add_wmts(_WMTS_URL, layer_name, cache=str(cache_dir)) # type: ignore
 
 
 def _add_wms(ax: GeoAxes, url: str, layers: List[str]) -> SlippyImageArtist:
@@ -244,7 +248,7 @@ def _get_wkt_str(geometry: ogr.Geometry) -> str:
     return transd_geom.ExportToWkt()
 
 
-def _get_figsize(width: int, height: int) -> Tuple[int, int]:
+def _get_figsize(width: int, height: int) -> Tuple[float, float]:
     return (width / _DPI, height / _DPI)
 
 

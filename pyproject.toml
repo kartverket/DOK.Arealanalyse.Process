@@ -5,16 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dokanalyse"
 description = "Arealanalyse av DOK-datasett"
-version = "0.1.1"
+version = "0.1.2"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pygeoapi",
     "asyncio",
-    "nest-asyncio",
     "aiohttp",
     "aiofiles",
-    "cachetools",
     "async-lru",
     "pydantic>=2.0",
     "jsonschema",
@@ -35,7 +33,6 @@ dependencies = [
     "types-lxml",
     "shapely",
     "PyYAML",
-    "requests>=2.32.5",
     "structlog>=25.5.0",
     "xmltodict>=1.0.4",
     "pygeofilter>=0.3.3",

@@ -22,12 +22,16 @@ def setup() -> None:
     file_handler.setFormatter(logging.Formatter(log_format))
     file_handler.namer = lambda name: name.replace('.log', '') + '.log'
 
-    console_handler = logging.StreamHandler(sys.stdout)
+    if logging.root.handlers:
+        console_handler = logging.root.handlers[0]
+    else:
+        console_handler = logging.StreamHandler(sys.stdout)
+
     console_handler.setFormatter(logging.Formatter(log_format))
     console_handler.setLevel(_get_log_level())
 
     logging.root.setLevel(_get_log_level())
-    # logging.root.addHandler(console_handler)
+    logging.root.addHandler(console_handler)
     logging.root.addHandler(file_handler)
 
     logger = logging.getLogger('azure')

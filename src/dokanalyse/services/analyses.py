@@ -57,7 +57,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
     emitter.analyses_total = _get_datasets_to_analyze_count(datasets)
     emitter.send_message(StateStatus.ANALYZING_DATASETS)
 
-    tasks: List[asyncio.Task] = []
+    tasks: List[asyncio.Task[Analysis | None]] = []
 
     async with asyncio.TaskGroup() as tg:
         for config_id, should_analyze in datasets.items():
