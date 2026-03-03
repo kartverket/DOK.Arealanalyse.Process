@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Self
 from osgeo import ogr
 from .analysis import Analysis
 from .fact_sheet import FactSheet
@@ -15,12 +15,12 @@ class AnalysisResponse():
         self.municipality_name = municipality_name
         self.fact_sheet = fact_sheet or FactSheet()
         self.result_list = []
-        self.report: str = None
+        self.report: str | None = None
 
     def to_dict(self) -> Dict:
         result_list = list(
             map(lambda analysis: analysis.to_dict(), self.result_list))
-               
+
         data = {
             'resultList': result_list,
             'inputGeometry': self.input_geometry,
@@ -35,7 +35,17 @@ class AnalysisResponse():
         return data
 
     @classmethod
-    def create(cls, geo_json: Dict[str, Any], geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int, fact_sheet: FactSheet | None, municipality_number: str, municipality_name: str):
+    def create(
+        cls,
+        geo_json: Dict[str, Any],
+        geometry: ogr.Geometry,
+        epsg: int,
+        orig_epsg: int,
+        buffer: int,
+        fact_sheet: FactSheet | None,
+        municipality_number: str,
+        municipality_name: str
+    ) -> Self:
         add_geojson_crs(geo_json, orig_epsg)
 
         if buffer > 0:
@@ -44,4 +54,4 @@ class AnalysisResponse():
         else:
             geometry_area = round(geometry.GetArea(), 2)
 
-        return AnalysisResponse(geo_json, geometry_area, fact_sheet, municipality_number, municipality_name)
+        return cls(geo_json, geometry_area, fact_sheet, municipality_number, municipality_name)

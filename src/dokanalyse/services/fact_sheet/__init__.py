@@ -36,9 +36,7 @@ async def _run_tasks(geometry: ogr.Geometry, orig_epsg: int, buffer: int) -> Lis
             tg.create_task(get_area_types(
                 input_geom, DEFAULT_EPSG, orig_epsg, buffer)),
             tg.create_task(get_buildings(
-                input_geom, DEFAULT_EPSG, orig_epsg, buffer)),
-            # tg.create_task(get_roads(
-            #     input_geom, DEFAULT_EPSG, orig_epsg, buffer)),
+                input_geom, DEFAULT_EPSG, orig_epsg, buffer))
         ]
 
     return tasks

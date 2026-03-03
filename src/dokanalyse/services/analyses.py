@@ -46,7 +46,12 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
     include_chosen_dok: bool = data.get('includeFilterChosenDOK', True)
     create_binaries: bool = data.get('createBinaries', True)
 
-    municipality_number, municipality_name = await get_municipality(geometry, DEFAULT_EPSG)
+    municipality = await get_municipality(geometry, DEFAULT_EPSG)
+
+    if municipality is None:
+        raise Exception('Could not get municipality from geometry')
+
+    municipality_number, municipality_name = municipality
     datasets = await _get_datasets(data, municipality_number)
 
     emitter.analyses_total = _get_datasets_to_analyze_count(datasets)
@@ -62,7 +67,7 @@ async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:
             tasks.append(task)
 
         if include_chosen_dok:
-            not_implemented = get_not_implemented_dataset_configs()
+            not_implemented = await get_not_implemented_dataset_configs()
 
             for config in not_implemented:
                 task = tg.create_task(_run_not_implemented_analysis(config))
@@ -113,7 +118,7 @@ async def _run_analysis(
     include_quality_measurement: bool,
     emitter: StateEmitter
 ) -> Analysis | None:
-    config = get_dataset_config(config_id)    
+    config = await get_dataset_config(config_id)    
 
     if config is None:
         return None
@@ -128,6 +133,9 @@ async def _run_analysis(
 
     analysis = _create_analysis(
         config_id, config, geometry, epsg, orig_epsg, buffer)
+    
+    if analysis is None:
+        raise Exception('Could not create analysis')
 
     try:
         await run_single_analysis(analysis, context, include_guidance, include_quality_measurement)
@@ -164,7 +172,7 @@ def _create_analysis(
         epsg: int,
         orig_epsg: int,
         buffer: int
-) -> Analysis:
+) -> Analysis | None:
     dataset_type = get_dataset_type(config)
 
     match dataset_type:
@@ -191,10 +199,13 @@ async def _upload_images(
 
     await file_storage.create_dir(dirname)
 
-    tasks: List[asyncio.Task[str]] = []
+    tasks: List[asyncio.Task[str | None]] = []
 
     async with asyncio.TaskGroup() as tg:
         for id, name, data in filtered:
+            if data is None:
+                continue
+
             filename = f'{kebab_case(name)}.png'
             task = tg.create_task(file_storage.upload_binary(
                 data, dirname, filename, content_type='image/png'), name=id)

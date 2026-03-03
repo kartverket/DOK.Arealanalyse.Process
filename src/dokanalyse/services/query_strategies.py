@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Protocol, Tuple
+from typing import Any, Dict, List, Literal, Protocol, Tuple
 from osgeo import ogr
 from pydash import get as pydash_get
 from .wfs_response import WfsResponseParser
@@ -134,7 +134,20 @@ def get_query_strategy(analysis: Analysis) -> QueryStrategy | None:
     return _strategies.get(type(analysis))
 
 
-def _map_properties(feature: Dict[str, Any], properties: List[str], skip_properties: List[str]) -> Dict[str, Any]:
+def _map_properties(
+    feature: Dict[str, Any],
+    properties: List[str] | Literal['*'],
+    skip_properties: List[str]
+) -> Dict[str, Any]:
+    if isinstance(properties, str):
+        props = feature['properties']
+
+        for prop_name in skip_properties:
+            if prop_name in props:
+                del props[prop_name]
+
+        return props
+
     props = {}
 
     for prop_name in properties:

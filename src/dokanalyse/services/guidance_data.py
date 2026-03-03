@@ -1,58 +1,35 @@
 import json
 from uuid import UUID
-from pathlib import Path
 from typing import Any, Dict, List
-import requests
 import structlog
 from structlog.stdlib import BoundLogger
-from .caching import cache_file, should_refresh_cache
-from ..constants import CACHE_DIR
-
-_GEOLETT_API_URL = 'https://register.geonorge.no/geolett/api'
-_CACHE_DAYS = 1
+from ..caching.guidance_data import get_or_create_guidance_data
+from ..utils.http_context import get_session
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-def get_guidance_data(id: UUID) -> Dict[str, Any] | None:
+async def get_guidance_data(id: UUID | None) -> Dict[str, Any] | None:
     if id is None:
         return None
 
-    guidance_data = _get_guidance_data()
+    guidance_data = await _get_guidance_data()
+
     result = next(
         (item for item in guidance_data if str(id) == item['id']), None)
 
     return result
 
 
-def _get_guidance_data() -> List[Dict[str, Any]]:
-    file_path = Path(CACHE_DIR).joinpath('veiledningstekster.json')
+async def _get_guidance_data() -> List[Dict[str, Any]]:
+    try:
+        path = await get_or_create_guidance_data(get_session())
 
-    if not file_path.exists() or should_refresh_cache(file_path, _CACHE_DAYS):
-        try:
-            def producer() -> str:
-                guidance_data = _fetch_guidance_data()
-                json_str = json.dumps(
-                    guidance_data, indent=2, ensure_ascii=False)
-
-                return json_str
-
-            _ = cache_file(file_path, producer)
-        except Exception as err:
-            _logger.error('Veiledningstekster download failed', error=str(err))
-            return []
-
-    with file_path.open() as file:
-        dok_status = json.load(file)
-
-    return dok_status
-
-
-def _fetch_guidance_data() -> Dict[str, Any]:
-    response = requests.get(_GEOLETT_API_URL)
-    response.raise_for_status()
-
-    return response.json()
+        with path.open() as file:
+            return json.load(file)
+    except Exception as err:
+        _logger.error('Guidance data download failed', error=str(err))
+        return []
 
 
 __all__ = ['get_guidance_data']

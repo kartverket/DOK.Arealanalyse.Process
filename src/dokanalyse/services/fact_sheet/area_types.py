@@ -3,7 +3,7 @@ from uuid import UUID
 from typing import Any, Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
-from osgeo import ogr
+from osgeo import gdal, ogr
 from ..codelist import get_codelist
 from ..kartkatalog import get_kartkatalog_metadata
 from ...models.fact_part import FactPart
@@ -22,20 +22,18 @@ async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buff
 
     start = time.time()
     dataset = await get_kartkatalog_metadata(_metadata_id)
-    data = _get_data(geometry)
+    data = await _get_data(geometry)
     end = time.time()
 
-    # autopep8: off
     _logger.info('Fact sheet: Got area types from FKB AR5', duration=round(end - start, 2))
-    # autopep8: on
 
     return FactPart(geometry, epsg, orig_epsg, buffer, dataset, [f'intersect {_LAYER_NAME}'], data)
 
 
-def _get_data(geometry: ogr.Geometry) -> Dict[str, Any]:
-    driver: ogr.Driver = ogr.GetDriverByName('OpenFileGDB')
-    data_source: ogr.DataSource = driver.Open(AR5_FGDB_PATH, 0)
-    layer: ogr.Layer = data_source.GetLayerByName(_LAYER_NAME)
+async def _get_data(geometry: ogr.Geometry) -> Dict[str, Any]:
+    driver: gdal.Driver = ogr.GetDriverByName('OpenFileGDB')
+    dataset: gdal.Dataset = driver.Open(AR5_FGDB_PATH)
+    layer: ogr.Layer = dataset.GetLayerByName(_LAYER_NAME)
     layer.SetSpatialFilter(0, geometry)
 
     input_area = geometry.GetArea()
@@ -55,17 +53,17 @@ def _get_data(geometry: ogr.Geometry) -> Dict[str, Any]:
 
     return {
         'inputArea': round(input_area, 2),
-        'areaTypes': _map_area_types(area_types)
+        'areaTypes': await _map_area_types(area_types)
     }
 
 
-def _map_area_types(area_types: Dict[str, Any]) -> List[Dict[str, Any]]:
-    codelist = get_codelist('arealressurs_arealtype') or []
+async def _map_area_types(area_types: Dict[str, Any]) -> List[Dict[str, Any]]:
+    codelist = await get_codelist('arealressurs_arealtype')
     mapped = []
 
     for entry in codelist:
         label = entry['label']
-        area: float = next((value for key, value in area_types.items()
+        area: float | None = next((value for key, value in area_types.items()
                             if key == entry['value']), None)
         data = {'areaType': label}
 

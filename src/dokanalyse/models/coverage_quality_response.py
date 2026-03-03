@@ -5,7 +5,14 @@ from .quality_measurement import QualityMeasurement
 
 
 class CoverageQualityResponse():
-    def __init__(self, quality_measurements: List[QualityMeasurement], warning_text: str, has_coverage: bool, is_relevant: bool, data: List[Dict]):
+    def __init__(
+            self,
+            quality_measurements: List[QualityMeasurement],
+            warning_text: str | None,
+            has_coverage: bool,
+            is_relevant: bool,
+            data: List[Dict]
+    ) -> None:
         self.quality_measurements = quality_measurements
         self.warning_text = warning_text
         self.has_coverage = has_coverage

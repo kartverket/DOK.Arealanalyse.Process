@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
 from osgeo import gdal, ogr, osr
@@ -14,10 +14,17 @@ gdal_lock = threading.Lock()
 gdal.SetConfigOption('GDAL_HTTP_CONNECTTIMEOUT', str(QUERY_TIMEOUT))
 gdal.SetConfigOption('GDAL_HTTP_TIMEOUT', str(QUERY_TIMEOUT))
 
-_LOGGER: BoundLogger = structlog.get_logger(__name__)
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 
-def query_gdal(driver_name: str, data_source: Any, filter: str, geometry: ogr.Geometry, epsg: int, **kwargs) -> Dict[str, Any] | None:
+def query_gdal(
+    driver_name: str,
+    data_source: Any,
+    filter: str | None,
+    geometry: ogr.Geometry,
+    epsg: int,
+    **kwargs
+) -> Dict[str, Any] | None:
     auth: Basic | ApiKey | None = kwargs.get('auth')
     layer_name: str | None = kwargs.get('layer')
 
@@ -33,11 +40,18 @@ def query_gdal(driver_name: str, data_source: Any, filter: str, geometry: ogr.Ge
 
         return response
     except Exception as err:
-        _LOGGER.error('GDAL error', error=str(err))
+        _logger.error('GDAL error', error=str(err))
         raise
 
 
-def _query(driver_name: str, data_source: Any, layer_name: str | None, filter: str, geometry: ogr.Geometry, epsg: int) -> Dict[str, Any]:
+def _query(
+    driver_name: str,
+    data_source: Any,
+    layer_name: str | None,
+    filter: str | None,
+    geometry: ogr.Geometry,
+    epsg: int
+) -> Dict[str, Any]:
     driver: gdal.Driver = ogr.GetDriverByName(driver_name)
     ds: gdal.Dataset = driver.Open(data_source)
     layer: ogr.Layer = ds.GetLayerByName(
@@ -58,14 +72,14 @@ def _query(driver_name: str, data_source: Any, layer_name: str | None, filter: s
         layer.SetAttributeFilter(filter)
 
     ogr_feature: ogr.Feature
-    features: List[Dict] = []
+    features: List[Dict[str, Any]] = []
 
     for ogr_feature in layer:
         feature_geom: ogr.Geometry = ogr_feature.GetGeometryRef()
         clone: ogr.Geometry = feature_geom.Clone()
 
         ogr_feature.SetGeometryDirectly(None)
-        json_dict = ogr_feature.ExportToJson(as_object=True)
+        json_dict: Any = ogr_feature.ExportToJson(as_object=True)
         properties = normalize_object(json_dict['properties'])
 
         feature = {
@@ -93,5 +107,3 @@ def _unset_auth_options() -> None:
     gdal.SetConfigOption('GDAL_HTTP_HEADER', None)
     gdal.SetConfigOption('GDAL_HTTP_AUTH', None)
     gdal.SetConfigOption('GDAL_HTTP_USERPWD', None)
-
-

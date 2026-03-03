@@ -1,3 +1,4 @@
+import sys
 from uuid import UUID
 from .config import get_quality_indicator_configs
 from .kartkatalog import get_kartkatalog_metadata
@@ -71,7 +72,7 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
 
     first_layer = analysis.config.layers[0]
     guidance_id = _get_guidance_id(first_layer, context)
-    guidance_data = get_guidance_data(guidance_id)
+    guidance_data = await get_guidance_data(guidance_id)
 
     analysis.run_algorithm.append(
         f'query {strategy.get_service_url(analysis.config)}')
@@ -106,7 +107,7 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
                     f'intersects layer {layer_name} (True)')
 
                 guidance_id = _get_guidance_id(layer, context)
-                guidance_data = get_guidance_data(guidance_id)
+                guidance_data = await get_guidance_data(guidance_id)
 
                 analysis.data = parsed['properties']
                 analysis.geometries = parsed['geometries']
@@ -137,7 +138,7 @@ async def _set_distance_to_object(analysis: Analysis) -> None:
         analysis.config, layer, buffered_geom, analysis.epsg)
 
     if response is None:
-        analysis.distance_to_object = -1
+        analysis.distance_to_object = sys.maxsize
         return
 
     geometries = strategy.extract_geometries(response, analysis.config, layer)
@@ -151,19 +152,22 @@ async def _set_distance_to_object(analysis: Analysis) -> None:
     analysis.run_algorithm.append('get distance to nearest object')
 
     if len(distances) == 0:
-        analysis.distance_to_object = -1
+        analysis.distance_to_object = sys.maxsize
     else:
         analysis.distance_to_object = distances[0]
 
 
 async def _run_coverage_analysis(analysis: Analysis, context: str) -> None:
-    quality_indicators = get_quality_indicator_configs(analysis.config_id)
+    quality_indicators = await get_quality_indicator_configs(analysis.config_id)
     ci = get_coverage_indicator(quality_indicators)
 
     if not ci:
         return
 
     coverage_svc = get_coverage_service_config_data(ci)
+
+    if not coverage_svc:
+        return
 
     analysis.run_algorithm.append(f'check coverage {coverage_svc.get("url")}')
     response = await get_coverage_quality(ci, analysis.run_on_input_geometry, analysis.epsg)
@@ -176,7 +180,7 @@ async def _run_coverage_analysis(analysis: Analysis, context: str) -> None:
             'building_guidance_id') if context.lower() == 'byggesak' else coverage_svc.get('planning_guidance_id')
 
         if guidance_id:
-            analysis.guidance_data = get_guidance_data(guidance_id)
+            analysis.guidance_data = await get_guidance_data(guidance_id)
 
     analysis.quality_measurement.extend(response.quality_measurements)
     analysis.has_coverage = response.has_coverage
@@ -187,6 +191,9 @@ async def _run_coverage_analysis(analysis: Analysis, context: str) -> None:
 
 
 def _apply_guidance(analysis: Analysis) -> None:
+    if not analysis.guidance_data:
+        return
+    
     if analysis.result_status != ResultStatus.NO_HIT_GREEN:
         analysis.description = analysis.guidance_data.get('forklarendeTekst')
         analysis.guidance_text = analysis.guidance_data.get('dialogtekst')
@@ -204,7 +211,7 @@ def _apply_guidance(analysis: Analysis) -> None:
 
 
 async def _evaluate_quality(analysis: Analysis, context: str) -> None:
-    quality_indicators = get_quality_indicator_configs(analysis.config_id)
+    quality_indicators = await get_quality_indicator_configs(analysis.config_id)
 
     if len(quality_indicators) == 0:
         return

@@ -2,7 +2,7 @@ import sys
 import json
 import logging
 import structlog
-from os import path, makedirs
+from pathlib import Path
 from functools import partial
 from logging.handlers import TimedRotatingFileHandler
 from typing import Literal
@@ -10,11 +10,8 @@ from ..constants import APP_FILES_DIR, LOG_LEVEL
 
 
 def setup() -> None:
-    filename = path.join(APP_FILES_DIR, 'logs/dokanalyse.log')
-    dirname = path.dirname(filename)
-
-    if not path.exists(dirname):
-        makedirs(dirname)
+    filename = Path(APP_FILES_DIR).joinpath('logs/dokanalyse.log')
+    filename.parent.mkdir(parents=True, exist_ok=True)
 
     log_format = \
         '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s'
@@ -30,6 +27,7 @@ def setup() -> None:
     console_handler.setLevel(_get_log_level())
 
     logging.root.setLevel(_get_log_level())
+    # logging.root.addHandler(console_handler)
     logging.root.addHandler(file_handler)
 
     logger = logging.getLogger('azure')

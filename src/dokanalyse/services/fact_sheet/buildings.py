@@ -55,7 +55,7 @@ async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict[str, Any]]:
     categories = []
 
     for elem in elems:
-        building_type = parse_string(elem.text)
+        building_type: Any = parse_string(elem.text)
         category = _get_building_category(building_type)
 
         if category is not None:
@@ -75,7 +75,7 @@ async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict[str, Any]]:
     return result
 
 
-def _get_building_category(building_type: int) -> str:
+def _get_building_category(building_type: int) -> str | None:
     for range, category in _BUILDING_CATEGORIES.items():
         if range[0] <= building_type <= range[1]:
             return category
