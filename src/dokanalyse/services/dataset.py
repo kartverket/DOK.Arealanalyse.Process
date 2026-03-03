@@ -25,7 +25,7 @@ def get_dataset_type(config: DatasetConfig) -> Literal['wfs', 'arcgis', 'ogc_api
 async def get_config_ids(data: Dict[str, Any], municipality_number: str) -> Dict[UUID, bool]:
     include_chosen_dok: bool = data.get('includeFilterChosenDOK', True)
     kartgrunnlag = await _get_kartgrunnlag(municipality_number) if include_chosen_dok else []
-    configs = _get_datasets_by_theme(data.get('theme'))
+    configs = await _get_datasets_by_theme(data.get('theme'))
 
     datasets: Dict[UUID, bool] = {}
 
@@ -39,8 +39,8 @@ async def get_config_ids(data: Dict[str, Any], municipality_number: str) -> Dict
     return datasets
 
 
-def _get_datasets_by_theme(theme: str | None) -> List[DatasetConfig]:
-    dataset_configs = get_dataset_configs()
+async def _get_datasets_by_theme(theme: str | None) -> List[DatasetConfig]:
+    dataset_configs = await get_dataset_configs()
     configs: List[DatasetConfig] = []
 
     for config in dataset_configs:

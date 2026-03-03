@@ -138,7 +138,7 @@ async def _set_distance_to_object(analysis: Analysis) -> None:
         analysis.config, layer, buffered_geom, analysis.epsg)
 
     if response is None:
-        analysis.distance_to_object = int.
+        analysis.distance_to_object = sys.maxsize
         return
 
     geometries = strategy.extract_geometries(response, analysis.config, layer)
@@ -158,13 +158,16 @@ async def _set_distance_to_object(analysis: Analysis) -> None:
 
 
 async def _run_coverage_analysis(analysis: Analysis, context: str) -> None:
-    quality_indicators = get_quality_indicator_configs(analysis.config_id)
+    quality_indicators = await get_quality_indicator_configs(analysis.config_id)
     ci = get_coverage_indicator(quality_indicators)
 
     if not ci:
         return
 
     coverage_svc = get_coverage_service_config_data(ci)
+
+    if not coverage_svc:
+        return
 
     analysis.run_algorithm.append(f'check coverage {coverage_svc.get("url")}')
     response = await get_coverage_quality(ci, analysis.run_on_input_geometry, analysis.epsg)
@@ -208,7 +211,7 @@ def _apply_guidance(analysis: Analysis) -> None:
 
 
 async def _evaluate_quality(analysis: Analysis, context: str) -> None:
-    quality_indicators = get_quality_indicator_configs(analysis.config_id)
+    quality_indicators = await get_quality_indicator_configs(analysis.config_id)
 
     if len(quality_indicators) == 0:
         return

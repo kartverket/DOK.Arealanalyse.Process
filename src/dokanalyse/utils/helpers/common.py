@@ -1,16 +1,35 @@
 import re
 from os import environ
-from typing import Dict, Any
+from pathlib import Path
 from datetime import datetime
-from ...models.exceptions import DokAnalysisException
+from typing import Any, Dict, List
 
 
 def get_env_var(var_name) -> str:
     try:
         return environ[var_name]
     except KeyError:
-        raise DokAnalysisException(
+        raise Exception(
             'The environment variable ' + var_name + ' is not set')
+
+
+def get_config_file_paths() -> List[Path]:
+    config_dir = get_env_var('DOKANALYSE_DATASETS_CONFIG_DIR')
+
+    if config_dir is None:
+        raise Exception(
+            'The environment variable "DOKANALYSE_DATASETS_CONFIG_DIR" is not set')
+
+    path = Path(config_dir)
+
+    if not path.is_dir():
+        raise Exception(
+            f'The "DOKANALYSE_DATASETS_CONFIG_DIR" path ({path}) is not a directory')
+
+    glob = path.glob('*.yml')
+    paths = [path for path in glob if path.is_file()]
+
+    return paths
 
 
 def from_camel_case(value):

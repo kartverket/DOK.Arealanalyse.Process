@@ -4,7 +4,7 @@ from typing import Literal
 import asyncio
 import aiohttp
 from .caching import get_or_create_file, should_refresh_cache
-from ..constants import APP_FILES_DIR
+from ..constants import CACHE_DIR
 
 _CACHE_DAYS = 365
 
@@ -18,8 +18,8 @@ async def get_or_create_geofile(
     filename = _get_filename(url)
     filetype = _get_filetype(url)
 
-    dirpath = Path(APP_FILES_DIR).joinpath(
-        filetype) if filetype else Path(APP_FILES_DIR)
+    dirpath = Path(CACHE_DIR).joinpath(
+        filetype) if filetype else Path(CACHE_DIR)
     
     dirpath.mkdir(parents=True, exist_ok=True)
 

@@ -2,7 +2,6 @@ from .analysis_response import AnalysisResponse
 from .analysis import Analysis
 from .arcgis_analysis import ArcGisAnalysis
 from .empty_analysis import EmptyAnalysis
-from .exceptions import DokAnalysisException
 from .fact_part import FactPart
 from .fact_sheet import FactSheet
 from .map_image_payload import MapImagePayload

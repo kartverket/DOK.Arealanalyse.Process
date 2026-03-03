@@ -25,7 +25,7 @@ async def query_wfs(
     return await _query_wfs(url, auth, request_xml, dataset_config)
 
 
-def _create_wfs_request_xml(layer: str, geom_field: str, gml_str: str, epsg: int) -> str:
+def _create_wfs_request_xml(layer: str, geom_field: str, gml_str: str, epsg: int) -> bytes:
     dir_path = path.dirname(path.realpath(__file__))
     file_path = path.join(dir_path, 'wfs_request.xml.txt')
 
@@ -36,9 +36,9 @@ def _create_wfs_request_xml(layer: str, geom_field: str, gml_str: str, epsg: int
 
 
 async def _query_wfs(
-    base_url: HttpUrl,
-    auth: Auth,
-    xml_body: str,
+    base_url: str,
+    auth: Auth | None,
+    xml_body: bytes,
     dataset_config: DatasetConfig | None
 ) -> Tuple[int, bytes | None]:
     url = f'{base_url}?service=WFS&version=2.0.0'

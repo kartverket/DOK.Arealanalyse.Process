@@ -2,13 +2,18 @@ from pathlib import Path
 import hashlib
 import asyncio
 import aiohttp
-from .caching import get_or_create_file, should_refresh_cache
+from xmlschema import XMLSchema
+from .caching import get_or_create_file, cache_dir, should_refresh_cache
 from ..constants import CACHE_DIR
 
 _CACHE_DAYS = 30
 
 _xsd_cache_dir = Path(CACHE_DIR).joinpath('xsds')
 _xsd_cache_dir.mkdir(parents=True, exist_ok=True)
+
+_base_xml_schemas = [
+    ('gml_321', 'https://schemas.opengis.net/gml/3.2.1/gml.xsd')
+]
 
 
 async def get_or_create_xml_schema(
@@ -27,6 +32,23 @@ async def get_or_create_xml_schema(
     return await get_or_create_file(xsd_url, path, session, with_lock=with_lock, semaphore=semaphore)
 
 
+def cache_base_xml_schemas() -> None:
+    for name, url in _base_xml_schemas:
+        path = _xsd_cache_dir.joinpath(name)
+
+        if path.exists():
+            continue
+
+        def producer(target: Path) -> None:
+            schema = XMLSchema(url)
+            schema.export(target, save_remote=True)
+
+        try:
+            cache_dir(path, producer)
+        except:
+            pass
+
+
 def _hash_url(url: str) -> str:
     url_bytes = url.encode('utf-8')
     hash_object = hashlib.sha256(url_bytes)
@@ -35,4 +57,4 @@ def _hash_url(url: str) -> str:
     return hex_digest
 
 
-__all__ = ['get_or_create_xml_schema']
+__all__ = ['get_or_create_xml_schema', 'cache_base_xml_schemas']

@@ -3,7 +3,7 @@ import yaml
 import hashlib
 from uuid import UUID
 from pathlib import Path
-from functools import lru_cache
+from async_lru import alru_cache
 from typing import Any, Callable, Dict, List, Tuple
 import structlog
 from structlog.stdlib import BoundLogger
@@ -13,9 +13,8 @@ from pygeofilter.backends.native.evaluate import NativeEvaluator
 from xmlschema import XMLSchema
 from .xml_schema import compile_xml_schema
 from ..caching.not_implemented_datasets import get_or_create_not_implemented_datasets
-from ..models.exceptions import DokAnalysisException
 from ..models.config import DatasetConfig, QualityConfig, QualityIndicator
-from ..utils.helpers.common import get_env_var
+from ..utils.helpers.common import get_config_file_paths
 from ..utils.http_context import get_session
 from ..constants import USE_XML_SCHEMAS
 
@@ -69,21 +68,7 @@ async def get_not_implemented_dataset_configs() -> List[DatasetConfig]:
 
 
 async def _load_configs() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
-    config_dir = get_env_var('DOKANALYSE_DATASETS_CONFIG_DIR')
-
-    if config_dir is None:
-        raise DokAnalysisException(
-            'The environment variable "DOKANALYSE_DATASETS_CONFIG_DIR" is not set')
-
-    path = Path(config_dir)
-
-    if not path.is_dir():
-        raise DokAnalysisException(
-            f'The "DOKANALYSE_DATASETS_CONFIG_DIR" path ({path}) is not a directory')
-
-    glob = path.glob('*.yml')
-    paths = [path for path in glob if path.is_file()]
-
+    paths = get_config_file_paths()
     dataset_configs: List[DatasetConfig] = []
     quality_configs: List[QualityConfig] = []
 
@@ -97,8 +82,8 @@ async def _load_configs() -> Tuple[List[DatasetConfig], List[QualityConfig]]:
             quality_configs.append(quality_config)
 
     if len(dataset_configs) == 0:
-        raise DokAnalysisException(
-            f'Could not create any dataset configurations from the files in "DOKANALYSE_CONFIG_DIR"')
+        raise Exception(
+            'Could not create any dataset configurations from the files in "DOKANALYSE_CONFIG_DIR"')
 
     return dataset_configs, quality_configs
 
@@ -109,7 +94,7 @@ async def _load_config(path: Path) -> Tuple[DatasetConfig | None, QualityConfig 
     return await _load_cached_config(str(path.resolve()), mtime_ns, size)
 
 
-@lru_cache(maxsize=4096)
+@alru_cache(maxsize=4096)
 async def _load_cached_config(path_str: str, mtime_ns: int, size: int) -> Tuple[DatasetConfig | None, QualityConfig | None]:
     path = Path(path_str)
     results = yaml.safe_load_all(path.read_text(encoding='utf-8'))

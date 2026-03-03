@@ -1,4 +1,4 @@
-from typing import Tuple, Dict
+from typing import Any, Dict, Tuple
 import asyncio
 from pydantic import HttpUrl
 from osgeo import ogr
@@ -13,11 +13,11 @@ _RESOURCE = 'ArcGIS REST API'
 async def query_arcgis(
         arcgis: str | HttpUrl | FeatureService,
         layer: str,
-        filter: str,
+        filter: str | None,
         geometry: ogr.Geometry,
         epsg: int,
         dataset_config: DatasetConfig | None = None
-) -> Tuple[int, Dict | None]:
+) -> Tuple[int, Dict[str, Any] | None]:
     url, auth = get_service_credentials(arcgis)
     api_url = f'{url}/{layer}/query'
     arcgis_geom = geometry_to_arcgis_geom(geometry, epsg)

@@ -1,7 +1,7 @@
 from typing import Any, List, Dict, Tuple
 from osgeo import ogr
 from . import get_threshold_values
-from ..coverage import get_values_from_wfs, get_values_from_arcgis, get_values_from_geojson
+from ..coverage import get_values_from_wfs, get_values_from_arcgis, get_values_from_geofile
 from ..codelist import get_codelist
 from ...models.coverage_quality_response import CoverageQualityResponse
 from ...models.quality_measurement import QualityMeasurement
@@ -81,7 +81,11 @@ async def _get_coverage_quality_data(
     return measurement, has_coverage, is_relevant, data
 
 
-async def _get_values_from_web_service(quality_indicator: QualityIndicator, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
+async def _get_values_from_web_service(
+    quality_indicator: QualityIndicator,
+    geometry: ogr.Geometry,
+    epsg: int
+) -> Tuple[List[str], float, List[Dict]]:
     if quality_indicator.wfs:
         return await get_values_from_wfs(quality_indicator.wfs, geometry, epsg)
 
@@ -89,17 +93,21 @@ async def _get_values_from_web_service(quality_indicator: QualityIndicator, geom
         return await get_values_from_arcgis(quality_indicator.arcgis, geometry, epsg)
 
     if quality_indicator.geojson:
-        return await get_values_from_geojson(quality_indicator.geojson, geometry, epsg)
+        return await get_values_from_geofile(quality_indicator.geojson, geometry, epsg)
 
     if quality_indicator.gpkg:
-        return await get_values_from_geojson(quality_indicator.gpkg, geometry, epsg)
+        return await get_values_from_geofile(quality_indicator.gpkg, geometry, epsg)
 
     # TODO: Add support for OGC Features API
 
     return [], 0, []
 
 
-def _get_warning_text(quality_indicator: QualityIndicator, values: List[str], hit_area_percent: float) -> str | None:
+def _get_warning_text(
+    quality_indicator: QualityIndicator,
+    values: List[str],
+    hit_area_percent: float
+) -> str | None:
     threshold_values = get_threshold_values(quality_indicator)
 
     should_warn = any(value for value in values if any(

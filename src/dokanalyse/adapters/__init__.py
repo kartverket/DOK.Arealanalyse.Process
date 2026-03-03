@@ -10,8 +10,8 @@ from ..models.config.auth import Auth, ApiKey, Basic
 from ..models.config import DatasetConfig, FeatureService
 from ..utils.http_context import get_session
 
-_LOGGER: BoundLogger = structlog.get_logger(__name__)
-_CREDENTIAL_REGEX = r"^\$\{(?P<env_var>.*?)\}$"
+_logger: BoundLogger = structlog.get_logger(__name__)
+_credential_regex = re.compile(r"^\$\{(?P<env_var>.*?)\}$")
 
 
 def log_http_error(resource: str, url: str, status_code: int, **kwargs) -> None:
@@ -43,7 +43,7 @@ def log_http_error(resource: str, url: str, status_code: int, **kwargs) -> None:
     params.update(extra_params)
     params.update(kwargs)
 
-    _LOGGER.error('Request failed', **params)
+    _logger.error('Request failed', **params)
 
 
 def get_service_credentials(service: str | HttpUrl | FeatureService) -> Tuple[str, Auth | None]:
@@ -80,7 +80,7 @@ def get_service_url(service: HttpUrl | FeatureService) -> str:
 
 
 def get_credential(credential: str) -> str:
-    match = re.search(_CREDENTIAL_REGEX, credential)
+    match = _credential_regex.search(credential)
 
     if match:
         env_var = match.group('env_var')

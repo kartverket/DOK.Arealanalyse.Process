@@ -4,12 +4,12 @@ from osgeo import ogr
 
 class FactSheet:
     def __init__(self):
-        self.geometry: ogr.Geometry = None
+        self.geometry: ogr.Geometry
         self.buffer: int = 0
-        self.raster_result_map: str = None
-        self.raster_result_image: str = None
-        self.raster_result_image_bytes: bytes = None
-        self.cartography: str = None
+        self.raster_result_map: str | None = None
+        self.raster_result_image: str | None = None
+        self.raster_result_image_bytes: bytes | None = None
+        self.cartography: str | None = None
         self.fact_list: List[FactPart] = []
 
     def to_dict(self) -> Dict:

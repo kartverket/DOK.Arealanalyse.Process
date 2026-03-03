@@ -1,49 +1,43 @@
+import json
 from pathlib import Path
-from ..models.exceptions import DokAnalysisException
 from typing import Any, Awaitable, Callable, Dict, List, Tuple
 import typer
+import yaml
 import asyncio
 import aiohttp
-from ..constants import DATASETS_CONFIG_DIR
-import yaml
+import structlog
+from structlog.stdlib import BoundLogger
 from .dok_status import get_or_create_dok_status
+from .geofile import get_or_create_geofile
+from .guidance_data import get_or_create_guidance_data
 from .kartkatalog import get_or_create_kartkatalog_metadata
 from .not_implemented_datasets import get_or_create_not_implemented_datasets
-from .geofile import get_or_create_geofile
-from .xsd import get_or_create_xml_schema
-import json
+from .xsd import get_or_create_xml_schema, cache_base_xml_schemas
+from ..utils.logger import setup as setup_logger
+from ..utils.helpers.common import get_config_file_paths
+
+setup_logger()
 
 app = typer.Typer()
+
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 
 @app.command()
 def build_cache() -> None:
-    asyncio.run(_run())
+    asyncio.run(_cache_resources())
 
 
 def main() -> None:
     app()
 
 
-if __name__ == 'main':
-    main()
-
-
-async def _run() -> None:
-
-    # wfs_urls, metadata_ids = _get_wfs_urls()
-    # ids = list(set(metadata_ids))
-    await _cache_resources()
-
-    # print(len(metadata_ids))
-    # print(len(ids))
-
-    # await _cache_wfs_xml_schemas(ids)
-
-
 async def _cache_resources() -> None:
-    metadata_ids, wfs_urls, geojson_and_gpkg_urls = _get_config_data()
+    _logger.info('Caching resources...')
 
+    cache_base_xml_schemas()
+
+    metadata_ids, wfs_urls, geojson_and_gpkg_urls = _get_config_data()
     timeout = aiohttp.ClientTimeout(total=30)
 
     connector = aiohttp.TCPConnector(
@@ -51,43 +45,36 @@ async def _cache_resources() -> None:
 
     async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
         dataset_ids = await _get_dataset_ids_from_dok_status(session)
-
         tasks: List[asyncio.Task] = []
-        semaphore = asyncio.Semaphore(20)
+        semaphore = asyncio.Semaphore(25)
 
         async with asyncio.TaskGroup() as tg:
-            for dataset_id in dataset_ids:
-                print(f'Caching kartkatalog metadata: {dataset_id}...')
-                task = tg.create_task(_run_task(
-                    get_or_create_kartkatalog_metadata, dataset_id, session, with_lock=False, semaphore=semaphore))
-                tasks.append(task)
-
-            print('Caching non-implemented datasets...')
-            tasks.append(tg.create_task(_run_task(get_or_create_not_implemented_datasets,
-                         metadata_ids, session, with_lock=False, semaphore=semaphore)))
-
             for url in wfs_urls:
-                print(f'Caching XML schema: {url}...')
                 task = tg.create_task(_run_task(
                     get_or_create_xml_schema, url, session, with_lock=False, semaphore=semaphore))
                 tasks.append(task)
 
+            for dataset_id in dataset_ids:
+                task = tg.create_task(_run_task(
+                    get_or_create_kartkatalog_metadata, dataset_id, session, with_lock=False, semaphore=semaphore))
+                tasks.append(task)
+
+            tasks.append(tg.create_task(_run_task(get_or_create_not_implemented_datasets,
+                         metadata_ids, session, with_lock=False, semaphore=semaphore)))
+            
+            tasks.append(tg.create_task(_run_task(get_or_create_guidance_data, session, with_lock=False, semaphore=semaphore)))
+
             for url in geojson_and_gpkg_urls:
-                print(f'Caching files: {url}...')                
                 task = tg.create_task(_run_task(
                     get_or_create_geofile, url, session, with_lock=False, semaphore=semaphore))
                 tasks.append(task)
-
-        # async with asyncio.TaskGroup() as tg:
-        #     for dataset_id in dataset_ids:
-        #         tasks.append(tg.create_task(get_or_create_kartkatalog_metadata(dataset_id, session, semaphore=semaphore)))
 
 
 async def _run_task(func: Callable[..., Awaitable[Path]], *args, **kwargs) -> None:
     try:
         _ = await func(*args, **kwargs)
-    except Exception as err:
-        print(err)
+    except:
+        pass
 
 
 async def _get_dataset_ids_from_dok_status(session: aiohttp.ClientSession) -> List[str]:
@@ -96,17 +83,13 @@ async def _get_dataset_ids_from_dok_status(session: aiohttp.ClientSession) -> Li
     with path.open() as file:
         datasets: List[Dict[str, Any]] = json.loads(file.read())
 
-    dataset_ids: List[str] = list(set([dataset['dataset_id']
-                                       for dataset in datasets]))
+    dataset_ids: List[str] = [dataset['dataset_id'] for dataset in datasets]
 
-    return dataset_ids
+    return list(set(dataset_ids))
 
 
 def _get_config_data() -> Tuple[List[str], List[str], List[str]]:
-    path = Path(DATASETS_CONFIG_DIR)
-    glob = path.glob('*.yml')
-    paths = [path for path in glob if path.is_file()]
-
+    paths = get_config_file_paths()
     metadata_ids: List[str] = []
     wfs_urls: List[str] = []
     geojson_and_gpkg_urls: List[str] = []
