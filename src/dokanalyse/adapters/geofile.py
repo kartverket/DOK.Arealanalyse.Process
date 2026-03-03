@@ -7,6 +7,7 @@ from osgeo import ogr
 from .gdal import query_gdal
 from ..caching.geofile import get_or_create_geofile
 from ..utils.http_context import get_session
+from ..utils.helpers.common import file_url_to_path
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
@@ -30,8 +31,8 @@ async def query_geofile(
 
 async def _get_filepath(url: HttpUrl | FileUrl) -> Path | None:
     if url.scheme == 'file':
-        path = Path.from_uri(str(url))
-        return path if path.exists() else None
+        path = file_url_to_path(str(url))
+        return path if path is not None and path.exists() else None
 
     try:
         return await get_or_create_geofile(str(url), get_session())

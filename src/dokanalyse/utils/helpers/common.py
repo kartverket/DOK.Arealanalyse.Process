@@ -1,16 +1,26 @@
+import os
 import re
-from os import environ
 from pathlib import Path
 from datetime import datetime
+from urllib.parse import urlparse, unquote
 from typing import Any, Dict, List
 
 
 def get_env_var(var_name) -> str:
     try:
-        return environ[var_name]
+        return os.environ[var_name]
     except KeyError:
         raise Exception(
             'The environment variable ' + var_name + ' is not set')
+
+
+def file_url_to_path(url: str) -> Path | None:
+    parsed = urlparse(url)
+
+    if parsed.scheme != 'file':
+        return None
+
+    return Path(unquote(parsed.path))
 
 
 def get_config_file_paths() -> List[Path]:
@@ -56,10 +66,10 @@ def parse_string(value: str) -> str | int | float | bool:
     return value
 
 
-def parse_date_string(value: str) -> datetime:
+def parse_date_string(value: str) -> datetime | None:
     try:
         return datetime.fromisoformat(value)
-    except Exception:
+    except:
         return None
 
 
@@ -83,6 +93,7 @@ def objectify_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
 
 __all__ = [
     'get_env_var',
+    'file_url_to_path',
     'from_camel_case',
     'parse_string',
     'parse_date_string',
