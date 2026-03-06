@@ -3,10 +3,10 @@ from pathlib import Path
 from typing import Literal
 import asyncio
 import aiohttp
-from .caching import get_or_create_file, should_refresh_cache
+from .caching import get_or_create_file, CacheUnit
 from ..constants import CACHE_DIR
 
-_CACHE_DAYS = 365
+_CACHE_MONTHS = 6
 
 
 async def get_or_create_geofile(
@@ -25,10 +25,14 @@ async def get_or_create_geofile(
 
     path = dirpath.joinpath(filename)
 
-    if path.exists() and not should_refresh_cache(path, days=_CACHE_DAYS):
-        return path
-
-    return await get_or_create_file(url, path, session, with_lock=with_lock, semaphore=semaphore)
+    return await get_or_create_file(
+        url, 
+        path, 
+        session, 
+        with_lock=with_lock, 
+        semaphore=semaphore,
+        cache=(_CACHE_MONTHS, CacheUnit.MONTHS)
+    )
 
 
 def _get_filetype(url: str) -> Literal['geojson', 'geopackage'] | None:

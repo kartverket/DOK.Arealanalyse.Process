@@ -3,7 +3,7 @@ from uuid import uuid4
 from typing import Any, Dict, List
 import asyncio
 import aiohttp
-from .caching import get_or_create_file, should_refresh_cache
+from .caching import get_or_create_file, CacheUnit
 from ..constants import CACHE_DIR
 
 _API_URL = 'https://register.geonorge.no/api/dok-statusregisteret.json'
@@ -22,13 +22,18 @@ async def get_or_create_not_implemented_datasets(
 ) -> Path:
     path = Path(CACHE_DIR).joinpath(_FILENAME)
 
-    if path.exists() and not should_refresh_cache(path, days=_CACHE_DAYS):
-        return path
-
     async def mapper(data: Dict[str, Any]) -> List[Dict[str, Any]]:
         return _map_data(data, metadata_ids)
 
-    return await get_or_create_file(_API_URL, path, session, with_lock=with_lock, mapper=mapper, semaphore=semaphore)
+    return await get_or_create_file(
+        _API_URL,
+        path,
+        session,
+        with_lock,
+        mapper,
+        semaphore,
+        cache=(_CACHE_DAYS, CacheUnit.DAYS)
+    )
 
 
 def _map_data(
@@ -44,12 +49,14 @@ def _map_data(
         if dataset_id in metadata_ids:
             continue
 
+        name: str = item['seoname']
         theme: str = item.get('theme', '')
 
         configs.append({
             'config_id': str(uuid4()),
+            'name': name.replace('-', '_'),
             'metadata_id': dataset_id,
-            'themes': [theme] if theme else []
+            'themes': [theme] if theme else [],
         })
 
     return configs

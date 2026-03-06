@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Literal, Protocol, Tuple
+from typing import Any, Dict, List, Literal, Protocol, Tuple, cast
 from osgeo import ogr
 from pydash import get as pydash_get
 from .wfs_response import WfsResponseParser

@@ -1,21 +1,28 @@
-from typing import List, Dict
+from typing import Any, Dict, List, Tuple
 from . import get_threshold_values
 from ...models.quality_measurement import QualityMeasurement
 from ...models.config.quality_indicator import QualityIndicator
 from ...models.config.quality_indicator_type import QualityIndicatorType
 
 
-def get_object_quality(quality_indicators: List[QualityIndicator], data: List[Dict]) -> tuple[List[QualityMeasurement], List[str]]:
+def get_object_quality(
+    quality_indicators: List[QualityIndicator],
+    data: List[Dict[str, Any]]
+) -> Tuple[List[QualityMeasurement], List[str]]:
     quality_data = _get_object_quality_data(quality_indicators, data)
     measurements: List[QualityMeasurement] = []
     warnings: List[str] = []
 
     for entry in quality_data:
-        value: Dict
+        value: Dict[str, Any]
 
-        for value in entry.get('values'):
-            measurements.append(QualityMeasurement(entry.get('id'), entry.get(
-                'name'), value.get('value'), value.get('comment')))
+        for value in entry['values']:
+            measurements.append(QualityMeasurement(
+                entry['id'],
+                entry['name'],
+                value['value'],
+                value['comment']
+            ))
 
         warning = entry.get('warning_text')
 
@@ -25,19 +32,26 @@ def get_object_quality(quality_indicators: List[QualityIndicator], data: List[Di
     return measurements, warnings
 
 
-def _get_object_quality_data(quality_indicators: List[QualityIndicator], data: List[Dict]) -> List[Dict]:
-    if data is None or len(data) == 0:
+def _get_object_quality_data(
+    quality_indicators: List[QualityIndicator],
+    data: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    if not data:
         return []
 
     object_indicators = [
         indicator for indicator in quality_indicators if indicator.type == QualityIndicatorType.OBJECT]
 
-    measurements: List[Dict] = []
+    measurements: List[Dict[str, Any]] = []
 
     for oi in object_indicators:
         prop = oi.property
+
+        if not prop:
+            continue
+
         threshold_values = get_threshold_values(oi)
-        values: List[Dict] = []
+        values: List[Dict[str, Any]] = []
 
         for entry in data:
             values.append({

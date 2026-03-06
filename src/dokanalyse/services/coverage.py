@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Tuple
+from typing import Any, Dict, List, Literal, Tuple, cast
 from osgeo import ogr
 from pydash import get as pydash_get
 from .wfs_response import CoverageWfsResponseParser
@@ -9,8 +9,12 @@ from ..adapters.geofile import query_geofile
 from ..utils.helpers.common import objectify_properties
 
 
-async def get_values_from_wfs(config: CoverageWfs, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
-    _, response = await query_wfs(config.url, config.layer, config.geom_field, geometry, epsg)
+async def get_values_from_wfs(
+    config: CoverageWfs, 
+    geometry: ogr.Geometry, 
+    epsg: int
+) -> Tuple[List[str], float, List[Dict]]:
+    _, response = await query_wfs(config.url, config.layer, cast(str, config.geom_field), geometry, epsg)
 
     if response is None:
         return [], 0, []
@@ -25,7 +29,11 @@ async def get_values_from_wfs(config: CoverageWfs, geometry: ogr.Geometry, epsg:
     return distinct_values, hit_area_percent, data
 
 
-async def get_values_from_arcgis(config: CoverageService, geometry: ogr.Geometry, epsg: int) -> Tuple[List[str], float, List[Dict]]:
+async def get_values_from_arcgis(
+    config: CoverageService, 
+    geometry: ogr.Geometry, 
+    epsg: int
+) -> Tuple[List[str], float, List[Dict]]:
     _, response = await query_arcgis(config.url, config.layer, None, geometry, epsg)
 
     if response is None:

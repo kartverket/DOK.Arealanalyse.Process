@@ -42,7 +42,7 @@ _datetime_re = re.compile(
 )
 
 
-def normalize_object(obj) -> Dict[str, Any]:
+def normalize_object(obj) -> Any:
     if isinstance(obj, Dict):
         return {
             key: normalize_object(_normalize_string(value)

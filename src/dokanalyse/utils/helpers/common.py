@@ -1,17 +1,9 @@
-import os
 import re
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse, unquote
 from typing import Any, Dict, List
-
-
-def get_env_var(var_name) -> str:
-    try:
-        return os.environ[var_name]
-    except KeyError:
-        raise Exception(
-            'The environment variable ' + var_name + ' is not set')
+from ...constants import DATASETS_CONFIG_DIR
 
 
 def file_url_to_path(url: str) -> Path | None:
@@ -24,13 +16,7 @@ def file_url_to_path(url: str) -> Path | None:
 
 
 def get_config_file_paths() -> List[Path]:
-    config_dir = get_env_var('DOKANALYSE_DATASETS_CONFIG_DIR')
-
-    if config_dir is None:
-        raise Exception(
-            'The environment variable "DOKANALYSE_DATASETS_CONFIG_DIR" is not set')
-
-    path = Path(config_dir)
+    path = Path(DATASETS_CONFIG_DIR)
 
     if not path.is_dir():
         raise Exception(
@@ -40,14 +26,6 @@ def get_config_file_paths() -> List[Path]:
     paths = [path for path in glob if path.is_file()]
 
     return paths
-
-
-def from_camel_case(value):
-    regex = r"([A-Z])"
-    subst = " \\1"
-    result = re.sub(regex, subst, value, 0)
-
-    return result.capitalize()
 
 
 def parse_string(value: str) -> str | int | float | bool:
@@ -92,9 +70,7 @@ def objectify_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
 
 
 __all__ = [
-    'get_env_var',
     'file_url_to_path',
-    'from_camel_case',
     'parse_string',
     'parse_date_string',
     'objectify_properties',

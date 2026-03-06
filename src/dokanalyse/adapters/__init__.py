@@ -8,7 +8,6 @@ from structlog.stdlib import BoundLogger
 from pydantic import HttpUrl
 from ..models.config.auth import Auth, ApiKey, Basic
 from ..models.config import DatasetConfig, FeatureService
-from ..utils.http_context import get_session
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 _credential_regex = re.compile(r"^\$\{(?P<env_var>.*?)\}$")

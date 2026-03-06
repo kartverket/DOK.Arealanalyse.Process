@@ -80,7 +80,7 @@ def _query(
 
         ogr_feature.SetGeometryDirectly(None)
         json_dict: Any = ogr_feature.ExportToJson(as_object=True)
-        properties = normalize_object(json_dict['properties'])
+        properties: Dict[str, Any] = normalize_object(json_dict['properties'])
 
         feature = {
             'geometry': clone,

@@ -2,12 +2,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 import asyncio
 import aiohttp
-from .caching import get_or_create_file, should_refresh_cache
+from .caching import get_or_create_file, CacheUnit
 from ..constants import CACHE_DIR
 
 _API_URL = 'https://register.geonorge.no/api/dok-statusregisteret.json'
 _FILENAME = 'dok-status.json'
-_CACHE_DAYS = 1
+_CACHE_DAYS = 2
 
 _dokstatus_category_mappings = {
     'BuildingMatter': ('egnethet_byggesak', 'Byggesak'),
@@ -32,13 +32,18 @@ async def get_or_create_dok_status(
 ) -> Path:
     path = Path(CACHE_DIR).joinpath(_FILENAME)
 
-    if path.exists() and not should_refresh_cache(path, days=_CACHE_DAYS):
-        return path
-
     async def mapper(data: Dict[str, Any]) -> List[Dict[str, Any]]:
         return _map_data(data)
 
-    return await get_or_create_file(_API_URL, path, session, with_lock=with_lock, mapper=mapper, semaphore=semaphore)
+    return await get_or_create_file(
+        _API_URL, 
+        path, 
+        session, 
+        with_lock, 
+        mapper=mapper, 
+        semaphore=semaphore,
+        cache=(_CACHE_DAYS, CacheUnit.DAYS)
+    )
 
 
 def _map_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:

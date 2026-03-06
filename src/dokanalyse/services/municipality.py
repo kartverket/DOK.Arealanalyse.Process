@@ -30,29 +30,34 @@ async def _get_municipality_from_rest_api(geometry: ogr.Geometry, epsg: int) -> 
 
 async def _get_municipality_from_wfs(geometry: ogr.Geometry, epsg: int) -> Tuple[str, str] | None:
     centroid: ogr.Geometry = geometry.Centroid()
-    spatial_ref: osr.SpatialReference = geometry.GetSpatialReference()
-    centroid.AssignSpatialReference(spatial_ref)
+    sr: osr.SpatialReference = geometry.GetSpatialReference()
+    centroid.AssignSpatialReference(sr)
 
     _, response = await query_wfs(_WFS_URL, 'Kommune', 'område', centroid, epsg)
 
     if response is None:
         return None
 
-    ns = {'wfs': 'http://www.opengis.net/wfs/2.0',
-          'app': 'https://skjema.geonorge.no/SOSI/produktspesifikasjon/AdmEnheter/20240101'}
+    source = BytesIO(response)
+    context = ET.iterparse(
+        source, events=['end'], tag='{*}Kommune', huge_tree=True)
 
-    bytes_io = BytesIO(response)
-    root = ET.parse(bytes_io)
+    municipality_number: str | None = None
+    municipality_name: str | None = None
 
-    municipality_number = root.findtext(
-        './/wfs:member/*/app:kommunenummer', namespaces=ns)
-    municipality_name = root.findtext(
-        './/wfs:member/*/app:kommunenavn', namespaces=ns)
+    for _, elem in context:
+        municipality_number = elem.findtext('./{*}kommunenummer')
+        municipality_name = elem.findtext('./{*}kommunenavn')
 
-    if municipality_number is None or municipality_name is None:
-        return None
+        elem.clear()
+        break
 
-    return municipality_number, municipality_name
+    del context
+
+    if municipality_number and municipality_name:
+        return municipality_number, municipality_name
+
+    return None
 
 
 async def _fetch_municipality(x: float, y: float, epsg: int) -> Tuple[str, str] | None:

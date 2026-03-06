@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, cast
 import structlog
 from structlog.stdlib import BoundLogger
 from lxml import etree as ET
@@ -18,9 +18,10 @@ class CoverageWfsResponseParser(WfsResponseParserBase):
         flatten_single_list_wrappers: bool = False
     ) -> None:
         super().__init__(
-            config.geom_field,
+            cast(str, config.geom_field),
             config.layer,
             config.properties,
+            [],
             config.xml_schema,
             unwrap_capitalized_wrappers,
             flatten_single_list_wrappers
@@ -40,15 +41,18 @@ class CoverageWfsResponseParser(WfsResponseParserBase):
             source, events=['end'], tag='{*}' + self._layer, huge_tree=True)
     
         for _, elem in context:
-            prop_elem = elem.find(prop_path)
+            value = elem.findtext(prop_path)
 
-            if prop_elem is None:
+            if value is None:
                 elem.clear()
                 continue
 
-            value = prop_elem.text.strip()
-            values.append(value)
+            values.append(value.strip())
             geom_elem = elem.find(geom_path)
+
+            if geom_elem is None:
+                elem.clear()
+                continue
 
             if value == 'ikkeKartlagt':
                 feature_geom = self._create_geometry(geom_elem)

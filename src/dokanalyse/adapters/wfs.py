@@ -1,4 +1,4 @@
-from os import path
+from pathlib import Path
 from typing import Tuple
 from pydantic import HttpUrl
 import asyncio
@@ -8,6 +8,9 @@ from ..models.config import DatasetConfig, FeatureService, Auth
 from ..utils.http_context import get_session
 
 _RESOURCE = 'WFS'
+
+_wfs_request_xml_path = Path(__file__).parent.joinpath(
+    'wfs_request.xml.txt').resolve()
 
 
 async def query_wfs(
@@ -26,13 +29,10 @@ async def query_wfs(
 
 
 def _create_wfs_request_xml(layer: str, geom_field: str, gml_str: str, epsg: int) -> bytes:
-    dir_path = path.dirname(path.realpath(__file__))
-    file_path = path.join(dir_path, 'wfs_request.xml.txt')
+    with _wfs_request_xml_path.open() as file:
+        xml_str = file.read()
 
-    with open(file_path, 'r') as file:
-        file_text = file.read()
-
-    return file_text.format(layer=layer,  geom_field=geom_field, geometry=gml_str, epsg=epsg).encode('utf-8')
+    return xml_str.format(layer=layer, geom_field=geom_field, geometry=gml_str, epsg=epsg).encode('utf-8')
 
 
 async def _query_wfs(

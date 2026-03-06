@@ -1,27 +1,27 @@
-import uuid
-from typing import List, Literal, Optional
-from pydantic import BaseModel, HttpUrl
+from uuid import UUID
+from typing import Dict, List, Literal
+from pydantic import BaseModel, HttpUrl, model_validator
 from xmlschema import XMLSchema
 from .feature_service import FeatureService
 from .layer import Layer
 
 
 class DatasetConfig(BaseModel):
-    config_id: Optional[uuid.UUID] = None
-    metadata_id: Optional[uuid.UUID] = None
-    name: Optional[str] = None
-    title: Optional[str] = None
-    disabled: Optional[bool] = False
-    wfs: Optional[HttpUrl | FeatureService] = None
-    arcgis: Optional[HttpUrl | FeatureService] = None
-    ogc_api: Optional[HttpUrl | FeatureService] = None
-    wms: Optional[HttpUrl] = None
-    layers: Optional[List[Layer]] = []
-    geom_field: Optional[str] = None
+    config_id: UUID
+    name: str
+    title: str | None = None
+    metadata_id: UUID | None = None
+    wfs: HttpUrl | FeatureService | None = None
+    arcgis: HttpUrl | FeatureService | None = None
+    ogc_api: HttpUrl | FeatureService | None = None
+    wms: HttpUrl
+    layers: List[Layer] = []
+    geom_field: str | None = None
     properties: List[str] | Literal['*'] = []
-    skip_properties: Optional[List[str]] = []
+    skip_properties: List[str] = []
     themes: List[str]
-    xml_schema: Optional[XMLSchema] = None
+    disabled: bool | None = False
+    xml_schema: XMLSchema | None = None
 
     model_config = {
         'extra': 'ignore',
@@ -36,3 +36,11 @@ class DatasetConfig(BaseModel):
 
         return str(service)
 
+    @model_validator(mode='before')
+    @classmethod
+    def check_service_type(cls, values: Dict) -> Dict:
+        if not 'wfs' in values and not 'arcgis' in values and not 'ogc_api' in values:
+            raise ValueError(
+                'The dataset must have either the "wfs", "arcgis" or "ogc_api" property set')
+
+        return values

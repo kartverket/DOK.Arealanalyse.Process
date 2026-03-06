@@ -1,5 +1,5 @@
+from typing import Callable, Dict
 from pydantic import BaseModel, model_validator
-from typing import Callable, Dict, Optional
 from .quality_indicator_type import QualityIndicatorType
 from . import CoverageService, CoverageWfs, CoverageGeoJson, CoverageGeoPackage
 
@@ -8,16 +8,16 @@ class QualityIndicator(BaseModel):
     type: QualityIndicatorType
     quality_dimension_id: str
     quality_dimension_name: str
-    quality_warning_text: Optional[str] = None
-    warning_threshold: Optional[str] = None
-    property: Optional[str] = None
-    input_filter: Optional[str] = None
-    wfs: Optional[CoverageWfs] = None
-    arcgis: Optional[CoverageService] = None
-    geojson: Optional[CoverageGeoJson] = None
-    gpkg: Optional[CoverageGeoPackage] = None
-    disabled: Optional[bool] = False
-    input_filter_func: Optional[Callable[[Dict], bool]] = None
+    quality_warning_text: str | None = None
+    warning_threshold: str | None = None
+    property: str | None = None
+    input_filter: str | None = None
+    wfs: CoverageWfs | None = None
+    arcgis: CoverageService | None = None
+    geojson: CoverageGeoJson | None = None
+    gpkg: CoverageGeoPackage | None = None
+    disabled: bool | None = False
+    input_filter_func: Callable[[Dict], bool] | None = None
 
     model_config = {
         'extra': 'ignore'

@@ -6,7 +6,7 @@ from ..constants import SOCKET_IO_SRV_URL
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-def get_client() -> socketio.SimpleClient:
+def get_client() -> socketio.SimpleClient | None:
     if not SOCKET_IO_SRV_URL:
         return None
 

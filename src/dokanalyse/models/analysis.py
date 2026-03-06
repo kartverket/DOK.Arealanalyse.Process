@@ -18,11 +18,19 @@ _QMS_SORT_ORDER = [
 
 
 class Analysis:
-    def __init__(self, config_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
+    def __init__(
+        self,
+        config_id: UUID,
+        config: DatasetConfig,
+        geometry: ogr.Geometry,
+        epsg: int,
+        orig_epsg: int,
+        buffer: int
+    ) -> None:
         self.config_id = config_id
         self.config = config
         self.geometry = geometry
-        self.run_on_input_geometry: ogr.Geometry | None = None
+        self.run_on_input_geometry: ogr.Geometry
         self.epsg = epsg
         self.orig_epsg = orig_epsg
         self.geometries: List[ogr.Geometry] = []

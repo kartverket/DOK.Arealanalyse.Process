@@ -40,6 +40,16 @@
         },
         "includeFacts": {
             "type": "boolean"
+        },
+        "createBinaries": {
+            "type": "boolean"
+        },
+        "correlationId": {
+            "type": [
+                "string",
+                "null"
+            ],
+            "format": "uuid"
         }
     },
     "required": [

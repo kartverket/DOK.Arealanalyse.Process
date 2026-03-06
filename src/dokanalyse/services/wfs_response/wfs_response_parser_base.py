@@ -15,7 +15,7 @@ class WfsResponseParserBase(ABC):
         self,
         geom_field: str,
         layer: str,
-        properties: List[str] | Literal['*'] | None,
+        properties: List[str] | Literal['*'],
         skip_properties: List[str],
         xml_schema: XMLSchema | None,
         unwrap_capitalized_wrappers: bool = False,
@@ -30,10 +30,10 @@ class WfsResponseParserBase(ABC):
         self.__flatten_single_list_wrappers = flatten_single_list_wrappers
 
     @abstractmethod
-    async def parse(self, response: bytes) -> Any:
+    def parse(self, response: bytes) -> Any:
         pass
 
-    def _map_properties(self, feature: ET._Element) -> Dict[str, Any] | None:
+    def _map_properties(self, feature: ET._Element) -> Dict[str, Any]:
         if self.__xml_schema:
             properties = self.__xml_schema.decode(
                 feature, validation='skip')

@@ -59,10 +59,8 @@ async def get_not_implemented_dataset_configs() -> List[DatasetConfig]:
     configs: List[DatasetConfig] = []
 
     for dataset in datasets:
-        config = await _create_dataset_config(dataset)
-
-        if config:
-            configs.append(config)
+        config = DatasetConfig.model_construct(**dataset)
+        configs.append(config)
 
     return configs
 
@@ -122,7 +120,7 @@ async def _load_cached_config(path_str: str, mtime_ns: int, size: int) -> Tuple[
     return dataset_config, quality_config
 
 
-async def _create_dataset_config(data: Dict) -> DatasetConfig | None:
+async def _create_dataset_config(data: Dict[str, Any]) -> DatasetConfig | None:
     try:
         config = DatasetConfig(**data)
 
@@ -130,10 +128,9 @@ async def _create_dataset_config(data: Dict) -> DatasetConfig | None:
             return None
 
         if config.wfs:
-            layers = [layer for layer in config.layers if layer.filter]
-
-            for layer in layers:
-                layer.filter_func = _compile_cql_filter(layer.filter)
+            for layer in config.layers:
+                if layer.filter:
+                    layer.filter_func = _compile_cql_filter(layer.filter)
 
             if USE_XML_SCHEMAS:
                 config.xml_schema = await _compile_wfs_xml_schema(
@@ -141,7 +138,7 @@ async def _create_dataset_config(data: Dict) -> DatasetConfig | None:
 
         return config
     except ValidationError as err:
-        _logger.error('Dataset config creation failed', error=str(err))
+        _logger.error('Dataset config creation failed', config_id=data.get('config_id'), error=str(err))
         return None
 
 

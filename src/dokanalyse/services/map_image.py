@@ -3,7 +3,7 @@ import time
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Dict, Tuple, cast
 from concurrent.futures import TimeoutError
 import multiprocessing as mp
 import structlog
@@ -131,7 +131,7 @@ def _create_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
     gdf: gpd.GeoSeries = pd.concat([gdf, ext_bbox_row], ignore_index=True)
     gdf.plot(ax=ax, facecolor='none', linewidth=0)
 
-    wms: Dict = kwargs.get('wms')
+    wms: Dict[str, Any] | None = kwargs.get('wms')
 
     if wms:
         _add_wms(ax, wms.get('url'), wms.get('layers'))
@@ -147,8 +147,7 @@ def _get_params_for_analyses(analyses: List[Analysis]) -> List[Dict[str, Any]]:
     params: List[Dict[str, Any]] = []
 
     for analysis in analyses:
-        url, layers = _parse_wms_url(analysis.raster_result_map)
-        buffered_geom = None
+        url, layers = _parse_wms_url(cast(str, analysis.raster_result_map))
 
         if analysis.buffer > 0:
             buffered_geom: ogr.Geometry = analysis.geometry.Buffer(

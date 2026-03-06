@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 import asyncio
 import aiohttp
-from .caching import get_or_create_file, should_refresh_cache
+from .caching import get_or_create_file, CacheUnit
 from ..constants import CACHE_DIR
 
 _API_BASE_URL = 'https://register.geonorge.no/api/det-offentlige-kartgrunnlaget-kommunalt.json?municipality='
@@ -21,13 +21,18 @@ async def get_or_create_kartgrunnlag(
     url = f'{_API_BASE_URL}{municipality_number}'
     path = _dok_datasets_cache_dir.joinpath(f'{municipality_number}.json')
 
-    if path.exists() and not should_refresh_cache(path, days=_CACHE_DAYS):
-        return path
-
     async def mapper(data: Dict[str, Any]) -> List[str]:
         return _map_data(data)
 
-    return await get_or_create_file(url, path, session, with_lock=with_lock, mapper=mapper, semaphore=semaphore)
+    return await get_or_create_file(
+        url, 
+        path, 
+        session, 
+        with_lock,
+        mapper=mapper, 
+        semaphore=semaphore,
+        cache=(_CACHE_DAYS, CacheUnit.DAYS)
+    )
 
 
 def _map_data(data: Dict[str, Any]) -> List[str]:

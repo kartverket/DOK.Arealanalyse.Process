@@ -29,7 +29,7 @@ from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-async def run(data: Dict, sio_client: SimpleClient) -> Dict[str, Any]:       
+async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:       
     correlation_id = get_correlation_id()
     emitter = StateEmitter(correlation_id, sio_client)
     emitter.send_message(StateStatus.STARTING_UP)

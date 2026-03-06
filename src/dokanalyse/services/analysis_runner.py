@@ -16,7 +16,12 @@ from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_inp
 from ..utils.helpers.quality import get_coverage_indicator, get_coverage_service_config_data
 
 
-async def run_analysis(analysis: Analysis, context: str, include_guidance: bool, include_quality_measurement: bool) -> None:
+async def run_analysis(
+    analysis: Analysis,
+    context: str,
+    include_guidance: bool,
+    include_quality_measurement: bool
+) -> None:
     analysis.set_input_geometry()
 
     await _run_coverage_analysis(analysis, context)
@@ -66,7 +71,7 @@ async def set_defaults(analysis: Analysis) -> None:
 
 async def _run_queries(analysis: Analysis, context: str) -> None:
     strategy = get_query_strategy(analysis)
-    
+
     if strategy is None:
         return
 
@@ -85,7 +90,6 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
 
         status_code, api_response = await strategy.query(
             analysis.config, layer, analysis.run_on_input_geometry, analysis.epsg)
-
 
         if status_code == 408:
             analysis.result_status = ResultStatus.TIMEOUT
@@ -112,9 +116,9 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
                 analysis.data = parsed['properties']
                 analysis.geometries = parsed['geometries']
                 analysis.raster_result_map = get_wms_url(
-                    analysis.config.wms, layer.wms)
+                    str(analysis.config.wms), layer.wms)
                 analysis.cartography = await get_cartography_url(
-                    analysis.config.wms, layer.wms, analysis.run_on_input_geometry)
+                    str(analysis.config.wms), layer.wms, analysis.run_on_input_geometry)
                 analysis.result_status = layer.result_status
                 break
 
@@ -193,7 +197,7 @@ async def _run_coverage_analysis(analysis: Analysis, context: str) -> None:
 def _apply_guidance(analysis: Analysis) -> None:
     if not analysis.guidance_data:
         return
-    
+
     if analysis.result_status != ResultStatus.NO_HIT_GREEN:
         analysis.description = analysis.guidance_data.get('forklarendeTekst')
         analysis.guidance_text = analysis.guidance_data.get('dialogtekst')

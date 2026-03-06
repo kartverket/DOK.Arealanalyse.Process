@@ -3,7 +3,7 @@ from ...utils.helpers.common import parse_string
 from ...models.config.quality_indicator import QualityIndicator
 
 
-def get_threshold_values(quality_indicator: QualityIndicator) -> List[str]:
+def get_threshold_values(quality_indicator: QualityIndicator) -> List[str | int | float | bool]:
     if not quality_indicator.warning_threshold:
         return []
     

@@ -2,23 +2,21 @@ import time
 from io import BytesIO
 from uuid import UUID
 from collections import Counter
-from typing import Any, List, Dict
+from typing import Any, Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
 from lxml import etree as ET
 from osgeo import ogr
 from ...adapters.wfs import query_wfs
-from ...utils.helpers.common import parse_string
 from ...services.kartkatalog import get_kartkatalog_metadata
 from ...models.fact_part import FactPart
 
-_logger: BoundLogger = structlog.get_logger(__name__)
-
-_METADATA_ID = UUID('24d7e9d1-87f6-45a0-b38e-3447f8d7f9a1')
-_LAYER_NAME = 'Bygning'
 _WFS_URL = 'https://wfs.geonorge.no/skwms1/wfs.matrikkelen-bygningspunkt'
+_LAYER_NAME = 'Bygning'
 
-_BUILDING_CATEGORIES = {
+_metadata_id = UUID('24d7e9d1-87f6-45a0-b38e-3447f8d7f9a1')
+
+_building_categories = {
     (100, 159): 'Bolig',
     (160, 180): 'Fritidsbolig - hytte',
     (200, 299): 'Industri og lagerbygning',
@@ -30,10 +28,12 @@ _BUILDING_CATEGORIES = {
     (800, 899): 'Fengsel, beredskapsbygning, mv.',
 }
 
+_logger: BoundLogger = structlog.get_logger(__name__)
+
 
 async def get_buildings(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> FactPart:
     start = time.time()
-    dataset = await get_kartkatalog_metadata(_METADATA_ID)
+    dataset = await get_kartkatalog_metadata(_metadata_id)
     data = await _get_data(geometry, epsg)
     end = time.time()
 
@@ -47,24 +47,32 @@ async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict[str, Any]]:
 
     if response is None:
         return []
-
-    bytes_io = BytesIO(response)
-    root = ET.parse(bytes_io)
-    path = '//*[local-name() = "bygningstype"]'
-    elems = root.xpath(path)
+    
+    source = BytesIO(response)
+    context = ET.iterparse(
+        source, events=['end'], tag='{*}Bygning', huge_tree=True)        
     categories = []
 
-    for elem in elems:
-        building_type: Any = parse_string(elem.text)
-        category = _get_building_category(building_type)
+    for _, elem in context:        
+        building_type = elem.findtext('./{*}bygningstype')
 
-        if category is not None:
+        if not building_type:
+            elem.clear()
+            continue
+    
+        category = _get_building_category(int(building_type))
+
+        if category:
             categories.append(category)
 
-    counted = Counter(categories)
-    result: List[dict] = []
+        elem.clear()
 
-    for _, value in _BUILDING_CATEGORIES.items():
+    del context
+
+    counted = Counter(categories)
+    result: List[Dict[str, Any]] = []
+
+    for _, value in _building_categories.items():
         count = counted.get(value, 0)
 
         result.append({
@@ -76,7 +84,7 @@ async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict[str, Any]]:
 
 
 def _get_building_category(building_type: int) -> str | None:
-    for range, category in _BUILDING_CATEGORIES.items():
+    for range, category in _building_categories.items():
         if range[0] <= building_type <= range[1]:
             return category
 

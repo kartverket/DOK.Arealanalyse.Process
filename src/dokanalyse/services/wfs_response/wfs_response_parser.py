@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Dict, List
+from typing import Dict, List, cast
 import structlog
 from structlog.stdlib import BoundLogger
 from lxml import etree as ET
@@ -16,10 +16,10 @@ class WfsResponseParser(WfsResponseParserBase):
         layer: Layer,
         unwrap_capitalized_wrappers: bool = False,
         flatten_single_list_wrappers: bool = False
-    ) -> None:
+    ) -> None:       
         super().__init__(
-            config.geom_field,
-            layer.wfs,
+            cast(str, config.geom_field),
+            cast(str, layer.wfs),
             config.properties,
             config.skip_properties,
             config.xml_schema,
@@ -48,7 +48,7 @@ class WfsResponseParser(WfsResponseParserBase):
             if geom_elem is None:
                 elem.clear()
                 _logger.error('WFS response: No geometry found',
-                              config_id=self.__config_id, error=str(err))
+                              config_id=self.__config_id)
                 continue
 
             self._remove_geom_element(geom_elem)

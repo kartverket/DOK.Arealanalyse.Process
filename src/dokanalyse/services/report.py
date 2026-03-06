@@ -58,6 +58,10 @@ def _get_helper_functions(path: str) -> List[Tuple[str, Any]]:
     for file in python_files:
         module_name = file.name.replace('.py', '')
         module = _import_module_from_path(module_name, file)
+
+        if not module:
+            continue
+
         members = inspect.getmembers(module)
 
         functions = [member for member in members if inspect.isfunction(
@@ -68,8 +72,12 @@ def _get_helper_functions(path: str) -> List[Tuple[str, Any]]:
     return functions_list
 
 
-def _import_module_from_path(module_name: str, file_path: str) -> ModuleType:
+def _import_module_from_path(module_name: str, file_path: Path) -> ModuleType | None:
     spec = importlib.util.spec_from_file_location(module_name, file_path)
+
+    if not spec or not spec.loader:
+        return None
+
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)

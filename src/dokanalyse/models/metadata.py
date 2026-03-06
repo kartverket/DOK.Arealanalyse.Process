@@ -1,10 +1,18 @@
 from datetime import datetime
-from typing import Self, Dict
+from typing import Any, Dict, Self
 from ..utils.helpers.common import parse_date_string
 
 
 class Metadata:
-    def __init__(self, dataset_id: str, title: str, description: str, owner: str, updated: datetime, dataset_description_uri: str):
+    def __init__(
+        self,
+        dataset_id: str,
+        title: str,
+        description: str,
+        owner: str,
+        updated: datetime | None,
+        dataset_description_uri: str
+    ) -> None:
         self.dataset_id = dataset_id
         self.title = title
         self.description = description
@@ -12,7 +20,7 @@ class Metadata:
         self.updated = updated
         self.dataset_description_uri = dataset_description_uri
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'datasetId': self.dataset_id,
             'title': self.title,
@@ -23,12 +31,12 @@ class Metadata:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> Self:
-        dataset_id = data.get('datasetId')
-        title = data.get('title')
-        description = data.get('description')
-        owner = data.get('owner')
-        updated = data.get('updated')
-        dataset_description_uri = data.get('datasetDescriptionUri')
+    def from_dict(cls, data: Dict[str, Any]) -> Self:
+        dataset_id = data['datasetId']
+        title = data['title']
+        description = data['description']
+        owner = data['owner']
+        updated = data['updated']
+        dataset_description_uri = data['datasetDescriptionUri']
 
-        return Metadata(dataset_id, title, description, owner, parse_date_string(updated), dataset_description_uri)
+        return cls(dataset_id, title, description, owner, parse_date_string(updated), dataset_description_uri)

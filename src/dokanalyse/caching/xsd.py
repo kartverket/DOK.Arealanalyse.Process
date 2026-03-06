@@ -3,7 +3,7 @@ import hashlib
 import asyncio
 import aiohttp
 from xmlschema import XMLSchema
-from .caching import get_or_create_file, cache_dir, should_refresh_cache
+from .caching import get_or_create_file, cache_dir, CacheUnit
 from ..constants import CACHE_DIR
 
 _CACHE_DAYS = 30
@@ -26,10 +26,15 @@ async def get_or_create_xml_schema(
     filename = f'{_hash_url(url)}.xsd'
     path = _xsd_cache_dir.joinpath(filename)
 
-    if path.exists() and not should_refresh_cache(path, days=_CACHE_DAYS):
-        return path
-
-    return await get_or_create_file(xsd_url, path, session, with_lock=with_lock, semaphore=semaphore)
+    return await get_or_create_file(
+        xsd_url,
+        path,
+        session,
+        with_lock,
+        semaphore=semaphore,
+        timeout=5,
+        cache=(_CACHE_DAYS, CacheUnit.DAYS)
+    )
 
 
 def cache_base_xml_schemas() -> None:

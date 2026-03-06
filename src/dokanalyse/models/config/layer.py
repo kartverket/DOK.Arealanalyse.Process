@@ -1,19 +1,19 @@
+from uuid import UUID
 from pydantic import BaseModel, model_validator, field_validator
-from typing import List, Optional, Dict, Callable
+from typing import List, Dict, Callable
 from ..result_status import ResultStatus
-import uuid
 
 
 class Layer(BaseModel):
-    wfs: Optional[str] = None
-    arcgis: Optional[str] = None
-    ogc_api: Optional[str] = None
+    wfs: str | None = None
+    arcgis: str | None = None
+    ogc_api: str | None = None
     wms: List[str]
-    filter: Optional[str] = None
-    filter_func: Optional[Callable[[Dict], bool]] = None
+    filter: str | None = None
+    filter_func: Callable[[Dict], bool] | None = None
     result_status: ResultStatus
-    planning_guidance_id: Optional[uuid.UUID] = None
-    building_guidance_id: Optional[uuid.UUID] = None
+    planning_guidance_id: UUID | None = None
+    building_guidance_id: UUID | None = None
 
     model_config = {
         'extra': 'ignore'
