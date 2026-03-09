@@ -11,12 +11,12 @@ _RESOURCE = 'ArcGIS REST API'
 
 
 async def query_arcgis(
-        arcgis: str | HttpUrl | FeatureService,
-        layer: str,
-        filter: str | None,
-        geometry: ogr.Geometry,
-        epsg: int,
-        dataset_config: DatasetConfig | None = None
+    arcgis: str | HttpUrl | FeatureService,
+    layer: str,
+    filter: str | None,
+    geometry: ogr.Geometry,
+    epsg: int,
+    dataset_config: DatasetConfig | None = None
 ) -> Tuple[int, Dict[str, Any] | None]:
     url, auth = get_service_credentials(arcgis)
     api_url = f'{url}/{layer}/query'
@@ -38,7 +38,12 @@ async def query_arcgis(
     return await _query_arcgis(api_url, auth, data, dataset_config)
 
 
-async def _query_arcgis(url: str, auth: Auth | None, data: Dict, dataset_config: DatasetConfig | None) -> Tuple[int, Dict | None]:
+async def _query_arcgis(
+    url: str, 
+    auth: Auth | None, 
+    data: Dict, 
+    dataset_config: DatasetConfig | None
+) -> Tuple[int, Dict | None]:
     auth_params = get_auth(auth)
 
     try:

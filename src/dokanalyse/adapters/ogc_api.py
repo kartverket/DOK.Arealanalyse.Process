@@ -14,15 +14,15 @@ _RESOURCE = 'OGC API'
 
 
 async def query_ogc_api(
-        ogc_api: str | HttpUrl | FeatureService,
-        layer: str,
-        geom_field: str,
-        geometry: ogr.Geometry,
-        filter: str | None,
-        epsg: int,
-        dataset_config: DatasetConfig | None = None
+    ogc_api: str | HttpUrl | FeatureService,
+    layer: str,
+    geom_field: str,
+    geometry: ogr.Geometry,
+    filter: str | None,
+    epsg: int,
+    dataset_config: DatasetConfig | None = None
 ) -> Tuple[int, List[Dict[str, Any]] | None]:
-    url, auth = get_service_credentials(ogc_api)
+    url, auth = get_service_credentials(ogc_api)    
     request_url = _create_request_url(
         url, layer, geom_field, geometry, filter, epsg)
     status, response = await _query_ogc_api(request_url, auth, dataset_config) 
@@ -53,7 +53,11 @@ async def query_ogc_api(
     return status, features_out
 
 
-async def _query_ogc_api(url: str, auth: Auth | None, dataset_config: DatasetConfig | None) -> Tuple[int, Dict[str, Any] | None]:
+async def _query_ogc_api(
+    url: str, 
+    auth: Auth | None, 
+    dataset_config: DatasetConfig | None
+) -> Tuple[int, Dict[str, Any] | None]:
     auth_params = get_auth(auth)
 
     try:
@@ -74,15 +78,15 @@ async def _query_ogc_api(url: str, auth: Auth | None, dataset_config: DatasetCon
 
 
 def _create_request_url(
-        base_url: str,
-        layer: str,
-        geom_field: str,
-        geometry: ogr.Geometry,
-        filter: str | None,
-        epsg: int,
-        out_epsg: int = DEFAULT_EPSG,
-        limit: int = 5000,
-        variant: str | None = None
+    base_url: str,
+    layer: str,
+    geom_field: str,
+    geometry: ogr.Geometry,
+    filter: str | None,
+    epsg: int,
+    out_epsg: int = DEFAULT_EPSG,
+    limit: int = 5000,
+    variant: str | None = None
 ) -> str:
     envelope = geometry.GetEnvelope()
     polygon = envelope_to_polygon(envelope)

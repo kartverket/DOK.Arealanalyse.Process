@@ -14,12 +14,12 @@ _wfs_request_xml_path = Path(__file__).parent.joinpath(
 
 
 async def query_wfs(
-        wfs: str | HttpUrl | FeatureService,
-        layer: str,
-        geom_field: str,
-        geometry: ogr.Geometry,
-        epsg: int,
-        dataset_config: DatasetConfig | None = None
+    wfs: str | HttpUrl | FeatureService,
+    layer: str,
+    geom_field: str,
+    geometry: ogr.Geometry,
+    epsg: int,
+    dataset_config: DatasetConfig | None = None
 ) -> Tuple[int, bytes | None]:
     gml_str = geometry.ExportToGML(['FORMAT=GML3'])
     request_xml = _create_wfs_request_xml(layer, geom_field, gml_str, epsg)
@@ -28,7 +28,12 @@ async def query_wfs(
     return await _query_wfs(url, auth, request_xml, dataset_config)
 
 
-def _create_wfs_request_xml(layer: str, geom_field: str, gml_str: str, epsg: int) -> bytes:
+def _create_wfs_request_xml(
+    layer: str, 
+    geom_field: str, 
+    gml_str: str, 
+    epsg: int
+) -> bytes:
     with _wfs_request_xml_path.open() as file:
         xml_str = file.read()
 

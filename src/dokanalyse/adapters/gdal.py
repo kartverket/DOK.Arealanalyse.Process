@@ -7,12 +7,12 @@ from . import get_credential
 from ..models.config.auth import Basic, ApiKey
 from ..utils.helpers.geometry import create_feature_collection, transform_geometry
 from ..utils.helpers.gdal import normalize_object
-from ..constants import QUERY_TIMEOUT
+from ..constants import CLIENT_TIMEOUT
 
 gdal_lock = threading.Lock()
 
-gdal.SetConfigOption('GDAL_HTTP_CONNECTTIMEOUT', str(QUERY_TIMEOUT))
-gdal.SetConfigOption('GDAL_HTTP_TIMEOUT', str(QUERY_TIMEOUT))
+gdal.SetConfigOption('GDAL_HTTP_CONNECTTIMEOUT', str(CLIENT_TIMEOUT))
+gdal.SetConfigOption('GDAL_HTTP_TIMEOUT', str(CLIENT_TIMEOUT))
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
