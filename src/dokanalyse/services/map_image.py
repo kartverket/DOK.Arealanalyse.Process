@@ -11,8 +11,6 @@ from structlog.stdlib import BoundLogger
 from osgeo import ogr
 import pandas as pd
 import geopandas as gpd
-import matplotlib
-import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from owslib.wms import WebMapService
 import cartopy.crs as ccrs
@@ -25,8 +23,6 @@ from ..models.fact_sheet import FactSheet
 from ..models.state_emitter import StateEmitter, StateStatus
 from ..utils.helpers.geometry import get_epsg_from_geometry, transform_geometry
 from ..constants import CACHE_DIR
-
-matplotlib.use('agg')
 
 ogcc.METERS_PER_UNIT['EPSG:3857'] = 1
 ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR # type: ignore
@@ -107,8 +103,10 @@ def _create_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
     width, height = size
     figsize = _get_figsize(width, height)
 
-    fig, ax = plt.subplots(figsize=figsize, dpi=_DPI, subplot_kw={
-        'projection': crs_epsg})
+    fig = Figure()
+    fig.set_size_inches(figsize)
+    fig.set_dpi(_DPI)
+    ax = cast(GeoAxes, fig.subplots(subplot_kw={'projection': crs_epsg}))
 
     ax.axis('off')
 
@@ -121,24 +119,25 @@ def _create_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
 
     if buffer:
         buffer_row = gpd.GeoSeries.from_wkt([buffer])
-        gdf: gpd.GeoSeries = pd.concat([gdf, buffer_row], ignore_index=True)
+        gdf = cast(gpd.GeoSeries, pd.concat(
+            [gdf, buffer_row], ignore_index=True))
         gdf.plot(ax=ax, edgecolor='#d33333', facecolor='none',
                  linestyle='--', linewidth=1.5)
 
-    ext_bbox = _extend_bbox_to_aspect_ratio(gdf.total_bounds, width/height)
+    ext_bbox = _extend_bbox_to_aspect_ratio(
+        gdf.total_bounds, width/height)  # type: ignore
     ext_bbox_row = gpd.GeoSeries.from_wkt([ext_bbox.wkt])
 
-    gdf: gpd.GeoSeries = pd.concat([gdf, ext_bbox_row], ignore_index=True)
+    gdf = cast(gpd.GeoSeries, pd.concat(
+        [gdf, ext_bbox_row], ignore_index=True))
     gdf.plot(ax=ax, facecolor='none', linewidth=0)
 
-    wms: Dict[str, Any] | None = kwargs.get('wms')
+    wms = cast(Dict[str, Any] | None, kwargs.get('wms'))
 
     if wms:
-        _add_wms(ax, wms.get('url'), wms.get('layers'))
+        _add_wms(ax, wms['url'], wms['layers'])
 
     bytes_out = _convert_to_bytes(fig)
-
-    plt.close()
 
     return id, name, bytes_out
 
@@ -235,7 +234,7 @@ def _convert_to_bytes(fig: Figure) -> bytes:
     fig.set_frameon(False)
 
     byte_stream = BytesIO()
-    fig.savefig(byte_stream, format='png', dpi=100)
+    fig.savefig(byte_stream, format='png', dpi=_DPI)
 
     return byte_stream.getvalue()
 
