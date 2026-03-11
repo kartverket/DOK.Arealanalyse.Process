@@ -1,4 +1,4 @@
-import re
+import inspect
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse, unquote
@@ -69,9 +69,18 @@ def objectify_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+def dbg(*args, **kwargs) -> None:
+    frame = inspect.stack()[1]
+    filename = frame.filename
+    lineno = frame.lineno
+
+    print(f"{filename}:{lineno} —", *args, **kwargs)
+
+
 __all__ = [
     'file_url_to_path',
     'parse_string',
     'parse_date_string',
     'objectify_properties',
+    'dbg'
 ]

@@ -2,6 +2,7 @@ from typing import List, Dict
 from .fact_part import FactPart
 from osgeo import ogr
 
+
 class FactSheet:
     def __init__(self):
         self.geometry: ogr.Geometry
@@ -15,7 +16,7 @@ class FactSheet:
     def to_dict(self) -> Dict:
         fact_list = list(
             map(lambda fact_part: fact_part.to_dict(), self.fact_list))
-        
+
         return {
             'factSheetRasterResult': {
                 'imageUri': self.raster_result_image,

@@ -1,11 +1,9 @@
 import time
-import traceback
 from typing import List, Dict, Tuple, Any
 from uuid import UUID, uuid4
 import structlog
 from structlog.stdlib import BoundLogger
 import asyncio
-import aiohttp
 from socketio import SimpleClient
 from osgeo import ogr
 from pydash import kebab_case
@@ -15,7 +13,7 @@ from .municipality import get_municipality
 from .config import get_dataset_config, get_not_implemented_dataset_configs
 from .map_image import generate_map_images
 from .report import create_pdf
-from .analysis_runner import run_analysis as run_single_analysis, run_empty_analysis, set_defaults as set_analysis_defaults
+from .analysis_runner import run_analysis as run_single_analysis, set_defaults as set_analysis_defaults
 from ..services.file_storage import FileStorage, AzureBlobStorage, LocalFileShare
 from ..utils.helpers.geometry import create_input_geometry, get_epsg_from_geojson
 from ..models.state_emitter import StateEmitter, StateStatus
@@ -126,7 +124,7 @@ async def _run_analysis(
     if not should_analyze:
         analysis = EmptyAnalysis(
             config.config_id, config, ResultStatus.NOT_RELEVANT)
-        await run_empty_analysis(analysis)
+        await set_analysis_defaults(analysis)
         return analysis
 
     start = time.time()
@@ -139,12 +137,11 @@ async def _run_analysis(
 
     try:
         await run_single_analysis(analysis, context, include_guidance, include_quality_measurement)
-    except Exception:
+    except Exception as err:
         await set_analysis_defaults(analysis)
         analysis.result_status = ResultStatus.ERROR
         end = time.time()
 
-        err = traceback.format_exc()
         _logger.error('Analysis failed', config_id=str(
             config_id), dataset=config.name, duration=round(end - start, 2), error=err)
     else:
@@ -160,7 +157,7 @@ async def _run_analysis(
 async def _run_not_implemented_analysis(config: DatasetConfig) -> Analysis:
     analysis = EmptyAnalysis(config.config_id, config,
                              ResultStatus.NOT_IMPLEMENTED)
-    await run_empty_analysis(analysis)
+    await set_analysis_defaults(analysis)
 
     return analysis
 

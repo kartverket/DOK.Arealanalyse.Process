@@ -4,7 +4,7 @@ from pydantic import BaseModel, HttpUrl, model_validator
 from xmlschema import XMLSchema
 from .feature_service import FeatureService
 from .layer import Layer
-from .feature import WfsService, FeatureBaseService
+
 
 class DatasetConfig(BaseModel):
     config_id: UUID
@@ -13,7 +13,6 @@ class DatasetConfig(BaseModel):
     disabled: bool | None = False
     title: str | None = None
     metadata_id: UUID | None = None
-    feature: FeatureBaseService | None = None
     wfs: HttpUrl | FeatureService | None = None
     arcgis: HttpUrl | FeatureService | None = None
     ogc_api: HttpUrl | FeatureService | None = None

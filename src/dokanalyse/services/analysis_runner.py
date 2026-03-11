@@ -10,7 +10,6 @@ from .raster_result import get_wms_url, get_cartography_url
 from .query_strategies import get_query_strategy
 from ..models.analysis import Analysis
 from ..models.config import Layer
-from ..models.empty_analysis import EmptyAnalysis
 from ..models.result_status import ResultStatus
 from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json
 from ..utils.helpers.quality import get_coverage_indicator, get_coverage_service_config_data
@@ -56,15 +55,9 @@ async def run_analysis(
         await _evaluate_quality(analysis, context)
 
 
-async def run_empty_analysis(analysis: EmptyAnalysis) -> None:
-    analysis.title = analysis.guidance_data['tittel'] if analysis.guidance_data else analysis.config.title
-    analysis.themes = analysis.config.themes
-    analysis.run_on_dataset = await get_kartkatalog_metadata(analysis.config.metadata_id)
-
-
 async def set_defaults(analysis: Analysis) -> None:
     analysis.title = analysis.guidance_data.get(
-        'tittel') if analysis.guidance_data else analysis.config.title
+        'title') if analysis.guidance_data else analysis.config.title
     analysis.themes = analysis.config.themes
     analysis.run_on_dataset = await get_kartkatalog_metadata(analysis.config.metadata_id)
 
@@ -199,19 +192,12 @@ def _apply_guidance(analysis: Analysis) -> None:
         return
 
     if analysis.result_status != ResultStatus.NO_HIT_GREEN:
-        analysis.description = analysis.guidance_data.get('forklarendeTekst')
-        analysis.guidance_text = analysis.guidance_data.get('dialogtekst')
+        analysis.description = analysis.guidance_data.get('description')
+        analysis.guidance_text = analysis.guidance_data.get('guidance_text')
 
-    for link in analysis.guidance_data.get('lenker', []):
-        analysis.guidance_uri.append({
-            'href': link['href'],
-            'title': link['tittel']
-        })
-
-    possible_actions: str = analysis.guidance_data.get('muligeTiltak', '')
-
-    for line in possible_actions.splitlines():
-        analysis.possible_actions.append(line.lstrip('- '))
+    analysis.guidance_uri = analysis.guidance_data.get('guidance_uri', [])
+    analysis.possible_actions = analysis.guidance_data.get(
+        'possible_actions', [])
 
 
 async def _evaluate_quality(analysis: Analysis, context: str) -> None:
@@ -240,4 +226,4 @@ def _get_guidance_id(layer: Layer, context: str) -> UUID | None:
     return layer.planning_guidance_id
 
 
-__all__ = ['run_analysis', 'run_empty_analysis', 'set_defaults']
+__all__ = ['run_analysis', 'set_defaults']
