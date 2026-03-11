@@ -32,13 +32,18 @@ async def query_geofile(
 async def _get_filepath(url: HttpUrl | FileUrl) -> Path | None:
     if url.scheme == 'file':
         path = file_url_to_path(str(url))
-        return path if path is not None and path.exists() else None
+
+        if path is None or not path.exists():
+            _logger.error('Getting file path failed', url=str(url))
+            raise Exception('Getting file path failed', str(url))
+
+        return path
 
     try:
         return await get_or_create_geofile(str(url), get_session())
     except Exception as err:
         _logger.error('Getting file path failed', url=str(url), error=str(err))
-        return None
+        raise
 
 
 __all__ = ['query_geofile']

@@ -16,7 +16,7 @@ async def get_coverage_quality(
     quality_data, has_coverage, is_relevant, data = await _get_coverage_quality_data(quality_indicator, geometry, epsg)
 
     if quality_data is None:
-        return CoverageQualityResponse([], None, False, True, [])
+        return CoverageQualityResponse([], None, True, True, [])
 
     measurements: List[QualityMeasurement] = []
     value: Dict[str, Any]
