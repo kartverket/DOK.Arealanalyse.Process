@@ -5,5 +5,13 @@ from .config.dataset_config import DatasetConfig
 
 
 class WfsAnalysis(Analysis):
-    def __init__(self, config_id: UUID, config: DatasetConfig, geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int):
+    def __init__(
+        self,
+        config_id: UUID,
+        config: DatasetConfig,
+        geometry: ogr.Geometry,
+        epsg: int,
+        orig_epsg: int | None,
+        buffer: int
+    ) -> None:
         super().__init__(config_id, config, geometry, epsg, orig_epsg, buffer)

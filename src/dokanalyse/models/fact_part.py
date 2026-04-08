@@ -9,7 +9,7 @@ class FactPart:
         self,
         run_on_input_geometry: ogr.Geometry,
         epsg: int,
-        orig_epsg: int,
+        orig_epsg: int | None,
         buffer: int,
         run_on_dataset: Metadata | None,
         run_algorithm: List[str],

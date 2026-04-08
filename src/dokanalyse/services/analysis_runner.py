@@ -28,7 +28,7 @@ async def run_analysis(
     if analysis.has_coverage:
         await _run_queries(analysis, context)
 
-        if analysis.result_status == ResultStatus.TIMEOUT or analysis.result_status == ResultStatus.ERROR:
+        if analysis.result_status == ResultStatus.ERROR:
             await set_defaults(analysis)
             return
     elif not analysis.is_relevant:
@@ -84,12 +84,9 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
         status_code, api_response = await strategy.query(
             analysis.config, layer, analysis.run_on_input_geometry, analysis.epsg)
 
-        if status_code == 408:
-            analysis.result_status = ResultStatus.TIMEOUT
-            analysis.run_algorithm.append(
-                f'intersects layer {layer_name} (Timeout)')
-            break
-        elif status_code != 200:
+        analysis.status_code = status_code
+
+        if status_code != 200:
             analysis.result_status = ResultStatus.ERROR
             analysis.run_algorithm.append(
                 f'intersects layer {layer_name} (Error)')

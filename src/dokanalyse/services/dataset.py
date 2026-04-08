@@ -7,6 +7,7 @@ from .config import get_dataset_configs
 from ..caching.kartgrunnlag import get_or_create_kartgrunnlag
 from ..utils.http_context import get_session
 from ..models.config import DatasetConfig
+from ..constants import NATIONAL_DATASETS
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
@@ -25,14 +26,16 @@ def get_dataset_type(config: DatasetConfig) -> Literal['wfs', 'arcgis', 'ogc_api
 async def get_config_ids(data: Dict[str, Any], municipality_number: str) -> Dict[UUID, bool]:
     include_chosen_dok: bool = data.get('includeFilterChosenDOK', True)
     kartgrunnlag = await _get_kartgrunnlag(municipality_number) if include_chosen_dok else []
+    national_dataset_ids = _get_national_dataset_ids()
     configs = await _get_datasets_by_theme(data.get('theme'))
 
     datasets: Dict[UUID, bool] = {}
 
     for config in configs:
         if include_chosen_dok:
-            datasets[config.config_id] = str(
-                config.metadata_id) in kartgrunnlag
+            metadata_id = str(config.metadata_id)
+            datasets[config.config_id] = (
+                metadata_id in kartgrunnlag or metadata_id in national_dataset_ids)
         else:
             datasets[config.config_id] = True
 
@@ -65,6 +68,13 @@ async def _get_kartgrunnlag(municipality_number: str | None) -> List[str]:
         _logger.error('Kartgrunnlag download failed',
                       municipality_number=municipality_number, error=str(err))
         return []
+
+
+def _get_national_dataset_ids() -> List[str]:
+    if not NATIONAL_DATASETS:
+        return []
+
+    return [dataset_id.strip() for dataset_id in NATIONAL_DATASETS.split(',')]
 
 
 __all__ = ['get_dataset_type', 'get_config_ids']

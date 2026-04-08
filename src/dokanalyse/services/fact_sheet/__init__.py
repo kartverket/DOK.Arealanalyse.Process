@@ -8,7 +8,7 @@ from ...utils.helpers.geometry import create_buffered_geometry
 from ...constants import DEFAULT_EPSG
 
 
-async def create_fact_sheet(geometry: ogr.Geometry, orig_epsg: int, buffer: int) -> FactSheet:
+async def create_fact_sheet(geometry: ogr.Geometry, orig_epsg: int | None, buffer: int) -> FactSheet:
     fact_sheet = FactSheet()
     fact_sheet.geometry = geometry
     fact_sheet.buffer = buffer
@@ -16,18 +16,15 @@ async def create_fact_sheet(geometry: ogr.Geometry, orig_epsg: int, buffer: int)
     tasks = await _run_tasks(geometry, orig_epsg, buffer)
 
     for task in tasks:
-        if task.get_name() == 'raster_result':
-            fact_sheet.raster_result_image_bytes = task.result()
-        else:
-            result = task.result()
+        result = task.result()
 
-            if result:
-                fact_sheet.fact_list.append(result)
+        if result:
+            fact_sheet.fact_list.append(result)
 
     return fact_sheet
 
 
-async def _run_tasks(geometry: ogr.Geometry, orig_epsg: int, buffer: int) -> List[Task]:
+async def _run_tasks(geometry: ogr.Geometry, orig_epsg: int | None, buffer: int) -> List[Task]:
     input_geom = create_buffered_geometry(geometry, buffer, DEFAULT_EPSG)
     tasks: List[Task]
 

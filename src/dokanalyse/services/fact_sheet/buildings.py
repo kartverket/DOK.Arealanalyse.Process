@@ -31,7 +31,7 @@ _building_categories = {
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-async def get_buildings(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> FactPart:
+async def get_buildings(geometry: ogr.Geometry, epsg: int, orig_epsg: int | None, buffer: int) -> FactPart:
     start = time.time()
     dataset = await get_kartkatalog_metadata(_metadata_id)
     data = await _get_data(geometry, epsg)

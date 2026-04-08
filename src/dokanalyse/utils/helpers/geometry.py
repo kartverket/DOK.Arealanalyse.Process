@@ -88,14 +88,14 @@ def create_input_geometry(geojson: Dict[str, Any]) -> ogr.Geometry:
     return geometry
 
 
-def create_buffered_geometry(geometry: ogr.Geometry, distance: int, epsg: int) -> ogr.Geometry:
+def create_buffered_geometry(geometry: ogr.Geometry, distance: int, epsg: int | None) -> ogr.Geometry:
     computed_buffer = length_to_degrees(
         distance) if epsg is None or epsg == WGS84_EPSG else distance
 
     return geometry.Buffer(computed_buffer, 10)
 
 
-def create_feature_collection(features: List[Dict[str, Any]], epsg: int = 4326) -> Dict:
+def create_feature_collection(features: List[Dict[str, Any]], epsg: int | None = None) -> Dict:
     feature_collection = {
         'type': 'FeatureCollection',
         'features': features
@@ -116,9 +116,13 @@ def create_feature(geometry: ogr.Geometry, properties: Dict[str, Any] = {}) -> D
     }
 
 
-def transform_geometry(geometry: ogr.Geometry, src_epsg: int, dest_epsg: int) -> ogr.Geometry:
-    transform = get_coordinate_transformation(src_epsg, dest_epsg)
+def transform_geometry(geometry: ogr.Geometry, src_epsg: int | None, dest_epsg: int | None) -> ogr.Geometry:
+    transform = get_coordinate_transformation(src_epsg or 4326, dest_epsg or 4326)
     clone: ogr.Geometry = geometry.Clone()
+
+    if src_epsg is None:
+        clone.SwapXY()
+
     clone.Transform(transform)
 
     return clone
@@ -141,13 +145,13 @@ def length_to_degrees(distance: float) -> float:
     return degrees * 180 / pi
 
 
-def create_run_on_input_geometry_json(geometry: ogr.Geometry, epsg: int, orig_epsg: int) -> Dict[str, Any]:
+def create_run_on_input_geometry_json(geometry: ogr.Geometry, epsg: int, orig_epsg: int | None) -> Dict[str, Any]:
     geom = geometry
 
     if epsg != orig_epsg:
         geom = transform_geometry(geometry, epsg, orig_epsg)
 
-    options = ['COORDINATE_PRECISION=2'] if orig_epsg != WGS84_EPSG else []
+    options = ['COORDINATE_PRECISION=2'] if orig_epsg != None else []
     geojson = json.loads(geom.ExportToJson(options))
 
     add_geojson_crs(geojson, epsg)
@@ -170,22 +174,22 @@ def get_epsg_from_crs(crs: str) -> int | None:
     return int(code) if code else None
 
 
-def get_epsg_from_geojson(geojson: Dict[str, Any]) -> int:
+def get_epsg_from_geojson(geojson: Dict[str, Any]) -> int | None:
     crs = geojson.get('crs', {}).get('properties', {}).get('name')
 
     if crs is None:
-        return WGS84_EPSG
+        return None
 
     match = _crs_regex.search(crs)
 
     if match:
         return int(match.group('epsg'))
 
-    return WGS84_EPSG
+    return None
 
 
-def add_geojson_crs(geojson: Dict[str, Any], epsg: int) -> None:
-    if epsg is None or epsg == WGS84_EPSG:
+def add_geojson_crs(geojson: Dict[str, Any], epsg: int | None) -> None:
+    if epsg is None:
         return
 
     geojson['crs'] = {

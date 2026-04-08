@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 import structlog
 from structlog.stdlib import BoundLogger
 from lxml import etree as ET

@@ -16,7 +16,7 @@ _logger: BoundLogger = structlog.get_logger(__name__)
 _metadata_id = UUID('166382b4-82d6-4ea9-a68e-6fd0c87bf788')
 
 
-async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int, buffer: int) -> FactPart | None:
+async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int | None, buffer: int) -> FactPart | None:
     if not AR5_FGDB_PATH:
         return None
 

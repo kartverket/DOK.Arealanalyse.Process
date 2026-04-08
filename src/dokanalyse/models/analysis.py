@@ -24,7 +24,7 @@ class Analysis:
         config: DatasetConfig,
         geometry: ogr.Geometry,
         epsg: int,
-        orig_epsg: int,
+        orig_epsg: int | None,
         buffer: int
     ) -> None:
         self.config_id = config_id
@@ -59,6 +59,9 @@ class Analysis:
         self.coverage_statuses: List[str] = []
         self.has_coverage: bool = True
         self.is_relevant = True
+        self.status_code: int = 200
+        self.duration: float = 0
+        self.log: str | None = None        
 
     def set_input_geometry(self) -> None:
         self.run_algorithm.append('set input_geometry')
@@ -123,7 +126,12 @@ class Analysis:
             'guidanceUri': self.guidance_uri,
             'possibleActions': self.possible_actions,
             'qualityMeasurement': list(map(lambda item: item.to_dict(), sorted_qms)),
-            'qualityWarning': self.quality_warning
+            'qualityWarning': self.quality_warning,
+            'meta': {
+                'statusCode': self.status_code,
+                'duration': self.duration,
+                'log': self.log
+            }
         }
 
     def __sort_quality_measurements(self) -> List[QualityMeasurement]:

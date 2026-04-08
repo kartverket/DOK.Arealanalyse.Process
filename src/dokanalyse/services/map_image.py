@@ -20,7 +20,7 @@ from cartopy.mpl.slippy_image_artist import SlippyImageArtist
 from shapely import box, Polygon
 from ..models.analysis import Analysis
 from ..models.fact_sheet import FactSheet
-from ..models.state_emitter import StateEmitter, StateStatus
+from ..models.progress_emitter import ProgressEmitter, ProgressStatus
 from ..utils.helpers.geometry import get_epsg_from_geometry, transform_geometry
 from ..constants import CACHE_DIR
 
@@ -41,7 +41,7 @@ _basemaps_cache_dir.mkdir(parents=True, exist_ok=True)
 async def generate_map_images(
         analyses: List[Analysis],
         fact_sheet: FactSheet | None,
-        state: StateEmitter,
+        state: ProgressEmitter,
 ) -> List[Tuple[str, str, bytes | None]]:
     start = time.time()
 
@@ -54,20 +54,27 @@ async def generate_map_images(
     if not params:
         return []
 
-    state.map_images_total = len(params)
-    state.send_message(StateStatus.CREATING_MAP_IMAGES)
-
-    async with asyncio.TaskGroup() as tg:
-        tasks = [tg.create_task(
-            _generate_map_image(**kwargs)) for kwargs in params]
-
     results: List[Tuple[str, str, bytes | None]] = []
+    state.map_images_total = len(params)
 
-    for task in tasks:
-        result = task.result()
+    for kwargs in params:
+        state.send_message(ProgressStatus.CREATING_MAP_IMAGES)
+        result = _create_map_image(**kwargs)
 
         if result:
             results.append(result)
+
+    # async with asyncio.TaskGroup() as tg:
+    #     tasks = [tg.create_task(
+    #         _generate_map_image(**kwargs)) for kwargs in params]
+
+    # results: List[Tuple[str, str, bytes | None]] = []
+
+    # for task in tasks:
+    #     result = task.result()
+
+    #     if result:
+    #         results.append(result)    
 
     _logger.info('Generated map images', count=len(results),
                  duration=round(time.time() - start, 2))
@@ -75,17 +82,17 @@ async def generate_map_images(
     return results
 
 
-async def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None] | None:
-    async with _semaphore:
-        try:
-            async with asyncio.timeout(_TIMEOUT_SECONDS):
-                return await asyncio.to_thread(_create_map_image, **kwargs)
-        except TimeoutError as err:
-            _logger.error('Map image generation timed out', error=str(err))
-            return None
-        except Exception as err:
-            _logger.error('Map image generation failed', error=str(err))
-            return None
+# async def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None] | None:
+#     async with _semaphore:
+#         try:
+#             async with asyncio.timeout(_TIMEOUT_SECONDS):
+#                 return await asyncio.to_thread(_create_map_image, **kwargs)
+#         except TimeoutError as err:
+#             _logger.error('Map image generation timed out', error=str(err))
+#             return None
+#         except Exception as err:
+#             _logger.error('Map image generation failed', error=str(err))
+#             return None
 
 
 def _create_map_image(**kwargs) -> Tuple[str, str, bytes | None]:

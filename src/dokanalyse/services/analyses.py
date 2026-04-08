@@ -16,25 +16,19 @@ from .report import create_pdf
 from .analysis_runner import run_analysis as run_single_analysis, set_defaults as set_analysis_defaults
 from ..services.file_storage import FileStorage, AzureBlobStorage, LocalFileShare
 from ..utils.helpers.geometry import create_input_geometry, get_epsg_from_geojson
-from ..models.state_emitter import StateEmitter, StateStatus
+from ..models.progress_emitter import ProgressEmitter, ProgressStatus
 from ..models.config import DatasetConfig
 from ..models import (Analysis, ArcGisAnalysis, OgcApiAnalysis,
                       WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus)
 from ..utils.correlation import get_correlation_id
 from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
-                               LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL, DATASETS)
+                         LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL, DATASETS)
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:       
-    correlation_id = get_correlation_id()
-    emitter = StateEmitter(correlation_id, sio_client)
-    emitter.send_message(StateStatus.STARTING_UP)
-
+async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     geojson = data['inputGeometry']
-    geometry = create_input_geometry(geojson)
-    orig_epsg = get_epsg_from_geojson(geojson)
     buffer: int = data.get('requestedBuffer', 0)
     context: str = data.get('context') or ''
     include_guidance: bool = data.get('includeGuidance', False)
@@ -44,6 +38,20 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     include_chosen_dok: bool = data.get('includeFilterChosenDOK', True)
     create_binaries: bool = data.get('createBinaries', True)
 
+    correlation_id = get_correlation_id()
+    file_storage = _get_file_storage()
+
+    emitter = ProgressEmitter(
+        correlation_id,
+        sio_client,
+        include_facts,
+        create_binaries and file_storage is not None
+    )
+
+    emitter.send_message(ProgressStatus.STARTING_UP)
+    geometry = create_input_geometry(geojson)
+    orig_epsg = get_epsg_from_geojson(geojson)
+
     municipality = await get_municipality(geometry, DEFAULT_EPSG)
 
     if municipality is None:
@@ -51,9 +59,8 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
 
     municipality_number, municipality_name = municipality
     datasets = await _get_datasets(data, municipality_number)
-
     emitter.analyses_total = _get_datasets_to_analyze_count(datasets)
-    emitter.send_message(StateStatus.ANALYZING_DATASETS)
+    emitter.send_message(ProgressStatus.STARTING_UP, True)
 
     tasks: List[asyncio.Task[Analysis | None]] = []
 
@@ -71,11 +78,13 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
                 task = tg.create_task(_run_not_implemented_analysis(config))
                 tasks.append(task)
 
+    emitter.send_message(ProgressStatus.ANALYZING_DATASETS, True)
     fact_sheet = None
 
     if include_facts:
-        emitter.send_message(StateStatus.CREATING_FACT_SHEET)
+        emitter.send_message(ProgressStatus.CREATING_FACT_SHEET)
         fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer)
+        emitter.send_message(ProgressStatus.CREATING_FACT_SHEET, True)
 
     response = AnalysisResponse.create(
         geojson, geometry, DEFAULT_EPSG, orig_epsg, buffer, fact_sheet, municipality_number, municipality_name)
@@ -89,17 +98,18 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     analyses_with_map_image = [
         analysis for analysis in response.result_list if analysis.raster_result_map]
 
-    file_storage = _get_file_storage()
     dirname = str(uuid4())
 
     if create_binaries and file_storage:
         map_images = await generate_map_images(
             analyses_with_map_image, fact_sheet, emitter)
         await _upload_images(response, map_images, dirname, file_storage)
+        emitter.send_message(ProgressStatus.CREATING_MAP_IMAGES, True)
 
-        emitter.send_message(StateStatus.CREATING_REPORT)
+        emitter.send_message(ProgressStatus.CREATING_REPORT)
         report = create_pdf(response)
         response.report = await _upload_report(report, dirname, file_storage)
+        emitter.send_message(ProgressStatus.CREATING_REPORT, True)
 
     return response.to_dict()
 
@@ -109,18 +119,18 @@ async def _run_analysis(
     should_analyze: bool,
     geometry: ogr.Geometry,
     epsg: int,
-    orig_epsg: int,
+    orig_epsg: int | None,
     buffer: int,
     context: str,
     include_guidance: bool,
     include_quality_measurement: bool,
-    emitter: StateEmitter
+    emitter: ProgressEmitter
 ) -> Analysis | None:
-    config = await get_dataset_config(config_id)    
+    config = await get_dataset_config(config_id)
 
     if config is None:
         return None
-    
+
     if not should_analyze:
         analysis = EmptyAnalysis(
             config.config_id, config, ResultStatus.NOT_RELEVANT)
@@ -131,7 +141,7 @@ async def _run_analysis(
 
     analysis = _create_analysis(
         config_id, config, geometry, epsg, orig_epsg, buffer)
-    
+
     if analysis is None:
         raise Exception('Could not create analysis')
 
@@ -139,17 +149,20 @@ async def _run_analysis(
         await run_single_analysis(analysis, context, include_guidance, include_quality_measurement)
     except Exception as err:
         await set_analysis_defaults(analysis)
+        duration = round(time.time() - start, 2)
         analysis.result_status = ResultStatus.ERROR
-        end = time.time()
+        analysis.status_code = 500
+        analysis.duration = duration
 
         _logger.error('Analysis failed', config_id=str(
-            config_id), dataset=config.name, duration=round(end - start, 2), error=err)
+            config_id), dataset=config.name, duration=duration, error=err)
     else:
-        end = time.time()
+        duration = round(time.time() - start, 2)
+        analysis.duration = duration
         _logger.info('Dataset analyzed', config_id=str(config_id),
-                     dataset=config.name, duration=round(end - start, 2))
+                     dataset=config.name, duration=duration)
 
-    emitter.send_message(StateStatus.DATASET_ANALYZED)
+    emitter.send_message(ProgressStatus.ANALYZING_DATASETS)
 
     return analysis
 
@@ -167,7 +180,7 @@ def _create_analysis(
         config: DatasetConfig,
         geometry: ogr.Geometry,
         epsg: int,
-        orig_epsg: int,
+        orig_epsg: int | None,
         buffer: int
 ) -> Analysis | None:
     dataset_type = get_dataset_type(config)
