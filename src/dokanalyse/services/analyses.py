@@ -167,21 +167,24 @@ async def _run_analysis(
     return analysis
 
 
-async def _run_not_implemented_analysis(config: DatasetConfig) -> Analysis:
+async def _run_not_implemented_analysis(config: DatasetConfig) -> Analysis | None:
     analysis = EmptyAnalysis(config.config_id, config,
                              ResultStatus.NOT_IMPLEMENTED)
     await set_analysis_defaults(analysis)
+
+    if not analysis.run_on_dataset:
+        return None
 
     return analysis
 
 
 def _create_analysis(
-        config_id: UUID,
-        config: DatasetConfig,
-        geometry: ogr.Geometry,
-        epsg: int,
-        orig_epsg: int | None,
-        buffer: int
+    config_id: UUID,
+    config: DatasetConfig,
+    geometry: ogr.Geometry,
+    epsg: int,
+    orig_epsg: int | None,
+    buffer: int
 ) -> Analysis | None:
     dataset_type = get_dataset_type(config)
 

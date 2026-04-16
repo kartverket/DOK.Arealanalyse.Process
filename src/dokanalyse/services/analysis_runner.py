@@ -32,7 +32,7 @@ async def run_analysis(
             await set_defaults(analysis)
             return
     elif not analysis.is_relevant:
-        analysis.result_status = ResultStatus.NO_HIT_GREEN
+        analysis.result_status = ResultStatus.NOT_RELEVANT
     else:
         analysis.result_status = ResultStatus.NO_HIT_YELLOW
 
