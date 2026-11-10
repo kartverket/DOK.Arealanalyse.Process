@@ -4,17 +4,16 @@ import hashlib
 from uuid import UUID
 from pathlib import Path
 from async_lru import alru_cache
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 import structlog
 from structlog.stdlib import BoundLogger
 from pydantic import ValidationError
-from pygeofilter.parsers.cql2_text import parse
-from pygeofilter.backends.native.evaluate import NativeEvaluator
 from xmlschema import XMLSchema
 from .xml_schema import compile_xml_schema
 from ..caching.not_implemented_datasets import get_or_create_not_implemented_datasets
 from ..models.config import DatasetConfig, QualityConfig, QualityIndicator
 from ..utils.helpers.common import get_config_file_paths
+from ..utils.helpers.filter import compile_cql_filter
 from ..utils.http_context import get_session
 from ..constants import USE_XML_SCHEMAS
 
@@ -130,7 +129,7 @@ async def _create_dataset_config(data: Dict[str, Any]) -> DatasetConfig | None:
         if config.wfs:
             for layer in config.layers:
                 if layer.filter:
-                    layer.filter_func = _compile_cql_filter(layer.filter)
+                    layer.filter_func = compile_cql_filter(layer.filter)
 
             if USE_XML_SCHEMAS:
                 config.xml_schema = await _compile_wfs_xml_schema(
@@ -152,20 +151,13 @@ async def _create_quality_config(data: Dict) -> QualityConfig | None:
                     str(indicator.wfs.url))
 
             if indicator.input_filter:
-                indicator.input_filter_func = _compile_cql_filter(
+                indicator.input_filter_func = compile_cql_filter(
                     indicator.input_filter)
 
         return config
     except ValidationError as err:
         _logger.error('Quality config creation failed', error=str(err))
         return None
-
-
-def _compile_cql_filter(cql_text: str) -> Callable[[Dict], bool]:
-    ast: Any = parse(cql_text)
-    predicate = NativeEvaluator(use_getattr=False).evaluate(ast)
-
-    return predicate
 
 
 async def _compile_wfs_xml_schema(wfs_url: str) -> XMLSchema | None:

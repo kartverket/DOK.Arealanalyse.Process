@@ -4,8 +4,6 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from typing import Any, List, Dict, Tuple, cast
-from concurrent.futures import TimeoutError
-import multiprocessing as mp
 import structlog
 from structlog.stdlib import BoundLogger
 from osgeo import ogr
@@ -22,6 +20,7 @@ from ..models.analysis import Analysis
 from ..models.fact_sheet import FactSheet
 from ..models.progress_emitter import ProgressEmitter, ProgressStatus
 from ..utils.helpers.geometry import get_epsg_from_geometry, transform_geometry
+from ..utils.async_executor import run_in_render_thread
 from ..constants import CACHE_DIR
 
 ogcc.METERS_PER_UNIT['EPSG:3857'] = 1
@@ -32,10 +31,11 @@ _TIMEOUT_SECONDS = 120
 _DPI = 100
 
 _logger: BoundLogger = structlog.get_logger(__name__)
-_semaphore = asyncio.Semaphore(min(mp.cpu_count(), 8))
 
 _basemaps_cache_dir = Path(CACHE_DIR).joinpath('basemaps')
-_basemaps_cache_dir.mkdir(parents=True, exist_ok=True)
+
+# Only accessed from the single render thread
+_wms_services: Dict[str, WebMapService] = {}
 
 
 async def generate_map_images(
@@ -59,22 +59,10 @@ async def generate_map_images(
 
     for kwargs in params:
         state.send_message(ProgressStatus.CREATING_MAP_IMAGES)
-        result = _create_map_image(**kwargs)
+        result = await _generate_map_image(**kwargs)
 
         if result:
             results.append(result)
-
-    # async with asyncio.TaskGroup() as tg:
-    #     tasks = [tg.create_task(
-    #         _generate_map_image(**kwargs)) for kwargs in params]
-
-    # results: List[Tuple[str, str, bytes | None]] = []
-
-    # for task in tasks:
-    #     result = task.result()
-
-    #     if result:
-    #         results.append(result)    
 
     _logger.info('Generated map images', count=len(results),
                  duration=round(time.time() - start, 2))
@@ -82,17 +70,18 @@ async def generate_map_images(
     return results
 
 
-# async def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None] | None:
-#     async with _semaphore:
-#         try:
-#             async with asyncio.timeout(_TIMEOUT_SECONDS):
-#                 return await asyncio.to_thread(_create_map_image, **kwargs)
-#         except TimeoutError as err:
-#             _logger.error('Map image generation timed out', error=str(err))
-#             return None
-#         except Exception as err:
-#             _logger.error('Map image generation failed', error=str(err))
-#             return None
+async def _generate_map_image(**kwargs) -> Tuple[str, str, bytes | None] | None:
+    try:
+        async with asyncio.timeout(_TIMEOUT_SECONDS):
+            return await run_in_render_thread(_create_map_image, **kwargs)
+    except TimeoutError:
+        _logger.error('Map image generation timed out',
+                      config_id=kwargs['id'], dataset=kwargs['name'])
+        return None
+    except Exception as err:
+        _logger.error('Map image generation failed',
+                      config_id=kwargs['id'], dataset=kwargs['name'], error=str(err))
+        return None
 
 
 def _create_map_image(**kwargs) -> Tuple[str, str, bytes | None]:
@@ -155,6 +144,9 @@ def _get_params_for_analyses(analyses: List[Analysis]) -> List[Dict[str, Any]]:
     for analysis in analyses:
         url, layers = _parse_wms_url(cast(str, analysis.raster_result_map))
 
+        if not layers:
+            continue
+
         if analysis.buffer > 0:
             buffered_geom: ogr.Geometry = analysis.geometry.Buffer(
                 analysis.buffer)
@@ -199,12 +191,17 @@ def _get_params_for_fact_sheet(fact_sheet: FactSheet) -> Dict[str, Any]:
 def _add_wmts(ax: GeoAxes, grayscale: bool) -> SlippyImageArtist:
     layer_name = 'topograatone' if grayscale else 'topo'
     cache_dir = _basemaps_cache_dir / layer_name
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
     return ax.add_wmts(_WMTS_URL, layer_name, cache=str(cache_dir)) # type: ignore
 
 
 def _add_wms(ax: GeoAxes, url: str, layers: List[str]) -> SlippyImageArtist:
-    wms = WebMapService(url, '1.3.0')
+    wms = _wms_services.get(url)
+
+    if wms is None:
+        wms = WebMapService(url, '1.3.0')
+        _wms_services[url] = wms
 
     return ax.add_wms(wms=wms, layers=layers)
 

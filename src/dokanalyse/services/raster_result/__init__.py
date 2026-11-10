@@ -15,7 +15,7 @@ def get_wms_url(wms_url: str, wms_layers: List[str]) -> str:
     return f'{wms_url}?layers={layers}'
 
 
-async def get_cartography_url(wms_url: str, wms_layers: List[str], geometry: ogr.Geometry) -> str:
+async def get_cartography_url(wms_url: str, wms_layers: List[str], geometry: ogr.Geometry) -> str | None:
     dynamic_legend = await _dynamic_legend_supported(wms_url)
     urls = []
 
@@ -23,12 +23,13 @@ async def get_cartography_url(wms_url: str, wms_layers: List[str], geometry: ogr
         url = _create_legend_url(wms_url, wms_layer, geometry, dynamic_legend)
         urls.append(url)
 
+    if not urls:
+        return None
+
     if len(urls) == 1:
         return urls[0]
 
-    data_url = await create_legend(urls)
-
-    return data_url
+    return await create_legend(urls)
 
 
 def _create_legend_url(base_url: str, layer: str, geometry: ogr.Geometry, dynamic_legend: bool) -> str:

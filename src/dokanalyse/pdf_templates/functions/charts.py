@@ -1,11 +1,9 @@
 from io import StringIO
 from typing import List, Dict, Tuple, Literal, Any
 import babel.numbers
-import matplotlib
-import matplotlib.pyplot as plt
-import babel
+from matplotlib.figure import Figure
 
-matplotlib.use('agg')
+_DEFAULT_COLOR = '#cccccc'
 
 _DATASET_IDS = {
     'AREA_TYPES': '166382b4-82d6-4ea9-a68e-6fd0c87bf788',
@@ -42,7 +40,8 @@ _COLOR_MAP_BUILDINGS = {
 
 def create_pie_chart(fact_list: List[Dict], type: Literal['AREA_TYPES', 'BUILDINGS']) -> Tuple[str, List[Dict] | None]:
     dataset_id = _DATASET_IDS[type]
-    fact_part = next((fact_part for fact_part in fact_list if fact_part['runOnDataset']['datasetId'] == dataset_id), None)
+    fact_part = next((fact_part for fact_part in fact_list
+                      if (fact_part.get('runOnDataset') or {}).get('datasetId') == dataset_id), None)
 
     if not fact_part:
         return '', None
@@ -54,7 +53,13 @@ def create_pie_chart(fact_list: List[Dict], type: Literal['AREA_TYPES', 'BUILDIN
         values, values_formatted, labels, legend, colors = _get_options_for_buildings(
             fact_part)
 
-    fig, ax = plt.subplots(figsize=(5, 5))
+    if not values:
+        return '', None
+
+    # The object-oriented API is used instead of pyplot: pyplot keeps a global
+    # reference to every figure (memory leak) and is not thread-safe.
+    fig = Figure(figsize=(5, 5))
+    ax = fig.subplots()
 
     fig.tight_layout(pad=0)
     fig.set_frameon(False)
@@ -105,7 +110,7 @@ def _get_options_for_area_types(fact_part: Dict[str, Any]) -> Tuple[List[int], L
         values_formatted.append(value_formatted)
         labels.append(label)
         legend.append(f'{label}:  {value_formatted} m²')
-        colors.append(_COLOR_MAP_AREA_TYPES[label])
+        colors.append(_COLOR_MAP_AREA_TYPES.get(label, _DEFAULT_COLOR))
 
     return values, values_formatted, labels, legend, colors
 
@@ -134,7 +139,7 @@ def _get_options_for_buildings(fact_part: Dict[str, Any]) -> Tuple[List[int], Li
         values_formatted.append(value_formatted)
         labels.append(label)
         legend.append(f'{label}:  {value_formatted} stk.')
-        colors.append(_COLOR_MAP_BUILDINGS[label])
+        colors.append(_COLOR_MAP_BUILDINGS.get(label, _DEFAULT_COLOR))
 
     return values, values_formatted, labels, legend, colors
 

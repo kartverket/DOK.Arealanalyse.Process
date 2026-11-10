@@ -5,6 +5,7 @@ from structlog.stdlib import BoundLogger
 from lxml import etree as ET
 from .wfs_response_parser_base import WfsResponseParserBase
 from ...models.config import DatasetConfig, Layer
+from ...utils.helpers.filter import evaluate_filter
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
@@ -27,7 +28,7 @@ class WfsResponseParser(WfsResponseParserBase):
             flatten_single_list_wrappers
         )
 
-        self.__config_id = config.config_id,
+        self.__config_id = str(config.config_id)
         self.__filter_func = layer.filter_func
 
     def parse(self, response: bytes) -> Dict[str, List]:
@@ -54,7 +55,7 @@ class WfsResponseParser(WfsResponseParserBase):
             self._remove_geom_element(geom_elem)
 
             try:
-                properties = self._map_properties(elem)
+                all_properties = self._get_all_properties(elem)
             except Exception as err:
                 geom_elem.clear()
                 elem.clear()
@@ -62,11 +63,12 @@ class WfsResponseParser(WfsResponseParserBase):
                               config_id=self.__config_id, error=str(err))
                 continue
 
-            if self.__filter_func and not self.__filter_func(properties):
+            if self.__filter_func and not evaluate_filter(self.__filter_func, all_properties):
                 geom_elem.clear()
                 elem.clear()
                 continue
 
+            properties = self._select_properties(all_properties)
             geometry = self._create_geometry(geom_elem)
             geom_elem.clear()
 

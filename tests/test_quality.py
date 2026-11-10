@@ -4,7 +4,7 @@ from dokanalyse.services.quality.object_quality import get_object_quality
 from dokanalyse.services.quality.dataset_quality import _get_dataset_quality_warning_text
 from dokanalyse.services.quality.coverage_quality import (
     _has_coverage, _is_relevant, _get_warning_text)
-from dokanalyse.services.config import _compile_cql_filter
+from dokanalyse.utils.helpers.filter import compile_cql_filter
 
 
 def _indicator(**kwargs) -> QualityIndicator:
@@ -44,7 +44,7 @@ def test_object_quality_no_warning():
 
 def test_dataset_quality_warning_respects_input_filter():
     indicator = _indicator(type='dataset', warning_threshold='1 OR 2', input_filter="context = 'Byggesak'")
-    indicator.input_filter_func = _compile_cql_filter(indicator.input_filter)
+    indicator.input_filter_func = compile_cql_filter(indicator.input_filter)
 
     assert _get_dataset_quality_warning_text(1, indicator, {'context': 'Byggesak'}) == 'Usikker stedfesting'
     assert _get_dataset_quality_warning_text(3, indicator, {'context': 'Byggesak'}) is None

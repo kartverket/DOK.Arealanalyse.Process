@@ -164,12 +164,12 @@
                 <li>
                     Buffer brukt: {{ format_number(result['buffer']) }} m
                 </li>
-                {% if result['distanceToObject'] > 0 %}
+                {% if result['distanceToObject'] %}
                 <li>
                     Avstand til nærmeste objekt: {{ get_distance(result) }}
                 </li>
                 {% endif %}
-                {% if result['inputGeometryArea'] > 0 %}
+                {% if result['inputGeometryArea'] %}
                 <li>
                     Områdeareal: {{ get_input_area(result) }}
                 </li>

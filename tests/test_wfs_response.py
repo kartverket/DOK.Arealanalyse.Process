@@ -18,6 +18,14 @@ async def test_parses_configured_properties_and_geometries():
     assert round(result['geometries'][0].GetArea()) == 10_000
 
 
+async def test_layer_filter_matches_numeric_values():
+    config = await get_dataset_config(WFS_ID)
+
+    result = WfsResponseParser(config, config.layers[0]).parse(read_fixture('wfs_flomareal.xml'))
+
+    assert [p['gjentaksintervall'] for p in result['properties']] == ['200', '20']
+
+
 def test_coverage_parser_collects_values():
     config = CoverageWfs(url='https://wfs.example.com', layer='FlomAreal', geom_field='område',
                          property='nøyaktighetsklasse', properties=['gjentaksintervall'])

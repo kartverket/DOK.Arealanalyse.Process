@@ -1,5 +1,7 @@
-from typing import List, Dict
+from typing import Any, List, Dict
 import babel.numbers
+
+_MAX_DISTANCE = 20_000
 
 
 def get_results_by_result_status(response: Dict, result_status: str) -> List[Dict]:
@@ -9,11 +11,11 @@ def get_results_by_result_status(response: Dict, result_status: str) -> List[Dic
     if not analyses:
         return []
 
-    if result_status == 'HIT_RED' or result_status == 'HIT_YELLOW':
-        return sorted(analyses, key=lambda analysis: (analysis['hitArea'] or 0, analysis['themes'][0]), reverse=True)
+    if result_status in ('HIT-RED', 'HIT-YELLOW'):
+        return sorted(analyses, key=lambda analysis: (analysis['hitArea'] or 0, _first_theme(analysis)), reverse=True)
 
-    elif result_status == 'NO_HIT_GREEN':
-        return sorted(analyses, key=lambda analysis: (analysis['distanceToObject'], analysis['themes'][0]), reverse=True)
+    if result_status == 'NO-HIT-GREEN':
+        return sorted(analyses, key=lambda analysis: (analysis['distanceToObject'] or 0, _first_theme(analysis)), reverse=True)
 
     return analyses
 
@@ -21,26 +23,22 @@ def get_results_by_result_status(response: Dict, result_status: str) -> List[Dic
 def get_not_relevant_dataset_titles(response: Dict) -> List[str]:
     analyses = get_results_by_result_status(response, 'NOT-RELEVANT')
 
-    if not analyses:
-        return []
+    titles = {(analysis.get('runOnDataset') or {}).get('title') or analysis['title']
+              for analysis in analyses}
 
-    titles: List[str] = [analysis.get('runOnDataset', {}).get(
-        'title') or analysis['title'] for analysis in analyses]
-        
-    distinct = list(set(titles))
-    distinct.sort()
-
-    return distinct
+    return sorted(title for title in titles if title)
 
 
 def get_result_title(result: Dict) -> str:
-    if 'runOnDataset' in result:
-        dataset_title = f"«{result['runOnDataset']['title']}»"
+    dataset = result.get('runOnDataset')
+
+    if dataset and dataset.get('title'):
+        dataset_title = f"«{dataset['title']}»"
 
         if result['title']:
             dataset_title += f"<div>({result['title']})</div>"
     else:
-        dataset_title = result['title']
+        dataset_title = result['title'] or ''
 
     match result['resultStatus']:
         case 'NO-HIT-GREEN':
@@ -60,33 +58,43 @@ def get_result_title(result: Dict) -> str:
 
 
 def get_distance(result: Dict) -> str:
-    distance = result['distanceToObject']
+    distance = result['distanceToObject'] or 0
 
-    if distance >= 20_000:
-        distance = 20_000
-        return f'> {format_number(distance)} m'
+    if distance >= _MAX_DISTANCE:
+        return f'> {format_number(_MAX_DISTANCE)} m'
 
     return f'{format_number(distance)} m'
 
 
 def get_hit_area(result: Dict) -> str:
-    rounded = round(result['hitArea'])
+    rounded = round(result['hitArea'] or 0)
 
     return f'{format_number(rounded)} m²'
 
 
 def get_hit_area_percent(result: Dict) -> str:
-    percent = (result['hitArea'] / result['inputGeometryArea']) * 100
-    rounded = round(percent, 2)
+    hit_area = result['hitArea'] or 0
+    input_area = result['inputGeometryArea']
+
+    if not input_area:
+        return ''
+
+    rounded = round((hit_area / input_area) * 100, 2)
 
     return f'{format_number(rounded)} %'
 
 
 def get_input_area(result: Dict) -> str:
-    rounded = round(result['inputGeometryArea'])
+    rounded = round(result['inputGeometryArea'] or 0)
 
     return f'{format_number(rounded)} m²'
 
 
 def format_number(value: int | float) -> str:
     return babel.numbers.format_decimal(value, locale='nb_NO')
+
+
+def _first_theme(analysis: Dict[str, Any]) -> str:
+    themes = analysis.get('themes') or ['']
+
+    return themes[0] or ''

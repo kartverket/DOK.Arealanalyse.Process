@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Any, Dict, Literal
 from pydantic import HttpUrl, FileUrl
@@ -26,7 +27,7 @@ async def query_geofile(
 
     abspath = str(path.resolve())
 
-    return query_gdal(driver_name, abspath, filter, geometry, epsg)
+    return await asyncio.to_thread(query_gdal, driver_name, abspath, filter, geometry, epsg)
 
 
 async def _get_filepath(url: HttpUrl | FileUrl) -> Path | None:

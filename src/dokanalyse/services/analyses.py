@@ -19,8 +19,9 @@ from ..utils.helpers.geometry import create_input_geometry, get_epsg_from_geojso
 from ..models.progress_emitter import ProgressEmitter, ProgressStatus
 from ..models.config import DatasetConfig
 from ..models import (Analysis, ArcGisAnalysis, OgcApiAnalysis,
-                      WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus)
+                      WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus, FactSheet)
 from ..utils.correlation import get_correlation_id
+from ..utils.async_executor import run_in_render_thread
 from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
                          LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL, DATASETS)
 
@@ -55,7 +56,7 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     municipality = await get_municipality(geometry, DEFAULT_EPSG)
 
     if municipality is None:
-        raise Exception('Could not get municipality from geometry')
+        raise ValueError('Could not determine the municipality of the input geometry')
 
     municipality_number, municipality_name = municipality
     datasets = await _get_datasets(data, municipality_number)
@@ -83,7 +84,7 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
 
     if include_facts:
         emitter.send_message(ProgressStatus.CREATING_FACT_SHEET)
-        fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer)
+        fact_sheet = await _create_fact_sheet(geometry, orig_epsg, buffer)
         emitter.send_message(ProgressStatus.CREATING_FACT_SHEET, True)
 
     response = AnalysisResponse.create(
@@ -107,8 +108,11 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
         emitter.send_message(ProgressStatus.CREATING_MAP_IMAGES, True)
 
         emitter.send_message(ProgressStatus.CREATING_REPORT)
-        report = create_pdf(response)
-        response.report = await _upload_report(report, dirname, file_storage)
+        report = await _create_report(response)
+
+        if report:
+            response.report = await _upload_report(report, dirname, file_storage)
+
         emitter.send_message(ProgressStatus.CREATING_REPORT, True)
 
     return response.to_dict()
@@ -143,7 +147,8 @@ async def _run_analysis(
         config_id, config, geometry, epsg, orig_epsg, buffer)
 
     if analysis is None:
-        raise Exception('Could not create analysis')
+        _logger.error('Unsupported dataset type', config_id=str(config_id), dataset=config.name)
+        return None
 
     try:
         await run_single_analysis(analysis, context, include_guidance, include_quality_measurement)
@@ -154,8 +159,8 @@ async def _run_analysis(
         analysis.status_code = 500
         analysis.duration = duration
 
-        _logger.error('Analysis failed', config_id=str(
-            config_id), dataset=config.name, duration=duration, error=err)
+        _logger.exception('Analysis failed', config_id=str(
+            config_id), dataset=config.name, duration=duration, error=str(err))
     else:
         duration = round(time.time() - start, 2)
         analysis.duration = duration
@@ -165,6 +170,22 @@ async def _run_analysis(
     emitter.send_message(ProgressStatus.ANALYZING_DATASETS)
 
     return analysis
+
+
+async def _create_fact_sheet(geometry: ogr.Geometry, orig_epsg: int | None, buffer: int) -> FactSheet | None:
+    try:
+        return await create_fact_sheet(geometry, orig_epsg, buffer)
+    except Exception as err:
+        _logger.exception('Creating fact sheet failed', error=str(err))
+        return None
+
+
+async def _create_report(response: AnalysisResponse) -> bytes | None:
+    try:
+        return await run_in_render_thread(create_pdf, response)
+    except Exception as err:
+        _logger.exception('Creating PDF report failed', error=str(err))
+        return None
 
 
 async def _run_not_implemented_analysis(config: DatasetConfig) -> Analysis | None:

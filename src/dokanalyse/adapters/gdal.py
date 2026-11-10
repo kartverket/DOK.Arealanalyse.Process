@@ -1,4 +1,3 @@
-import threading
 from typing import Any, Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
@@ -9,10 +8,10 @@ from ..utils.helpers.geometry import create_feature_collection, transform_geomet
 from ..utils.helpers.gdal import normalize_object
 from ..constants import CLIENT_TIMEOUT
 
-gdal_lock = threading.Lock()
-
 gdal.SetConfigOption('GDAL_HTTP_CONNECTTIMEOUT', str(CLIENT_TIMEOUT))
 gdal.SetConfigOption('GDAL_HTTP_TIMEOUT', str(CLIENT_TIMEOUT))
+
+_AUTH_OPTIONS = ['GDAL_HTTP_HEADERS', 'GDAL_HTTP_AUTH', 'GDAL_HTTP_USERPWD']
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
@@ -24,24 +23,26 @@ def query_gdal(
     geometry: ogr.Geometry,
     epsg: int,
     **kwargs
-) -> Dict[str, Any] | None:
+) -> Dict[str, Any]:
+    """Queries a GDAL data source. Blocking, run it with asyncio.to_thread.
+
+    Credentials are set as thread-local config options, so concurrent queries
+    in other threads never see them.
+    """
     auth: Basic | ApiKey | None = kwargs.get('auth')
     layer_name: str | None = kwargs.get('layer')
 
     try:
-        if not auth:
-            return _query(driver_name, data_source, layer_name, filter, geometry, epsg)
-
-        with gdal_lock:
+        if auth:
             _set_auth_options(auth)
-            response = _query(driver_name, data_source,
-                              layer_name, filter, geometry, epsg)
-            _unset_auth_options()
 
-        return response
+        return _query(driver_name, data_source, layer_name, filter, geometry, epsg)
     except Exception as err:
-        _logger.error('GDAL error', error=str(err))
+        _logger.error('GDAL error', driver=driver_name, error=str(err))
         raise
+    finally:
+        if auth:
+            _unset_auth_options()
 
 
 def _query(
@@ -53,13 +54,18 @@ def _query(
     epsg: int
 ) -> Dict[str, Any]:
     driver: gdal.Driver = ogr.GetDriverByName(driver_name)
-    ds: gdal.Dataset = driver.Open(data_source)
-    layer: ogr.Layer = ds.GetLayerByName(
+    ds: gdal.Dataset | None = driver.Open(data_source)
+
+    if ds is None:
+        raise ValueError(f'Could not open data source with driver {driver_name}')
+
+    layer: ogr.Layer | None = ds.GetLayerByName(
         layer_name) if layer_name else ds.GetLayer(0)
 
-    sr: osr.SpatialReference = layer.GetSpatialRef()
-    auth_code: str = sr.GetAuthorityCode(None)
-    target_epsg = int(auth_code)
+    if layer is None:
+        raise ValueError(f'Layer "{layer_name}" not found in data source')
+
+    target_epsg = _get_layer_epsg(layer) or epsg
 
     if target_epsg != epsg:
         input_geometry = transform_geometry(geometry, epsg, target_epsg)
@@ -75,35 +81,49 @@ def _query(
     features: List[Dict[str, Any]] = []
 
     for ogr_feature in layer:
-        feature_geom: ogr.Geometry = ogr_feature.GetGeometryRef()
+        feature_geom: ogr.Geometry | None = ogr_feature.GetGeometryRef()
+
+        if feature_geom is None:
+            continue
+
         clone: ogr.Geometry = feature_geom.Clone()
 
         ogr_feature.SetGeometryDirectly(None)
         json_dict: Any = ogr_feature.ExportToJson(as_object=True)
         properties: Dict[str, Any] = normalize_object(json_dict['properties'])
 
-        feature = {
+        features.append({
             'geometry': clone,
             'properties': properties
-        }
+        })
 
-        features.append(feature)
+    return create_feature_collection(features, target_epsg)
 
-    response = create_feature_collection(features, target_epsg)
 
-    return response
+def _get_layer_epsg(layer: ogr.Layer) -> int | None:
+    sr: osr.SpatialReference | None = layer.GetSpatialRef()
+
+    if sr is None:
+        return None
+
+    auth_code: str | None = sr.GetAuthorityCode(None)
+
+    return int(auth_code) if auth_code else None
 
 
 def _set_auth_options(auth: ApiKey | Basic) -> None:
     if isinstance(auth, ApiKey):
-        gdal.SetConfigOption('GDAL_HTTP_HEADER', f'X-API-KEY: {auth.api_key}')
+        gdal.SetThreadLocalConfigOption(
+            'GDAL_HTTP_HEADERS', f'X-API-KEY: {get_credential(auth.api_key)}')
     else:
-        gdal.SetConfigOption('GDAL_HTTP_AUTH', 'BASIC')
-        gdal.SetConfigOption(
+        gdal.SetThreadLocalConfigOption('GDAL_HTTP_AUTH', 'BASIC')
+        gdal.SetThreadLocalConfigOption(
             'GDAL_HTTP_USERPWD', f'{get_credential(auth.username)}:{get_credential(auth.password)}')
 
 
 def _unset_auth_options() -> None:
-    gdal.SetConfigOption('GDAL_HTTP_HEADER', None)
-    gdal.SetConfigOption('GDAL_HTTP_AUTH', None)
-    gdal.SetConfigOption('GDAL_HTTP_USERPWD', None)
+    for option in _AUTH_OPTIONS:
+        gdal.SetThreadLocalConfigOption(option, None)
+
+
+__all__ = ['query_gdal']
