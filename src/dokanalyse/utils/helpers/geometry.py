@@ -98,37 +98,6 @@ def create_input_geometry(geojson: Dict[str, Any]) -> ogr.Geometry:
     return geometry
 
 
-def _make_valid_polygon(geometry: ogr.Geometry) -> ogr.Geometry:
-    """Repairs an invalid (e.g. self-intersecting) polygon, keeping only
-    polygonal parts. Invalid geometries make GEOS operations fail."""
-    valid: ogr.Geometry = geometry.MakeValid()
-    sr = geometry.GetSpatialReference()
-
-    if valid.GetGeometryType() not in (ogr.wkbPolygon, ogr.wkbMultiPolygon):
-        multi = ogr.Geometry(ogr.wkbMultiPolygon)
-
-        for i in range(valid.GetGeometryCount()):
-            part: ogr.Geometry = valid.GetGeometryRef(i)
-
-            if part.GetGeometryType() == ogr.wkbPolygon:
-                multi.AddGeometry(part)
-            elif part.GetGeometryType() == ogr.wkbMultiPolygon:
-                for j in range(part.GetGeometryCount()):
-                    multi.AddGeometry(part.GetGeometryRef(j))
-
-        valid = multi
-
-    if valid.IsEmpty():
-        raise ValueError('The input geometry is invalid and could not be repaired')
-
-    if sr is not None:
-        valid.AssignSpatialReference(sr)
-
-    _logger.warning('Invalid input geometry was repaired')
-
-    return valid
-
-
 def create_buffered_geometry(geometry: ogr.Geometry, distance: int, epsg: int | None) -> ogr.Geometry:
     computed_buffer = length_to_degrees(
         distance) if epsg is None or epsg == WGS84_EPSG else distance
@@ -215,13 +184,6 @@ def create_run_on_input_geometry_json(geometry: ogr.Geometry, epsg: int, orig_ep
     return geojson
 
 
-def _is_projected(epsg: int | None) -> bool:
-    if epsg is None:
-        return False
-
-    return bool(create_spatial_reference(epsg).IsProjected())
-
-
 def get_epsg_from_geometry(geometry: ogr.Geometry) -> int | None:
     sr: osr.SpatialReference | None = geometry.GetSpatialReference()
 
@@ -265,6 +227,44 @@ def add_geojson_crs(geojson: Dict[str, Any], epsg: int | None) -> None:
             'name': 'urn:ogc:def:crs:EPSG::' + str(epsg)
         }
     }
+
+
+def _make_valid_polygon(geometry: ogr.Geometry) -> ogr.Geometry:
+    """Repairs an invalid (e.g. self-intersecting) polygon, keeping only
+    polygonal parts. Invalid geometries make GEOS operations fail."""
+    valid: ogr.Geometry = geometry.MakeValid()
+    sr = geometry.GetSpatialReference()
+
+    if valid.GetGeometryType() not in (ogr.wkbPolygon, ogr.wkbMultiPolygon):
+        multi = ogr.Geometry(ogr.wkbMultiPolygon)
+
+        for i in range(valid.GetGeometryCount()):
+            part: ogr.Geometry = valid.GetGeometryRef(i)
+
+            if part.GetGeometryType() == ogr.wkbPolygon:
+                multi.AddGeometry(part)
+            elif part.GetGeometryType() == ogr.wkbMultiPolygon:
+                for j in range(part.GetGeometryCount()):
+                    multi.AddGeometry(part.GetGeometryRef(j))
+
+        valid = multi
+
+    if valid.IsEmpty():
+        raise ValueError('The input geometry is invalid and could not be repaired')
+
+    if sr is not None:
+        valid.AssignSpatialReference(sr)
+
+    _logger.warning('Invalid input geometry was repaired')
+
+    return valid
+
+
+def _is_projected(epsg: int | None) -> bool:
+    if epsg is None:
+        return False
+
+    return bool(create_spatial_reference(epsg).IsProjected())
 
 
 __all__ = [

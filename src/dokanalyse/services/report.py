@@ -38,6 +38,26 @@ def create_pdf(analysis_response: AnalysisResponse) -> bytes:
     return buffer.getvalue()
 
 
+class _ReportURLFetcher(URLFetcher):
+    """Only fetches images over HTTP(S), data URIs and local files inside
+    the templates directory (stylesheets, fonts, icons)."""
+
+    def __init__(self, templates_path: str) -> None:
+        super().__init__(timeout=10, allowed_protocols=('http', 'https', 'data', 'file'))
+        self.__templates_path = Path(templates_path).resolve()
+
+    def fetch(self, url: str, headers: Any = None) -> URLFetcherResponse:
+        parsed = urlparse(url)
+
+        if parsed.scheme == 'file':
+            path = Path(url2pathname(parsed.path)).resolve()
+
+            if not path.is_relative_to(self.__templates_path):
+                raise ValueError(f'File outside the templates directory: {url}')
+
+        return super().fetch(url, headers)
+
+
 def _get_environment(templates_path: str) -> Environment:
     global _environment
 
@@ -105,26 +125,6 @@ def _get_templates_path() -> str:
         return PDF_TEMPLATES_DIR
 
     return str(Path(__file__).parents[1].joinpath('pdf_templates'))
-
-
-class _ReportURLFetcher(URLFetcher):
-    """Only fetches images over HTTP(S), data URIs and local files inside
-    the templates directory (stylesheets, fonts, icons)."""
-
-    def __init__(self, templates_path: str) -> None:
-        super().__init__(timeout=10, allowed_protocols=('http', 'https', 'data', 'file'))
-        self.__templates_path = Path(templates_path).resolve()
-
-    def fetch(self, url: str, headers: Any = None) -> URLFetcherResponse:
-        parsed = urlparse(url)
-
-        if parsed.scheme == 'file':
-            path = Path(url2pathname(parsed.path)).resolve()
-
-            if not path.is_relative_to(self.__templates_path):
-                raise ValueError(f'File outside the templates directory: {url}')
-
-        return super().fetch(url, headers)
 
 
 __all__ = ['create_pdf']

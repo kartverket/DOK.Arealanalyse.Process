@@ -37,6 +37,9 @@ class DokanalyseProcessor(BaseProcessor):
 
         return 'application/json', outputs
 
+    def __repr__(self) -> str:
+        return f'<DokanalyseProcessor> {self.name}'
+
     async def _run_analyses(self, data: Dict[str, Any]) -> Dict[str, Any]:
         sio_client = get_client()
 
@@ -45,9 +48,6 @@ class DokanalyseProcessor(BaseProcessor):
         finally:
             if sio_client:
                 sio_client.disconnect()
-
-    def __repr__(self) -> str:
-        return f'<DokanalyseProcessor> {self.name}'
 
 
 @atexit.register
