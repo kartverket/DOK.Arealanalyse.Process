@@ -114,3 +114,23 @@ def test_quality_config_allows_only_one_coverage_indicator():
         QualityConfig(indicators=[coverage, coverage])
 
     QualityConfig(indicators=[coverage, coverage | {'disabled': True}])
+
+
+async def test_not_implemented_dataset_configs(monkeypatch):
+    from dokanalyse.services import config as config_module
+    from dokanalyse.services.config import get_not_implemented_dataset_configs
+
+    async def dok_status():
+        return [
+            {'dataset_id': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'name': 'flomsoner', 'theme': 'Samfunnssikkerhet'},
+            {'dataset_id': 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'name': 'stoy-sone', 'theme': 'Forurensning'}
+        ]
+
+    monkeypatch.setattr(config_module, 'get_dok_status', dok_status)
+
+    configs = await get_not_implemented_dataset_configs()
+    again = await get_not_implemented_dataset_configs()
+
+    assert [config.name for config in configs] == ['stoy_sone']
+    assert configs[0].themes == ['Forurensning']
+    assert configs[0].config_id == again[0].config_id

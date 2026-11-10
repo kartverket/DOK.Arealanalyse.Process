@@ -102,18 +102,21 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     dirname = str(uuid4())
 
     if create_binaries and file_storage:
-        map_images = await generate_map_images(
-            analyses_with_map_image, fact_sheet, emitter)
-        await _upload_images(response, map_images, dirname, file_storage)
-        emitter.send_message(ProgressStatus.CREATING_MAP_IMAGES, True)
+        try:
+            map_images = await generate_map_images(
+                analyses_with_map_image, fact_sheet, emitter)
+            await _upload_images(response, map_images, dirname, file_storage)
+            emitter.send_message(ProgressStatus.CREATING_MAP_IMAGES, True)
 
-        emitter.send_message(ProgressStatus.CREATING_REPORT)
-        report = await _create_report(response)
+            emitter.send_message(ProgressStatus.CREATING_REPORT)
+            report = await _create_report(response)
 
-        if report:
-            response.report = await _upload_report(report, dirname, file_storage)
+            if report:
+                response.report = await _upload_report(report, dirname, file_storage)
 
-        emitter.send_message(ProgressStatus.CREATING_REPORT, True)
+            emitter.send_message(ProgressStatus.CREATING_REPORT, True)
+        finally:
+            await file_storage.close()
 
     return response.to_dict()
 

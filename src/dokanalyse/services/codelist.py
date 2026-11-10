@@ -1,8 +1,8 @@
-import json
 from typing import Any, Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
 from ..caching.codelist import get_or_create_codelist
+from ..caching.json_cache import read_json
 from ..utils.http_context import get_session
 
 _logger: BoundLogger = structlog.get_logger(__name__)
@@ -23,8 +23,7 @@ async def get_codelist(type: str) -> List[Dict[str, Any]]:
     try:
         path = await get_or_create_codelist(url, type, get_session())
 
-        with path.open() as file:
-            return json.load(file)
+        return read_json(path)
     except Exception as err:
         _logger.error('Codelist download failed', url=url, error=str(err))
         return []

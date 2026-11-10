@@ -11,6 +11,7 @@ import pandas as pd
 import geopandas as gpd
 from matplotlib.figure import Figure
 from owslib.wms import WebMapService
+from owslib.wmts import WebMapTileService
 import cartopy.crs as ccrs
 import cartopy.io.ogc_clients as ogcc
 from cartopy.mpl.geoaxes import GeoAxes
@@ -28,14 +29,17 @@ ogcc._URN_TO_CRS['EPSG:3857'] = ccrs.GOOGLE_MERCATOR # type: ignore
 
 _WMTS_URL = 'https://cache.kartverket.no/v1/wmts/1.0.0/WMTSCapabilities.xml?request=GetCapabilities'
 _TIMEOUT_SECONDS = 120
+_CAPABILITIES_TTL_SECONDS = 24 * 60 * 60
 _DPI = 100
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 _basemaps_cache_dir = Path(CACHE_DIR).joinpath('basemaps')
 
-# Only accessed from the single render thread
-_wms_services: Dict[str, WebMapService] = {}
+# Only accessed from the single render thread. Capabilities documents are
+# fetched once a day instead of once per map image.
+_wms_services: Dict[str, Tuple[float, WebMapService]] = {}
+_wmts_service: Tuple[float, WebMapTileService] | None = None
 
 
 async def generate_map_images(
@@ -193,17 +197,30 @@ def _add_wmts(ax: GeoAxes, grayscale: bool) -> SlippyImageArtist:
     cache_dir = _basemaps_cache_dir / layer_name
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    return ax.add_wmts(_WMTS_URL, layer_name, cache=str(cache_dir)) # type: ignore
+    return ax.add_wmts(_get_wmts_service(), layer_name, cache=str(cache_dir))  # type: ignore
+
+
+def _get_wmts_service() -> WebMapTileService:
+    global _wmts_service
+
+    if _wmts_service is None or _is_expired(_wmts_service[0]):
+        _wmts_service = (time.monotonic(), WebMapTileService(_WMTS_URL))
+
+    return _wmts_service[1]
+
+
+def _is_expired(created: float) -> bool:
+    return time.monotonic() - created > _CAPABILITIES_TTL_SECONDS
 
 
 def _add_wms(ax: GeoAxes, url: str, layers: List[str]) -> SlippyImageArtist:
-    wms = _wms_services.get(url)
+    cached = _wms_services.get(url)
 
-    if wms is None:
-        wms = WebMapService(url, '1.3.0')
-        _wms_services[url] = wms
+    if cached is None or _is_expired(cached[0]):
+        cached = (time.monotonic(), WebMapService(url, '1.3.0'))
+        _wms_services[url] = cached
 
-    return ax.add_wms(wms=wms, layers=layers)
+    return ax.add_wms(wms=cached[1], layers=layers)
 
 
 def _extend_bbox_to_aspect_ratio(bounds: Tuple[float, float, float, float], target_aspect_ratio: float) -> Polygon:

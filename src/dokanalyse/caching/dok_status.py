@@ -74,6 +74,7 @@ def _map_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:
 
         datasets.append({
             'dataset_id': dataset_id,
+            'name': item.get('seoname') or dataset_id,
             'theme': theme,
             'suitability': suitability
         })

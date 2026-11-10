@@ -1,10 +1,10 @@
-import json
 from uuid import UUID
 from typing import Any, Dict, List, Literal
 import structlog
 from structlog.stdlib import BoundLogger
 from .config import get_dataset_configs
 from ..caching.kartgrunnlag import get_or_create_kartgrunnlag
+from ..caching.json_cache import read_json
 from ..utils.http_context import get_session
 from ..models.config import DatasetConfig
 from ..constants import NATIONAL_DATASETS
@@ -62,8 +62,7 @@ async def _get_kartgrunnlag(municipality_number: str | None) -> List[str]:
     try:
         path = await get_or_create_kartgrunnlag(municipality_number, get_session())
 
-        with path.open() as file:
-            return json.load(file)
+        return read_json(path)
     except Exception as err:
         _logger.error('Kartgrunnlag download failed',
                       municipality_number=municipality_number, error=str(err))

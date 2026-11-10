@@ -11,7 +11,6 @@ from .dok_status import get_or_create_dok_status
 from .geofile import get_or_create_geofile
 from .guidance_data import get_or_create_guidance_data
 from .kartkatalog import get_or_create_kartkatalog_metadata
-from .not_implemented_datasets import get_or_create_not_implemented_datasets
 from .xsd import get_or_create_xml_schema, cache_base_xml_schemas
 from ..utils.logger import setup as setup_logger
 from ..utils.helpers.common import get_config_file_paths
@@ -39,7 +38,7 @@ async def _cache_resources() -> None:
 
     cache_base_xml_schemas()
 
-    metadata_ids, wfs_urls, geojson_and_gpkg_urls = _get_config_data()
+    wfs_urls, geojson_and_gpkg_urls = _get_config_data()
     timeout = aiohttp.ClientTimeout(total=30)
 
     connector = aiohttp.TCPConnector(
@@ -61,9 +60,6 @@ async def _cache_resources() -> None:
                     get_or_create_kartkatalog_metadata, dataset_id, session, with_lock=False, semaphore=semaphore))
                 tasks.append(task)
 
-            tasks.append(tg.create_task(_run_task(get_or_create_not_implemented_datasets,
-                         metadata_ids, session, with_lock=False, semaphore=semaphore)))
-
             tasks.append(tg.create_task(_run_task(
                 get_or_create_guidance_data, session, with_lock=False, semaphore=semaphore)))
 
@@ -75,47 +71,46 @@ async def _cache_resources() -> None:
 
 async def _run_task(func: Callable[..., Awaitable[Path]], *args, **kwargs) -> None:
     try:
-        _ = await func(*args, **kwargs)
-    except:
-        pass
+        await func(*args, **kwargs)
+    except Exception as err:
+        _logger.error('Caching resource failed', task=func.__name__,
+                      args=[arg for arg in args if isinstance(arg, str)], error=str(err))
 
 
 async def _get_dataset_ids_from_dok_status(session: aiohttp.ClientSession) -> List[str]:
     try:
         path = await get_or_create_dok_status(session, with_lock=False)
 
-        with path.open() as file:
-            datasets: List[Dict[str, Any]] = json.loads(file.read())
+        with path.open(encoding='utf-8') as file:
+            datasets: List[Dict[str, Any]] = json.load(file)
 
-        dataset_ids: List[str] = [dataset['dataset_id'] for dataset in datasets]
-
-        return list(set(dataset_ids))
-    except:
+        return list({dataset['dataset_id'] for dataset in datasets})
+    except Exception as err:
+        _logger.error('Getting DOK status failed', error=str(err))
         return []
 
 
-def _get_config_data() -> Tuple[List[str], List[str], List[str]]:
+def _get_config_data() -> Tuple[List[str], List[str]]:
     paths = get_config_file_paths()
-    metadata_ids: List[str] = []
     wfs_urls: List[str] = []
     geojson_and_gpkg_urls: List[str] = []
 
     for path in paths:
-        results = yaml.safe_load_all(path.read_text(encoding='utf-8'))
+        try:
+            results = list(yaml.safe_load_all(path.read_text(encoding='utf-8')))
+        except (OSError, yaml.YAMLError) as err:
+            _logger.error('Reading config file failed', file=path.name, error=str(err))
+            continue
+
         result: Dict[str, Any]
 
         for result in results:
-            if not result or result.get('disabled'):
+            if not isinstance(result, dict) or result.get('disabled'):
                 continue
 
-            type: str = result['type']
+            type: str | None = result.get('type')
 
             if type == 'dataset':
-                metadata_id: str | None = result.get('metadata_id')
-
-                if metadata_id:
-                    metadata_ids.append(metadata_id)
-
                 wfs_url = _get_wfs_url_from_dataset(result)
 
                 if wfs_url:
@@ -129,7 +124,7 @@ def _get_config_data() -> Tuple[List[str], List[str], List[str]]:
                     if url:
                         geojson_and_gpkg_urls.append(url)
 
-    return list(set(metadata_ids)), list(set(wfs_urls)), list(set(geojson_and_gpkg_urls))
+    return list(set(wfs_urls)), list(set(geojson_and_gpkg_urls))
 
 
 def _get_wfs_url_from_dataset(dataset: Dict[str, Any]) -> str | None:

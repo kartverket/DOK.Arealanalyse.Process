@@ -1,21 +1,19 @@
 import asyncio
-import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
-from uuid import UUID
+from uuid import UUID, NAMESPACE_URL, uuid5
 import yaml
 import structlog
 from structlog.stdlib import BoundLogger
 from xmlschema import XMLSchema
 from .xml_schema import compile_xml_schema
-from ..caching.not_implemented_datasets import get_or_create_not_implemented_datasets
+from .dok_status import get_dok_status
 from ..caching.xsd import hash_url
 from ..models.config import DatasetConfig, QualityConfig, QualityIndicator
 from ..utils.helpers.common import get_config_file_paths
 from ..utils.helpers.filter import compile_cql_filter
-from ..utils.http_context import get_session
 from ..constants import USE_XML_SCHEMAS
 
 # How often the config directory is checked for changes
@@ -57,12 +55,29 @@ async def get_quality_indicator_configs(config_id: UUID) -> List[QualityIndicato
 
 
 async def get_not_implemented_dataset_configs() -> List[DatasetConfig]:
+    """Returns configs for the DOK datasets (from the DOK status register)
+    that have no dataset configuration."""
     snapshot = await _get_snapshot()
-    metadata_ids = [str(config.metadata_id)
-                    for config in snapshot.datasets if config.metadata_id is not None]
-    datasets = await _get_not_implemented_datasets(metadata_ids)
+    metadata_ids = {str(config.metadata_id)
+                    for config in snapshot.datasets if config.metadata_id is not None}
+    configs: List[DatasetConfig] = []
 
-    return [DatasetConfig.model_construct(**dataset) for dataset in datasets]
+    for dataset in await get_dok_status():
+        dataset_id: str = dataset['dataset_id']
+
+        if dataset_id in metadata_ids:
+            continue
+
+        theme: str = dataset.get('theme') or ''
+
+        configs.append(DatasetConfig.model_construct(
+            config_id=uuid5(NAMESPACE_URL, f'dokanalyse:not-implemented:{dataset_id}'),
+            name=(dataset.get('name') or dataset_id).replace('-', '_'),
+            metadata_id=dataset_id,
+            themes=[theme] if theme else []
+        ))
+
+    return configs
 
 
 async def _get_snapshot() -> _ConfigSnapshot:
@@ -187,22 +202,6 @@ async def _create_quality_config(path: Path, data: Dict[str, Any]) -> QualityCon
 
 async def _compile_wfs_xml_schema(wfs_url: str) -> XMLSchema | None:
     return await compile_xml_schema(hash_url(wfs_url), wfs_url)
-
-
-async def _get_not_implemented_datasets(metadata_ids: List[str]) -> List[Dict[str, Any]]:
-    try:
-        path = await get_or_create_not_implemented_datasets(metadata_ids, get_session())
-
-        return await asyncio.to_thread(_read_json, path)
-    except Exception as err:
-        _logger.error(
-            'Getting not implemented datasets failed', error=str(err))
-        return []
-
-
-def _read_json(path: Path) -> Any:
-    with path.open(encoding='utf-8') as file:
-        return json.load(file)
 
 
 def _get_fingerprint() -> Tuple[Tuple[str, int, int], ...]:
