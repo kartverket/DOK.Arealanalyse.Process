@@ -1,0 +1,34 @@
+---
+type: dataset
+config_id: 11111111-1111-4111-8111-111111111111
+name: test_flomsoner
+
+metadata_id: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa
+wfs: https://wfs.example.com/wfs.flomsoner
+wms: https://wms.example.com/wms.flomsoner
+layers:
+  - wfs: FlomAreal
+    wms:
+      - Flomsone_20arsflom
+      - Flomsone_200arsflom
+    filter: gjentaksintervall IN (20, 200)
+    result_status: HIT-RED
+    planning_guidance_id: 0d000000-0000-4000-8000-000000000001
+    building_guidance_id: 0d000000-0000-4000-8000-000000000002
+geom_field: område
+properties:
+  - gjentaksintervall
+  - nøyaktighetsklasse
+themes:
+  - Samfunnssikkerhet
+---
+type: quality
+config_id: 11111111-1111-4111-8111-111111111111
+
+indicators:
+  - type: object
+    quality_dimension_id: stedfestingsnøyaktighet
+    quality_dimension_name: Stedfestingsnøyaktighet
+    quality_warning_text: Stedfestingsnøyaktighet er usikker
+    property: nøyaktighetsklasse
+    warning_threshold: Mindre god
