@@ -7,6 +7,7 @@ _TEMPLATES_DIR = Path(__file__).parents[1].joinpath('src', 'dokanalyse', 'pdf_te
 
 def _load(path: Path):
     spec = importlib.util.spec_from_file_location(f'test_{path.parent.name}_{path.stem}', path)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

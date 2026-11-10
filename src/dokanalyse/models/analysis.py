@@ -22,8 +22,8 @@ class Analysis:
         self,
         config_id: UUID,
         config: DatasetConfig,
-        geometry: ogr.Geometry | None,
-        epsg: int | None,
+        geometry: ogr.Geometry,
+        epsg: int,
         orig_epsg: int | None,
         buffer: int
     ) -> None:

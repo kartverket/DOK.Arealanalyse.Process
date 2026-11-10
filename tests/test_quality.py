@@ -15,7 +15,7 @@ def _indicator(**kwargs) -> QualityIndicator:
         'quality_warning_text': 'Usikker stedfesting'
     }
 
-    return QualityIndicator(**(defaults | kwargs))
+    return QualityIndicator.model_validate(defaults | kwargs)
 
 
 def test_threshold_values():
@@ -43,8 +43,9 @@ def test_object_quality_no_warning():
 
 
 def test_dataset_quality_warning_respects_input_filter():
-    indicator = _indicator(type='dataset', warning_threshold='1 OR 2', input_filter="context = 'Byggesak'")
-    indicator.input_filter_func = compile_cql_filter(indicator.input_filter)
+    input_filter = "context = 'Byggesak'"
+    indicator = _indicator(type='dataset', warning_threshold='1 OR 2', input_filter=input_filter)
+    indicator.input_filter_func = compile_cql_filter(input_filter)
 
     assert _get_dataset_quality_warning_text(1, indicator, {'context': 'Byggesak'}) == 'Usikker stedfesting'
     assert _get_dataset_quality_warning_text(3, indicator, {'context': 'Byggesak'}) is None

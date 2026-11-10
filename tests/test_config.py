@@ -4,6 +4,7 @@ from dokanalyse.services.config import (
     get_dataset_configs, get_dataset_config, get_quality_indicator_configs)
 from dokanalyse.models.config import DatasetConfig, QualityIndicatorType
 from pydantic import ValidationError
+from conftest import load_dataset_config
 
 WFS_ID = UUID('11111111-1111-4111-8111-111111111111')
 ARCGIS_ID = UUID('22222222-2222-4222-8222-222222222222')
@@ -18,14 +19,14 @@ async def test_loads_enabled_dataset_configs():
 
 
 async def test_get_dataset_config_and_type():
-    assert (await get_dataset_config(WFS_ID)).service_type == 'wfs'
-    assert (await get_dataset_config(ARCGIS_ID)).service_type == 'arcgis'
-    assert (await get_dataset_config(OGC_API_ID)).service_type == 'ogc_api'
+    assert (await load_dataset_config(WFS_ID)).service_type == 'wfs'
+    assert (await load_dataset_config(ARCGIS_ID)).service_type == 'arcgis'
+    assert (await load_dataset_config(OGC_API_ID)).service_type == 'ogc_api'
     assert await get_dataset_config(UUID('99999999-9999-4999-8999-999999999999')) is None
 
 
 async def test_wfs_layer_filter_is_compiled():
-    config = await get_dataset_config(WFS_ID)
+    config = await load_dataset_config(WFS_ID)
 
     assert config.layers[0].filter_func is not None
 
@@ -41,13 +42,14 @@ async def test_quality_indicators_include_common_indicators():
 
 def test_dataset_config_requires_service():
     with pytest.raises(ValidationError):
-        DatasetConfig(config_id=WFS_ID, name='x', wms='https://example.com', themes=[])
+        DatasetConfig.model_validate({'config_id': WFS_ID, 'name': 'x', 'wms': 'https://example.com', 'themes': []})
 
 
 def test_layer_rejects_invalid_result_status():
     with pytest.raises(ValidationError):
-        DatasetConfig(config_id=WFS_ID, name='x', wfs='https://example.com', wms='https://example.com',
-                      themes=[], layers=[{'wfs': 'a', 'wms': [], 'result_status': 'ERROR'}])
+        DatasetConfig.model_validate({
+            'config_id': WFS_ID, 'name': 'x', 'wfs': 'https://example.com', 'wms': 'https://example.com',
+            'themes': [], 'layers': [{'wfs': 'a', 'wms': [], 'result_status': 'ERROR'}]})
 
 
 @pytest.fixture
@@ -110,9 +112,9 @@ def test_quality_config_allows_only_one_coverage_indicator():
                 'arcgis': {'url': 'https://example.com', 'layer': '0', 'property': 'p'}}
 
     with pytest.raises(ValidationError):
-        QualityConfig(indicators=[coverage, coverage])
+        QualityConfig.model_validate({'indicators': [coverage, coverage]})
 
-    QualityConfig(indicators=[coverage, coverage | {'disabled': True}])
+    QualityConfig.model_validate({'indicators': [coverage, coverage | {'disabled': True}]})
 
 
 async def test_not_implemented_dataset_configs(monkeypatch):

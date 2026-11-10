@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse, unquote
-from typing import Any, Dict, List
+from typing import Any, Dict, List, overload
 from ...constants import DATASETS_CONFIG_DIR
 
 _number_regex = re.compile(r'^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$')
@@ -28,6 +28,14 @@ def get_config_file_paths() -> List[Path]:
     paths = [path for path in glob if path.is_file()]
 
     return paths
+
+
+@overload
+def parse_string(value: str) -> str | int | float | bool: ...
+
+
+@overload
+def parse_string(value: None) -> None: ...
 
 
 def parse_string(value: str | None) -> str | int | float | bool | None:

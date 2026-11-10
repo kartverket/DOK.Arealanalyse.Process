@@ -10,8 +10,13 @@ os.environ.setdefault('DOKANALYSE_DATASETS_CONFIG_DIR',
                       str(Path(__file__).parent.joinpath('fixtures', 'config')))
 
 import json  # noqa: E402
+from typing import TYPE_CHECKING  # noqa: E402
+from uuid import UUID  # noqa: E402
 import pytest  # noqa: E402
 from osgeo import ogr, osr  # noqa: E402
+
+if TYPE_CHECKING:
+    from dokanalyse.models.config import DatasetConfig
 
 ogr.UseExceptions()
 osr.UseExceptions()
@@ -65,3 +70,12 @@ def geometry_25833() -> ogr.Geometry:
 
 def read_fixture(name: str) -> bytes:
     return FIXTURES_DIR.joinpath(name).read_bytes()
+
+
+async def load_dataset_config(config_id: UUID) -> 'DatasetConfig':
+    from dokanalyse.services.config import get_dataset_config
+
+    config = await get_dataset_config(config_id)
+    assert config is not None, f'No dataset config with config_id {config_id}'
+
+    return config

@@ -4,7 +4,7 @@ from uuid import UUID
 from typing import Any, Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
-from osgeo import gdal, ogr
+from osgeo import ogr
 from ..codelist import get_codelist
 from ..kartkatalog import get_kartkatalog_metadata
 from ...models.fact_part import FactPart
@@ -39,8 +39,8 @@ async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int | Non
 
 def _get_area_types(geometry: ogr.Geometry, fgdb_path: str) -> Dict[str, float]:
     """Sums the intersecting area per AR5 area type. Blocking."""
-    driver: gdal.Driver = ogr.GetDriverByName('OpenFileGDB')
-    dataset: gdal.Dataset | None = driver.Open(fgdb_path)
+    driver: ogr.Driver = ogr.GetDriverByName('OpenFileGDB')
+    dataset: ogr.DataSource | None = driver.Open(fgdb_path)
 
     if dataset is None:
         raise ValueError(f'Could not open AR5 file geodatabase: {fgdb_path}')
@@ -65,7 +65,7 @@ def _get_area_types(geometry: ogr.Geometry, fgdb_path: str) -> Dict[str, float]:
         if intersection is None:
             continue
 
-        area_type = feature.GetField('arealtype')
+        area_type = feature.GetFieldAsString('arealtype')
         area_types[area_type] = area_types.get(area_type, 0) + intersection.GetArea()
 
     return area_types

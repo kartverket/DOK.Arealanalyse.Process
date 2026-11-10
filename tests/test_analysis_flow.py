@@ -2,7 +2,7 @@ from uuid import UUID
 import pytest
 from dokanalyse.models import Analysis, ResultStatus
 from dokanalyse.services import analysis_runner
-from dokanalyse.services.config import get_dataset_config
+from conftest import load_dataset_config
 
 ARCGIS_ID = UUID('22222222-2222-4222-8222-222222222222')
 
@@ -74,7 +74,7 @@ def fake_services(monkeypatch) -> FakeServices:
 
 
 async def _create_analysis(geometry, buffer: int = 0) -> Analysis:
-    config = await get_dataset_config(ARCGIS_ID)
+    config = await load_dataset_config(ARCGIS_ID)
     return Analysis(ARCGIS_ID, config, geometry, 25833, 25833, buffer)
 
 
@@ -143,4 +143,5 @@ async def test_buffer_is_applied(fake_services, geometry_25833):
     await analysis_runner.run_analysis(analysis, '', False, False)
 
     assert 'add buffer (10)' in analysis.run_algorithm
+    assert analysis.input_geometry_area is not None
     assert analysis.input_geometry_area > 10_000

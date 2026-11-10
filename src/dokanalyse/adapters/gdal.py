@@ -53,8 +53,8 @@ def _query(
     geometry: ogr.Geometry,
     epsg: int
 ) -> Dict[str, Any]:
-    driver: gdal.Driver = ogr.GetDriverByName(driver_name)
-    ds: gdal.Dataset | None = driver.Open(data_source)
+    driver: ogr.Driver = ogr.GetDriverByName(driver_name)
+    ds: ogr.DataSource | None = driver.Open(data_source)
 
     if ds is None:
         raise ValueError(f'Could not open data source with driver {driver_name}')

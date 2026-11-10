@@ -4,8 +4,9 @@ from conftest import FIXTURES_DIR
 
 
 async def test_geofile_in_wgs84(geometry_25833):
-    config = CoverageGeoJson(url=FIXTURES_DIR.joinpath('dekning_wgs84.geojson').as_uri(),
-                             property='dekningsstatus', properties=['dekningsstatus'])
+    config = CoverageGeoJson.model_validate({
+        'url': FIXTURES_DIR.joinpath('dekning_wgs84.geojson').as_uri(),
+        'property': 'dekningsstatus', 'properties': ['dekningsstatus']})
 
     values, hit_area_percent, data = await get_values_from_geofile(config, geometry_25833, 25833)
 

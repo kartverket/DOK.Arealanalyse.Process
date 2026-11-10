@@ -19,4 +19,4 @@ def test_invalid_requests(polygon_25833):
     assert get_request_validation_error({'inputGeometry': {'type': 'Polygon', 'coordinates': [[[1, 2]]]}}) is not None
 
     error = get_request_validation_error({'inputGeometry': polygon_25833, 'requestedBuffer': 'ti'})
-    assert error.startswith('requestedBuffer:')
+    assert error is not None and error.startswith('requestedBuffer:')

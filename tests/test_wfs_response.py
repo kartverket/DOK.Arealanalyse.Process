@@ -1,14 +1,13 @@
 from uuid import UUID
-from dokanalyse.services.config import get_dataset_config
 from dokanalyse.services.wfs_response import WfsResponseParser, CoverageWfsResponseParser
 from dokanalyse.models.config import CoverageWfs
-from conftest import read_fixture
+from conftest import load_dataset_config, read_fixture
 
 WFS_ID = UUID('11111111-1111-4111-8111-111111111111')
 
 
 async def test_parses_configured_properties_and_geometries():
-    config = await get_dataset_config(WFS_ID)
+    config = await load_dataset_config(WFS_ID)
     layer = config.layers[0].model_copy(update={'filter_func': None})
 
     result = WfsResponseParser(config, layer).parse(read_fixture('wfs_flomareal.xml'))
@@ -19,7 +18,7 @@ async def test_parses_configured_properties_and_geometries():
 
 
 async def test_layer_filter_matches_numeric_values():
-    config = await get_dataset_config(WFS_ID)
+    config = await load_dataset_config(WFS_ID)
 
     result = WfsResponseParser(config, config.layers[0]).parse(read_fixture('wfs_flomareal.xml'))
 
@@ -27,8 +26,9 @@ async def test_layer_filter_matches_numeric_values():
 
 
 def test_coverage_parser_collects_values():
-    config = CoverageWfs(url='https://wfs.example.com', layer='FlomAreal', geom_field='område',
-                         property='nøyaktighetsklasse', properties=['gjentaksintervall'])
+    config = CoverageWfs.model_validate({
+        'url': 'https://wfs.example.com', 'layer': 'FlomAreal', 'geom_field': 'område',
+        'property': 'nøyaktighetsklasse', 'properties': ['gjentaksintervall']})
 
     values, geoms, data = CoverageWfsResponseParser(config).parse(read_fixture('wfs_flomareal.xml'))
 
@@ -49,5 +49,6 @@ def test_gml_geometry_in_lat_lon_urn_crs_is_transformed():
            '<gml:pos>59.91 10.75</gml:pos></gml:Point>')
     geometry = Parser('område', 'x', [], [], None)._create_geometry(ET.fromstring(gml))
 
+    assert geometry is not None
     x, y = geometry.GetX(), geometry.GetY()
     assert 262_000 < x < 264_000 and 6_648_000 < y < 6_651_000

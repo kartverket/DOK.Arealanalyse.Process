@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Literal, Protocol, Tuple
+from typing import Any, Dict, List, Literal, Protocol, Tuple, TypeVar
 from osgeo import ogr
 from pydash import get as pydash_get
 from .wfs_response import WfsResponseParser
@@ -12,6 +12,8 @@ from ..models.config.dataset_config import DatasetConfig
 from ..models.config.layer import Layer
 from ..utils.helpers.geometry import geometry_from_json
 from ..utils.helpers.common import objectify_properties
+
+T = TypeVar('T')
 
 
 class QueryStrategy(Protocol):
@@ -29,13 +31,15 @@ class QueryStrategy(Protocol):
 
 class WfsQueryStrategy:
     def get_service_url(self, config: DatasetConfig) -> str:
-        return get_service_url(config.wfs)
+        return get_service_url(_require(config.wfs, 'wfs'))
 
     def get_layer_name(self, layer: Layer) -> str:
-        return layer.wfs
+        return _require(layer.wfs, 'layers.wfs')
 
     async def query(self, config: DatasetConfig, layer: Layer, geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]:
-        return await query_wfs(config.wfs, layer.wfs, config.geom_field, geometry, epsg, config)
+        return await query_wfs(
+            _require(config.wfs, 'wfs'), self.get_layer_name(layer),
+            _require(config.geom_field, 'geom_field'), geometry, epsg, config)
 
     def parse_response(self, response: Any, config: DatasetConfig, layer: Layer) -> Dict[str, list]:
         parser = WfsResponseParser(config, layer)
@@ -48,13 +52,14 @@ class WfsQueryStrategy:
 
 class ArcGisQueryStrategy:
     def get_service_url(self, config: DatasetConfig) -> str:
-        return get_service_url(config.arcgis)
+        return get_service_url(_require(config.arcgis, 'arcgis'))
 
     def get_layer_name(self, layer: Layer) -> str:
-        return layer.arcgis
+        return _require(layer.arcgis, 'layers.arcgis')
 
     async def query(self, config: DatasetConfig, layer: Layer, geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]:
-        return await query_arcgis(config.arcgis, layer.arcgis, layer.filter, geometry, epsg, config)
+        return await query_arcgis(
+            _require(config.arcgis, 'arcgis'), self.get_layer_name(layer), layer.filter, geometry, epsg, config)
 
     def parse_response(self, response: Any, config: DatasetConfig, layer: Layer) -> Dict[str, list]:
         data = {
@@ -85,13 +90,15 @@ class ArcGisQueryStrategy:
 
 class OgcApiQueryStrategy:
     def get_service_url(self, config: DatasetConfig) -> str:
-        return get_service_url(config.ogc_api)
+        return get_service_url(_require(config.ogc_api, 'ogc_api'))
 
     def get_layer_name(self, layer: Layer) -> str:
-        return layer.ogc_api
+        return _require(layer.ogc_api, 'layers.ogc_api')
 
     async def query(self, config: DatasetConfig, layer: Layer, geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]:
-        return await query_ogc_api(config.ogc_api, layer.ogc_api, config.geom_field, geometry, layer.filter, epsg, config)
+        return await query_ogc_api(
+            _require(config.ogc_api, 'ogc_api'), self.get_layer_name(layer),
+            _require(config.geom_field, 'geom_field'), geometry, layer.filter, epsg, config)
 
     def parse_response(self, response: List[Dict[str, Any]], config: DatasetConfig, layer: Layer) -> Dict[str, list]:
         data = {
@@ -159,9 +166,16 @@ def _map_properties(
     return objectify_properties(props)
 
 
-def _geometry_from_feature_json(feature: Dict[str, Any]) -> ogr.Geometry:
+def _geometry_from_feature_json(feature: Dict[str, Any]) -> ogr.Geometry | None:
     json_str = json.dumps(feature['geometry'])
     return geometry_from_json(json_str)
+
+
+def _require(value: T | None, name: str) -> T:
+    if value is None:
+        raise ValueError(f'The dataset config is missing "{name}"')
+
+    return value
 
 
 __all__ = ['QueryStrategy', 'get_query_strategy']

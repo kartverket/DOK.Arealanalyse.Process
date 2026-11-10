@@ -26,7 +26,9 @@ def test_parse_string_numbers():
 
 
 def test_parse_date_string():
-    assert parse_date_string('2024-05-01T12:00:00').year == 2024
+    parsed = parse_date_string('2024-05-01T12:00:00')
+
+    assert parsed is not None and parsed.year == 2024
     assert parse_date_string('not a date') is None
 
 

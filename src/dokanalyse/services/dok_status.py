@@ -39,7 +39,10 @@ def _index_by_dataset_id(items: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any
     index: Dict[str, Dict[str, Any]] = {}
 
     for item in items:
-        index.setdefault(item.get('dataset_id'), item)
+        dataset_id = item.get('dataset_id')
+
+        if dataset_id:
+            index.setdefault(dataset_id, item)
 
     return index
 

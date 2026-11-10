@@ -1,5 +1,7 @@
 import os
 import time
+from typing import cast
+import aiohttp
 import pytest
 from dokanalyse.caching import caching
 from dokanalyse.caching.caching import get_or_create_file, CacheUnit
@@ -34,6 +36,10 @@ class FakeSession:
         return self.response
 
 
+def _session(fake: FakeSession) -> aiohttp.ClientSession:
+    return cast(aiohttp.ClientSession, fake)
+
+
 async def _mapper(data):
     return data
 
@@ -49,8 +55,8 @@ async def test_downloads_and_caches(tmp_path):
     session = FakeSession(FakeResponse({'a': 1}))
     path = tmp_path.joinpath('sub', 'file.json')
 
-    result = await get_or_create_file('https://x', path, session, mapper=_mapper, cache=(1, CacheUnit.DAYS))
-    await get_or_create_file('https://x', path, session, mapper=_mapper, cache=(1, CacheUnit.DAYS))
+    result = await get_or_create_file('https://x', path, _session(session), mapper=_mapper, cache=(1, CacheUnit.DAYS))
+    await get_or_create_file('https://x', path, _session(session), mapper=_mapper, cache=(1, CacheUnit.DAYS))
 
     assert result.read_text().strip().startswith('{')
     assert session.calls == 1
@@ -64,8 +70,8 @@ async def test_returns_stale_file_when_refresh_fails(tmp_path):
 
     session = FakeSession(FakeResponse(error=RuntimeError('service down')))
 
-    result = await get_or_create_file('https://x', path, session, mapper=_mapper, cache=(1, CacheUnit.DAYS))
-    await get_or_create_file('https://x', path, session, mapper=_mapper, cache=(1, CacheUnit.DAYS))
+    result = await get_or_create_file('https://x', path, _session(session), mapper=_mapper, cache=(1, CacheUnit.DAYS))
+    await get_or_create_file('https://x', path, _session(session), mapper=_mapper, cache=(1, CacheUnit.DAYS))
 
     assert result.read_text() == '{"stale": true}'
     assert session.calls == 1  # the second call does not retry immediately
@@ -75,4 +81,4 @@ async def test_raises_when_no_stale_file(tmp_path):
     session = FakeSession(FakeResponse(error=RuntimeError('service down')))
 
     with pytest.raises(RuntimeError):
-        await get_or_create_file('https://x', tmp_path.joinpath('f.json'), session, mapper=_mapper)
+        await get_or_create_file('https://x', tmp_path.joinpath('f.json'), _session(session), mapper=_mapper)

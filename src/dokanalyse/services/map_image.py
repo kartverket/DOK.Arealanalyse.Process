@@ -11,6 +11,7 @@ import pandas as pd
 import geopandas as gpd
 from matplotlib.figure import Figure
 from owslib.wms import WebMapService
+from owslib.map.wms130 import WebMapService_1_3_0
 from owslib.wmts import WebMapTileService
 import cartopy.crs as ccrs
 import cartopy.io.ogc_clients as ogcc
@@ -38,7 +39,7 @@ _basemaps_cache_dir = Path(CACHE_DIR).joinpath('basemaps')
 
 # Only accessed from the single render thread. Capabilities documents are
 # fetched once a day instead of once per map image.
-_wms_services: Dict[str, Tuple[float, WebMapService]] = {}
+_wms_services: Dict[str, Tuple[float, WebMapService_1_3_0]] = {}
 _wmts_service: Tuple[float, WebMapTileService] | None = None
 
 
@@ -217,7 +218,7 @@ def _add_wms(ax: GeoAxes, url: str, layers: List[str]) -> SlippyImageArtist:
     cached = _wms_services.get(url)
 
     if cached is None or _is_expired(cached[0]):
-        cached = (time.monotonic(), WebMapService(url, '1.3.0'))
+        cached = (time.monotonic(), cast(WebMapService_1_3_0, WebMapService(url, '1.3.0')))
         _wms_services[url] = cached
 
     return ax.add_wms(wms=cached[1], layers=layers)

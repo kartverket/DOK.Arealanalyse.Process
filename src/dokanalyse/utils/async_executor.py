@@ -38,19 +38,18 @@ class AsyncExecutor:
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         with self._lock:
             if self._loop is None:
-                ready = threading.Event()
+                # Coroutines submitted before the loop runs are queued
+                loop = asyncio.new_event_loop()
                 thread = threading.Thread(
-                    target=self._run, args=(ready,), name='async-executor', daemon=True)
+                    target=self._run, args=(loop,), name='async-executor', daemon=True)
                 thread.start()
-                ready.wait()
+                self._loop = loop
 
-            return self._loop  # type: ignore[return-value]
+            return self._loop
 
-    def _run(self, ready: threading.Event) -> None:
-        self._loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._loop)
-        ready.set()
-        self._loop.run_forever()
+    def _run(self, loop: asyncio.AbstractEventLoop) -> None:
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
 
 
 _async_exec = AsyncExecutor()
