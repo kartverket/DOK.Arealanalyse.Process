@@ -21,7 +21,7 @@ class AsyncExecutor:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._lock = threading.Lock()
 
-    def run(self, coro: Coroutine[Any, Any, T]) -> T:
+    def run(self, coro: Coroutine[Any, Any, T], timeout: float | None = None) -> T:
         loop = self._get_loop()
 
         if _get_running_loop() is loop:
@@ -30,7 +30,10 @@ class AsyncExecutor:
 
         future = asyncio.run_coroutine_threadsafe(coro, loop)
 
-        return future.result()
+        return future.result(timeout)
+
+    def is_running(self) -> bool:
+        return self._loop is not None and self._loop.is_running()
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
         with self._lock:
@@ -58,8 +61,12 @@ _async_exec = AsyncExecutor()
 _render_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='render')
 
 
-def exec_async(coro: Coroutine[Any, Any, T]) -> T:
-    return _async_exec.run(coro)
+def exec_async(coro: Coroutine[Any, Any, T], timeout: float | None = None) -> T:
+    return _async_exec.run(coro, timeout)
+
+
+def is_running() -> bool:
+    return _async_exec.is_running()
 
 
 async def run_in_render_thread(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
@@ -77,4 +84,4 @@ def _get_running_loop() -> asyncio.AbstractEventLoop | None:
         return None
 
 
-__all__ = ['exec_async', 'run_in_render_thread']
+__all__ = ['exec_async', 'is_running', 'run_in_render_thread']
