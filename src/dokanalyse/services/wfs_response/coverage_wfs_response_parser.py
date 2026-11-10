@@ -54,7 +54,7 @@ class CoverageWfsResponseParser(WfsResponseParserBase):
                 elem.clear()
                 continue
 
-            if value == 'ikkeKartlagt':
+            if value.strip() in ('ikkeKartlagt', 'Ikke kartlagt'):
                 feature_geom = self._create_geometry(geom_elem)
 
                 if feature_geom:

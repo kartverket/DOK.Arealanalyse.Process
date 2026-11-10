@@ -75,3 +75,52 @@ def test_add_geojson_crs():
     geojson = {}
     add_geojson_crs(geojson, None)
     assert 'crs' not in geojson
+
+
+def test_input_with_geographic_crs_is_read_as_lon_lat(polygon_wgs84):
+    from_wgs84 = create_input_geometry(polygon_wgs84)
+    polygon_4258 = dict(polygon_wgs84, crs={'type': 'name', 'properties': {'name': 'urn:ogc:def:crs:EPSG::4258'}})
+    from_4258 = create_input_geometry(polygon_4258)
+
+    for a, b in zip(from_wgs84.GetEnvelope(), from_4258.GetEnvelope(), strict=True):
+        assert abs(a - b) < 1
+
+
+def test_run_on_input_geometry_json_keeps_input_crs(polygon_wgs84, polygon_25833):
+    from dokanalyse.utils.helpers.geometry import create_run_on_input_geometry_json
+
+    geometry = create_input_geometry(polygon_wgs84)
+    result = create_run_on_input_geometry_json(geometry, 25833, None)
+    lon, lat = result['coordinates'][0][0]
+    assert 'crs' not in result
+    assert abs(lon - 10.75) < 1e-6 and abs(lat - 59.91) < 1e-6
+
+    polygon_4258 = dict(polygon_wgs84, crs={'type': 'name', 'properties': {'name': 'EPSG:4258'}})
+    result = create_run_on_input_geometry_json(create_input_geometry(polygon_4258), 25833, 4258)
+    lon, lat = result['coordinates'][0][0]
+    assert result['crs']['properties']['name'] == 'urn:ogc:def:crs:EPSG::4258'
+    assert abs(lon - 10.75) < 1e-6 and abs(lat - 59.91) < 1e-6
+
+    result = create_run_on_input_geometry_json(create_input_geometry(polygon_25833), 25833, 25833)
+    assert result['crs']['properties']['name'] == 'urn:ogc:def:crs:EPSG::25833'
+    assert result['coordinates'][0][0] == [262400.0, 6649000.0]
+
+
+def test_self_intersecting_polygon_is_repaired():
+    import pytest
+    bowtie = {'type': 'Polygon', 'coordinates': [[[0, 0], [10, 10], [10, 0], [0, 10], [0, 0]]],
+              'crs': {'type': 'name', 'properties': {'name': 'EPSG:25833'}}}
+
+    geometry = create_input_geometry(bowtie)
+
+    assert geometry.IsValid()
+    assert geometry.GetArea() == pytest.approx(50)
+
+
+def test_empty_polygon_is_rejected():
+    import pytest
+    empty = {'type': 'Polygon', 'coordinates': [],
+             'crs': {'type': 'name', 'properties': {'name': 'EPSG:25833'}}}
+
+    with pytest.raises(ValueError):
+        create_input_geometry(empty)

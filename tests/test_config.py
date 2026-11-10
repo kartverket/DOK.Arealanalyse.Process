@@ -49,3 +49,68 @@ def test_layer_rejects_invalid_result_status():
     with pytest.raises(ValidationError):
         DatasetConfig(config_id=WFS_ID, name='x', wfs='https://example.com', wms='https://example.com',
                       themes=[], layers=[{'wfs': 'a', 'wms': [], 'result_status': 'ERROR'}])
+
+
+@pytest.fixture
+def config_dir(tmp_path, monkeypatch):
+    from dokanalyse.services import config as config_module
+
+    monkeypatch.setattr(config_module, 'get_config_file_paths', lambda: list(tmp_path.glob('*.yml')))
+    monkeypatch.setattr(config_module, '_snapshot', None)
+    monkeypatch.setattr(config_module, '_last_checked', 0)
+
+    yield tmp_path
+
+    config_module._snapshot = None
+
+
+_DATASET_YML = '''
+type: dataset
+config_id: {config_id}
+name: {name}
+wfs: https://wfs.example.com
+wms: https://wms.example.com
+layers:
+  - wfs: Layer
+    wms: [layer]
+    result_status: HIT-RED
+geom_field: område
+themes: [Natur]
+'''
+
+
+async def test_invalid_files_do_not_prevent_loading(config_dir):
+    config_dir.joinpath('a.yml').write_text(_DATASET_YML.format(config_id=WFS_ID, name='a'))
+    config_dir.joinpath('b.yml').write_text('type: dataset\nconfig_id: [unclosed')
+    config_dir.joinpath('c.yml').write_text(_DATASET_YML.format(config_id=WFS_ID, name='duplicate'))
+    config_dir.joinpath('d.yml').write_text(
+        _DATASET_YML.format(config_id=ARCGIS_ID, name='bad_filter') + '    filter: "this is not cql ("\n')
+
+    configs = await get_dataset_configs()
+
+    assert [config.name for config in configs] == ['a']
+
+
+async def test_reloads_when_files_change(config_dir, monkeypatch):
+    from dokanalyse.services import config as config_module
+
+    config_dir.joinpath('a.yml').write_text(_DATASET_YML.format(config_id=WFS_ID, name='a'))
+    assert len(await get_dataset_configs()) == 1
+
+    config_dir.joinpath('b.yml').write_text(_DATASET_YML.format(config_id=ARCGIS_ID, name='b'))
+    assert len(await get_dataset_configs()) == 1  # within the check interval
+
+    monkeypatch.setattr(config_module, '_last_checked', 0)
+    assert len(await get_dataset_configs()) == 2
+
+
+def test_quality_config_allows_only_one_coverage_indicator():
+    from dokanalyse.models.config import QualityConfig
+
+    coverage = {'type': 'coverage', 'quality_dimension_id': 'x', 'quality_dimension_name': 'X',
+                'arcgis': {'url': 'https://example.com', 'layer': '0', 'property': 'p'}}
+
+    with pytest.raises(ValidationError):
+        QualityConfig(indicators=[coverage, coverage])
+
+    QualityConfig(indicators=[coverage, coverage | {'disabled': True}])

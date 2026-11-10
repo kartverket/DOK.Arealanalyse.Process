@@ -1,8 +1,10 @@
 import json
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from typing import Any, Dict, List, Tuple
 from pydantic import HttpUrl
 import asyncio
+import structlog
+from structlog.stdlib import BoundLogger
 from osgeo import ogr
 from . import log_http_error, get_service_credentials, get_auth
 from ..models.config import DatasetConfig, FeatureService, Auth
@@ -11,6 +13,9 @@ from ..utils.helpers.geometry import geometry_to_wkt, geometry_from_json, envelo
 from ..constants import DEFAULT_EPSG, WGS84_EPSG
 
 _RESOURCE = 'OGC API'
+_LIMIT = 5000
+
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 
 async def query_ogc_api(
@@ -29,8 +34,9 @@ async def query_ogc_api(
 
     if response is None:
         return status, response
-    
-    features: List[Dict[str, Any]]  = response['features']
+
+    features: List[Dict[str, Any]] = response.get('features') or []
+    _warn_if_truncated(response, features, request_url, dataset_config)
     features_out: List[Dict[str, Any]] = []
 
     for feature in features:
@@ -67,7 +73,8 @@ async def _query_ogc_api(
                     _RESOURCE, url, response.status, dataset=dataset_config)
                 return response.status, None
 
-            return 200, await response.json()
+            # The content type is often application/geo+json
+            return 200, await response.json(content_type=None)
     except asyncio.TimeoutError:
         log_http_error(_RESOURCE, url, 408, dataset=dataset_config)
         return 408, None
@@ -85,30 +92,48 @@ def _create_request_url(
     filter: str | None,
     epsg: int,
     out_epsg: int = DEFAULT_EPSG,
-    limit: int = 5000,
+    limit: int = _LIMIT,
     variant: str | None = None
 ) -> str:
     envelope = geometry.GetEnvelope()
     polygon = envelope_to_polygon(envelope)
     wkt_str = geometry_to_wkt(polygon, epsg)
 
-    # autopep8: off
-    filter_crs = f'&filter-crs=http://www.opengis.net/def/crs/EPSG/0/{epsg}' if epsg != WGS84_EPSG else ''
-    crs = f'&crs=http://www.opengis.net/def/crs/EPSG/0/{out_epsg}' if out_epsg != WGS84_EPSG else ''
-    url = f'{base_url}/collections/{layer}/items?f=json&limit={limit}&filter-lang='
-
     if variant == 'pygeoapi':
-        url += f'cql-text{filter_crs}{crs}&filter=INTERSECTS({geom_field},{wkt_str})'
+        filter_lang, cql = 'cql-text', f'INTERSECTS({geom_field},{wkt_str})'
     else:
-        url += f'cql2-text{filter_crs}{crs}&filter=S_INTERSECTS({geom_field},{wkt_str})'
+        filter_lang, cql = 'cql2-text', f'S_INTERSECTS({geom_field},{wkt_str})'
 
     if filter:
-        url += f' AND {filter}'
-    # autopep8: on
+        cql += f' AND {filter}'
 
-    request_url = quote(url, safe=':/?&=')
-    
-    return request_url
+    params: Dict[str, Any] = {'f': 'json', 'limit': limit, 'filter-lang': filter_lang}
+
+    if epsg != WGS84_EPSG:
+        params['filter-crs'] = f'http://www.opengis.net/def/crs/EPSG/0/{epsg}'
+
+    if out_epsg != WGS84_EPSG:
+        params['crs'] = f'http://www.opengis.net/def/crs/EPSG/0/{out_epsg}'
+
+    params['filter'] = cql
+
+    return f'{base_url}/collections/{quote(layer)}/items?{urlencode(params, quote_via=quote, safe=":/(),")}'
+
+
+def _warn_if_truncated(
+    response: Dict[str, Any],
+    features: List[Dict[str, Any]],
+    url: str,
+    dataset_config: DatasetConfig | None
+) -> None:
+    number_matched = response.get('numberMatched')
+    truncated = len(features) >= _LIMIT or (
+        isinstance(number_matched, int) and number_matched > len(features))
+
+    if truncated:
+        _logger.warning('OGC API response truncated', url=url, returned=len(features),
+                        matched=number_matched,
+                        config_id=str(dataset_config.config_id) if dataset_config else None)
 
 
 __all__ = ['query_ogc_api']

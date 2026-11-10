@@ -40,10 +40,10 @@ def _map_data(data: Dict[str, Any]) -> List[str]:
     datasets: List[str] = []
 
     for dataset in contained_items:
-        if dataset['ConfirmedDok'] == 'JA':
-            metadata_url: str = dataset['MetadataUrl']
-            splitted = metadata_url.split('/')
-            datasets.append(splitted[-1])
+        metadata_url: str | None = dataset.get('MetadataUrl')
+
+        if dataset.get('ConfirmedDok') == 'JA' and metadata_url:
+            datasets.append(metadata_url.rstrip('/').split('/')[-1])
 
     return datasets
 

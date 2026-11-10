@@ -46,10 +46,10 @@ def _map_data(
     for item in contained_items:
         dataset_id = _get_dataset_id(item)
 
-        if dataset_id in metadata_ids:
+        if not dataset_id or dataset_id in metadata_ids:
             continue
 
-        name: str = item['seoname']
+        name: str = item.get('seoname') or dataset_id
         theme: str = item.get('theme', '')
 
         configs.append({
@@ -62,11 +62,10 @@ def _map_data(
     return configs
 
 
-def _get_dataset_id(item: Dict[str, Any]) -> str:
-    metadata_url: str = item['MetadataUrl']
-    dataset_id = metadata_url.split('/')[-1]
+def _get_dataset_id(item: Dict[str, Any]) -> str | None:
+    metadata_url: str | None = item.get('MetadataUrl')
 
-    return dataset_id
+    return metadata_url.rstrip('/').split('/')[-1] if metadata_url else None
 
 
 __all__ = ['get_or_create_not_implemented_datasets']

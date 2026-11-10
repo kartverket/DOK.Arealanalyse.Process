@@ -19,6 +19,10 @@ def test_parse_string_numbers():
     assert parse_string('42') == 42
     assert parse_string('4.2') == 4.2
     assert parse_string('Mindre god') == 'Mindre god'
+    assert parse_string('-5') == -5
+    assert parse_string('true') is True
+    assert parse_string('False') is False
+    assert parse_string('nan-verdi') == 'nan-verdi'
 
 
 def test_parse_date_string():

@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict
 from pygeofilter.parsers.cql2_text import parse
 from pygeofilter.backends.native.evaluate import NativeEvaluator
+from .common import parse_number
 
 FilterFunc = Callable[[Dict[str, Any]], bool]
 
@@ -42,17 +43,9 @@ def _to_number(value: Any) -> Any:
     if not isinstance(value, str):
         return value
 
-    text = value.strip()
+    number = parse_number(value)
 
-    try:
-        return int(text)
-    except ValueError:
-        pass
-
-    try:
-        return float(text)
-    except ValueError:
-        return value
+    return value if number is None else number
 
 
 __all__ = ['FilterFunc', 'compile_cql_filter', 'evaluate_filter']

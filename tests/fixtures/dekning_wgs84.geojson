@@ -1,0 +1,2 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"dekningsstatus":"ikkeKartlagt"},
+"geometry":{"type":"Polygon","coordinates":[[[10.70,59.88],[10.80,59.88],[10.80,59.95],[10.70,59.95],[10.70,59.88]]]}}]}

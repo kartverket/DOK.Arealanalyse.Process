@@ -38,7 +38,7 @@ async def get_or_create_kartkatalog_metadata(
 def _map_data(data: Dict[str, Any], metadata_id: str) -> Dict[str, Any]:
     title = data.get('NorwegianTitle')
     description = data.get('Abstract')
-    contact_owner: Dict[str, Any] = data.get('ContactOwner', {})
+    contact_owner: Dict[str, Any] = data.get('ContactOwner') or {}
     owner = contact_owner.get('Organization')
     updated = data.get('DateUpdated')
     dataset_description_uri = f'https://kartkatalog.geonorge.no/metadata/{metadata_id}'

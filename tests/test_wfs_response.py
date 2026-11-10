@@ -35,3 +35,19 @@ def test_coverage_parser_collects_values():
     assert values == ['Mindre god', 'God', 'God']
     assert geoms == []
     assert data[0] == {'gjentaksintervall': '200'}
+
+
+def test_gml_geometry_in_lat_lon_urn_crs_is_transformed():
+    from dokanalyse.services.wfs_response import WfsResponseParserBase
+
+    class Parser(WfsResponseParserBase):
+        def parse(self, response):
+            return None
+
+    from lxml import etree as ET
+    gml = ('<gml:Point xmlns:gml="http://www.opengis.net/gml/3.2" srsName="urn:ogc:def:crs:EPSG::4326">'
+           '<gml:pos>59.91 10.75</gml:pos></gml:Point>')
+    geometry = Parser('område', 'x', [], [], None)._create_geometry(ET.fromstring(gml))
+
+    x, y = geometry.GetX(), geometry.GetY()
+    assert 262_000 < x < 264_000 and 6_648_000 < y < 6_651_000

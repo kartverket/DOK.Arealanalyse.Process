@@ -77,7 +77,8 @@ class WfsResponseParserBase(ABC):
         epsg = get_epsg_from_crs(srs_name)
 
         if epsg is not None and epsg != DEFAULT_EPSG:
-            return transform_geometry(geometry, epsg, DEFAULT_EPSG)
+            # GML coordinates follow the axis order of the srsName
+            return transform_geometry(geometry, epsg, DEFAULT_EPSG, traditional_axis_order=False)
 
         return geometry
 

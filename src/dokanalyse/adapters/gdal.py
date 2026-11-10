@@ -86,7 +86,11 @@ def _query(
         if feature_geom is None:
             continue
 
-        clone: ogr.Geometry = feature_geom.Clone()
+        # Features are returned in the CRS of the query geometry
+        if target_epsg != epsg:
+            clone = transform_geometry(feature_geom, target_epsg, epsg)
+        else:
+            clone = feature_geom.Clone()
 
         ogr_feature.SetGeometryDirectly(None)
         json_dict: Any = ogr_feature.ExportToJson(as_object=True)
@@ -97,7 +101,7 @@ def _query(
             'properties': properties
         })
 
-    return create_feature_collection(features, target_epsg)
+    return create_feature_collection(features, epsg)
 
 
 def _get_layer_epsg(layer: ogr.Layer) -> int | None:

@@ -6,7 +6,7 @@ def get_required_env(key: str) -> str:
     try:
         return environ[key]
     except KeyError:
-        raise Exception(f'The environment variable {key} is not set')
+        raise RuntimeError(f'The environment variable {key} is not set') from None
 
 
 APP_FILES_DIR: str = get_required_env('DOKANALYSE_APP_FILES_DIR')

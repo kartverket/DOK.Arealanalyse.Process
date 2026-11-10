@@ -1,9 +1,12 @@
 import inspect
+import re
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import urlparse, unquote
 from typing import Any, Dict, List
 from ...constants import DATASETS_CONFIG_DIR
+
+_number_regex = re.compile(r'^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$')
 
 
 def file_url_to_path(url: str) -> Path | None:
@@ -28,26 +31,42 @@ def get_config_file_paths() -> List[Path]:
     return paths
 
 
-def parse_string(value: str) -> str | int | float | bool:
+def parse_string(value: str | None) -> str | int | float | bool | None:
     if value is None:
         return None
 
-    if value.isdigit():
-        return int(value)
-    elif value.replace('.', '', 1).isdigit() and value.count('.') < 2:
-        return float(value)
-    elif value.lower() == True:
+    lowered = value.strip().lower()
+
+    if lowered == 'true':
         return True
-    elif value.lower() == False:
+
+    if lowered == 'false':
         return False
 
-    return value
+    number = parse_number(value)
+
+    return value if number is None else number
 
 
-def parse_date_string(value: str) -> datetime | None:
+def parse_number(value: str) -> int | float | None:
+    text = value.strip()
+
+    if not _number_regex.match(text):
+        return None
+
+    try:
+        return int(text)
+    except ValueError:
+        return float(text)
+
+
+def parse_date_string(value: str | None) -> datetime | None:
+    if not value:
+        return None
+
     try:
         return datetime.fromisoformat(value)
-    except:
+    except (TypeError, ValueError):
         return None
 
 
@@ -80,6 +99,7 @@ def dbg(*args, **kwargs) -> None:
 __all__ = [
     'file_url_to_path',
     'parse_string',
+    'parse_number',
     'parse_date_string',
     'objectify_properties',
     'dbg'
