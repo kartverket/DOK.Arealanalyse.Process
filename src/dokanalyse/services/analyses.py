@@ -21,7 +21,7 @@ from ..models.config import DatasetConfig
 from ..models import Analysis, EmptyAnalysis, AnalysisResponse, ResultStatus, FactSheet
 from ..utils.correlation import get_correlation_id
 from ..utils.async_executor import run_in_render_thread
-from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
+from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR, AZURE_BLOB_STORAGE_CONTAINER,
                          LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL, DATASETS)
 
 _logger: BoundLogger = structlog.get_logger(__name__)
@@ -265,7 +265,7 @@ async def _get_datasets(data: Dict, municipality_number: str) -> Dict[UUID, bool
 
 def _get_file_storage() -> FileStorage | None:
     if AZURE_BLOB_STORAGE_CONN_STR:
-        return AzureBlobStorage(AZURE_BLOB_STORAGE_CONN_STR)
+        return AzureBlobStorage(AZURE_BLOB_STORAGE_CONN_STR, AZURE_BLOB_STORAGE_CONTAINER)
 
     if LOCAL_FILE_SHARE_DIR and LOCAL_FILE_SHARE_BASE_URL:
         return LocalFileShare(LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL)

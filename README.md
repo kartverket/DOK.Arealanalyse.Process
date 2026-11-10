@@ -29,7 +29,10 @@ export DOKANALYSE_SOCKET_IO_SRV_URL=http://localhost:5002
 
 # Lagring av kartbilder og PDF-rapport (valgfri). Azure Blob Storage brukes hvis satt,
 # ellers lokal filmappe hvis begge LOCAL_FILE_SHARE-variablene er satt.
+# Filene til hver analyse lagres under <container>/<uuid>/. Containeren opprettes med offentlig
+# lesetilgang til blobs (public access level "Blob") hvis den ikke finnes (standard: dokanalyse).
 export DOKANALYSE_AZURE_BLOB_STORAGE_CONN_STR=DefaultEndpointsProtocol=https;AccountName=.....
+export DOKANALYSE_AZURE_BLOB_STORAGE_CONTAINER=dokanalyse
 export DOKANALYSE_LOCAL_FILE_SHARE_DIR=/path/to/files
 export DOKANALYSE_LOCAL_FILE_SHARE_BASE_URL=https://example.com/files
 
