@@ -22,18 +22,18 @@ async def get_municipality(geometry: ogr.Geometry, epsg: int) -> Tuple[str, str]
 
 
 async def _get_municipality_from_rest_api(geometry: ogr.Geometry, epsg: int) -> Tuple[str, str] | None:
-    centroid: ogr.Geometry = geometry.Centroid()
-    point: List[float] = centroid.GetPoint(0)
+    point_on_surface = _get_point_on_surface(geometry)
+    point: List[float] = point_on_surface.GetPoint(0)
 
     return await _fetch_municipality(point[0], point[1], epsg)
 
 
 async def _get_municipality_from_wfs(geometry: ogr.Geometry, epsg: int) -> Tuple[str, str] | None:
-    centroid: ogr.Geometry = geometry.Centroid()
+    point_on_surface = _get_point_on_surface(geometry)
     sr: osr.SpatialReference = geometry.GetSpatialReference()
-    centroid.AssignSpatialReference(sr)
+    point_on_surface.AssignSpatialReference(sr)
 
-    _, response = await query_wfs(_WFS_URL, 'Kommune', 'område', centroid, epsg)
+    _, response = await query_wfs(_WFS_URL, 'Kommune', 'område', point_on_surface, epsg)
 
     if response is None:
         return None
@@ -78,6 +78,12 @@ async def _fetch_municipality(x: float, y: float, epsg: int) -> Tuple[str, str] 
     except Exception as err:
         _logger.error('Getting municipality failed', url=url, error=str(err))
         return None
+
+
+def _get_point_on_surface(geometry: ogr.Geometry) -> ogr.Geometry:
+    # Unlike the centroid, the point is always inside the polygon (the
+    # centroid of e.g. a U-shaped polygon may lie in another municipality)
+    return geometry.PointOnSurface()
 
 
 __all__ = ['get_municipality']
