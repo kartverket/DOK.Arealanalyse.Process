@@ -57,3 +57,4 @@ async def test_failing_dataset_does_not_fail_request(fake_request_services, poly
     assert statuses['Kulturminner'] == 'ERROR'
     assert statuses['Natur'] == 'NO-HIT-GREEN'
     assert response['report'] is None
+    assert len(response['factList']) == 1  # buildings (AR5 is not configured)

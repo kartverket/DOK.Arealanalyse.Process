@@ -11,8 +11,8 @@ from ..utils.helpers.common import objectify_properties
 
 
 async def get_values_from_wfs(
-    config: CoverageWfs, 
-    geometry: ogr.Geometry, 
+    config: CoverageWfs,
+    geometry: ogr.Geometry,
     epsg: int
 ) -> Tuple[List[str], float, List[Dict]]:
     _, response = await query_wfs(config.url, config.layer, cast(str, config.geom_field), geometry, epsg)
@@ -31,8 +31,8 @@ async def get_values_from_wfs(
 
 
 async def get_values_from_arcgis(
-    config: CoverageService, 
-    geometry: ogr.Geometry, 
+    config: CoverageService,
+    geometry: ogr.Geometry,
     epsg: int
 ) -> Tuple[List[str], float, List[Dict]]:
     _, response = await query_arcgis(config.url, config.layer, None, geometry, epsg)

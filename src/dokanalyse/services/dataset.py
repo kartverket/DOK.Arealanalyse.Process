@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
 from .config import get_dataset_configs
@@ -10,17 +10,6 @@ from ..models.config import DatasetConfig
 from ..constants import NATIONAL_DATASETS
 
 _logger: BoundLogger = structlog.get_logger(__name__)
-
-
-def get_dataset_type(config: DatasetConfig) -> Literal['wfs', 'arcgis', 'ogc_api'] | None:
-    if config.wfs is not None:
-        return 'wfs'
-    elif config.arcgis is not None:
-        return 'arcgis'
-    elif config.ogc_api is not None:
-        return 'ogc_api'
-
-    return None
 
 
 async def get_config_ids(data: Dict[str, Any], municipality_number: str) -> Dict[UUID, bool]:
@@ -76,4 +65,4 @@ def _get_national_dataset_ids() -> List[str]:
     return [dataset_id.strip() for dataset_id in NATIONAL_DATASETS.split(',')]
 
 
-__all__ = ['get_dataset_type', 'get_config_ids']
+__all__ = ['get_config_ids']

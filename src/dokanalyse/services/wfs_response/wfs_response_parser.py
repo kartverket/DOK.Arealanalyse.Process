@@ -17,7 +17,7 @@ class WfsResponseParser(WfsResponseParserBase):
         layer: Layer,
         unwrap_capitalized_wrappers: bool = False,
         flatten_single_list_wrappers: bool = False
-    ) -> None:       
+    ) -> None:
         super().__init__(
             cast(str, config.geom_field),
             cast(str, layer.wfs),
@@ -41,7 +41,7 @@ class WfsResponseParser(WfsResponseParserBase):
 
         source = BytesIO(response)
         context = ET.iterparse(
-            source, events=['end'], tag='{*}' + self._layer, huge_tree=True)        
+            source, events=['end'], tag='{*}' + self._layer, huge_tree=True)
 
         for _, elem in context:
             geom_elem = elem.find(geom_path)

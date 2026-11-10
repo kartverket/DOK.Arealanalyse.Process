@@ -26,6 +26,8 @@ PDF_TEMPLATES_DIR: str | None = getenv('DOKANALYSE_PDF_TEMPLATES_DIR')
 CLIENT_TIMEOUT: int = int(getenv('DOKANALYSE_CLIENT_TIMEOUT', 30))
 DATASETS: str | None = getenv('DOKANALYSE_DATASETS')
 LOG_LEVEL: str = getenv('DOKANALYSE_LOG_LEVEL', 'INFO')
+LOG_TO_FILE: bool = (
+    getenv('DOKANALYSE_LOG_TO_FILE', 'True').lower() == 'true')
 USE_XML_SCHEMAS: bool = (
     getenv('DOKANALYSE_USE_XML_SCHEMAS', 'False').lower() == 'true')
 DEFAULT_EPSG: int = 25833

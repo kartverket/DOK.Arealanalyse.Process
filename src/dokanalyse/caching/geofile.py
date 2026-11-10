@@ -20,16 +20,13 @@ async def get_or_create_geofile(
 
     dirpath = Path(CACHE_DIR).joinpath(
         filetype) if filetype else Path(CACHE_DIR)
-    
-    dirpath.mkdir(parents=True, exist_ok=True)
-
     path = dirpath.joinpath(filename)
 
     return await get_or_create_file(
-        url, 
-        path, 
-        session, 
-        with_lock=with_lock, 
+        url,
+        path,
+        session,
+        with_lock=with_lock,
         semaphore=semaphore,
         cache=(_CACHE_MONTHS, CacheUnit.MONTHS)
     )

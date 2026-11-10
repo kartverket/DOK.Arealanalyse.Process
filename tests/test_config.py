@@ -2,7 +2,6 @@ from uuid import UUID
 import pytest
 from dokanalyse.services.config import (
     get_dataset_configs, get_dataset_config, get_quality_indicator_configs)
-from dokanalyse.services.dataset import get_dataset_type
 from dokanalyse.models.config import DatasetConfig, QualityIndicatorType
 from pydantic import ValidationError
 
@@ -19,9 +18,9 @@ async def test_loads_enabled_dataset_configs():
 
 
 async def test_get_dataset_config_and_type():
-    assert get_dataset_type(await get_dataset_config(WFS_ID)) == 'wfs'
-    assert get_dataset_type(await get_dataset_config(ARCGIS_ID)) == 'arcgis'
-    assert get_dataset_type(await get_dataset_config(OGC_API_ID)) == 'ogc_api'
+    assert (await get_dataset_config(WFS_ID)).service_type == 'wfs'
+    assert (await get_dataset_config(ARCGIS_ID)).service_type == 'arcgis'
+    assert (await get_dataset_config(OGC_API_ID)).service_type == 'ogc_api'
     assert await get_dataset_config(UUID('99999999-9999-4999-8999-999999999999')) is None
 
 

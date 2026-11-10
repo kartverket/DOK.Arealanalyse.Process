@@ -55,10 +55,10 @@ async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict[str, Any]]:
 def _count_building_categories(response: bytes) -> List[Dict[str, Any]]:
     source = BytesIO(response)
     context = ET.iterparse(
-        source, events=['end'], tag='{*}Bygning', huge_tree=True)        
+        source, events=['end'], tag='{*}Bygning', huge_tree=True)
     categories = []
 
-    for _, elem in context:        
+    for _, elem in context:
         building_type = elem.findtext('./{*}bygningstype')
 
         if not building_type or not building_type.strip().isdigit():

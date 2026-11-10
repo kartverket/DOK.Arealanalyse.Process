@@ -20,10 +20,11 @@ The tests never make network calls: everything network-dependent is monkeypatche
 ## Architecture
 
 - `processor.py`: `DokanalyseProcessor.execute()` is the pygeoapi entry point. It validates the input against `resources/no.geonorge.dokanalyse.v1.input.schema.json` and runs the async pipeline on a dedicated event loop (`utils/async_executor.py`).
-- `services/analyses.py`: orchestrates one request. Steps: municipality lookup, dataset selection (`services/dataset.py`), one analysis per dataset in parallel, fact sheet, map images, PDF, upload.
+- `services/analyses.py`: orchestrates one request. Steps: municipality lookup, dataset selection (`services/dataset.py`), one analysis per dataset in parallel (the fact sheet runs concurrently), then map images, PDF and upload.
 - `services/analysis_runner.py`: a single dataset analysis. It runs the coverage check, then the layer queries in order (the first layer with a hit decides the status), distance to the nearest object, hit area, guidance and quality.
-- `services/query_strategies.py`: one strategy per service type (WFS, ArcGIS REST, OGC API Features). They are built on `adapters/`.
-- `caching/`: file cache for external registries (Geolett, DOK-status, Kartkatalog, code lists, XSDs, geo files). Uses file locks; writes are atomic via tmp files.
+- `services/query_strategies.py`: one strategy per service type (WFS, ArcGIS REST, OGC API Features), selected by `DatasetConfig.service_type`. They are built on `adapters/`.
+- `services/config.py`: loads all YAML files into an in-memory snapshot. It is reloaded when the directory changes (checked at most every 10 s). An invalid file is logged and skipped.
+- `caching/`: file cache for external registries (Geolett, DOK-status, Kartkatalog, code lists, XSDs, geo files). Uses file locks; writes are atomic via tmp files. If a refresh fails, the stale file is served. `caching/json_cache.py` keeps parsed JSON in memory until the file changes; the returned values are shared and must not be mutated.
 - `models/config/`: Pydantic models for the YAML config.
 - `pdf_templates/`: Jinja2 + WeasyPrint report. `functions/` and `filters/` are loaded dynamically as Jinja globals and filters. The directory can be overridden with `DOKANALYSE_PDF_TEMPLATES_DIR`.
 
@@ -33,7 +34,7 @@ The tests never make network calls: everything network-dependent is monkeypatche
 - **WFS filters are evaluated client-side** on the parsed features, on purpose, because many WFS services support filtering poorly. Do not move them into the GetFeature request. ArcGIS and OGC API filters are sent to the server.
 - **The JSON response is a contract with the client.** Do not rename or remove fields.
 - A failure in one dataset, map image, fact sheet or the PDF must not fail the whole request. Mark that part as failed (`ResultStatus.ERROR` / missing binary) and log it.
-- The event loop is shared by all concurrent requests. CPU-bound or blocking work (GDAL, large XML parsing, matplotlib, WeasyPrint, synchronous I/O) must run off the loop (`asyncio.to_thread`).
+- The event loop is shared by all concurrent requests. CPU-bound or blocking work (GDAL, large XML parsing, geometry operations, synchronous I/O) must run off the loop (`asyncio.to_thread`). Map images (cartopy/matplotlib) and the PDF (WeasyPrint) run one at a time in the render thread (`run_in_render_thread`), because those libraries are not reliably thread-safe. Never use `matplotlib.pyplot`; use `matplotlib.figure.Figure`.
 - Do not log personal data or secrets (service credentials are resolved from `${ENV_VAR}` references in the config).
 
 ## Environment variables

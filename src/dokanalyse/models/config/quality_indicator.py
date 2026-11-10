@@ -28,7 +28,7 @@ class QualityIndicator(BaseModel):
     def check_coverage(cls, values: Dict) -> Dict:
         type = values.get('type')
 
-        if type == QualityIndicatorType.COVERAGE and not 'wfs' in values and not 'arcgis' in values and not 'geojson' in values and not 'gpkg' in values:
+        if type == QualityIndicatorType.COVERAGE and 'wfs' not in values and 'arcgis' not in values and 'geojson' not in values and 'gpkg' not in values:
             raise ValueError(
                 'If the quality indicator type is "coverage", either the properties "wfs", "arcgis", "geojson" or "gpkg" must be set')
 

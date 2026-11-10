@@ -9,7 +9,6 @@ class FactSheet:
         self.buffer: int = 0
         self.raster_result_map: str | None = None
         self.raster_result_image: str | None = None
-        self.raster_result_image_bytes: bytes | None = None
         self.cartography: str | None = None
         self.fact_list: List[FactPart] = []
 

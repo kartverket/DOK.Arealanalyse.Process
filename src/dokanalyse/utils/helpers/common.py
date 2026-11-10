@@ -1,4 +1,3 @@
-import inspect
 import re
 from pathlib import Path
 from datetime import datetime
@@ -88,19 +87,10 @@ def objectify_properties(properties: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-def dbg(*args, **kwargs) -> None:
-    frame = inspect.stack()[1]
-    filename = frame.filename
-    lineno = frame.lineno
-
-    print(f"{filename}:{lineno} —", *args, **kwargs)
-
-
 __all__ = [
     'file_url_to_path',
     'parse_string',
     'parse_number',
     'parse_date_string',
-    'objectify_properties',
-    'dbg'
+    'objectify_properties'
 ]

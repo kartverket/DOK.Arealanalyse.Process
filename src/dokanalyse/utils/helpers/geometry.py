@@ -147,16 +147,6 @@ def create_feature_collection(features: List[Dict[str, Any]], epsg: int | None =
     return feature_collection
 
 
-def create_feature(geometry: ogr.Geometry, properties: Dict[str, Any] | None = None) -> Dict:
-    json_str = geometry.ExportToJson()
-
-    return {
-        'type': 'Feature',
-        'geometry': json.loads(json_str),
-        'properties': properties or {}
-    }
-
-
 def transform_geometry(
     geometry: ogr.Geometry,
     src_epsg: int | None,
@@ -286,7 +276,6 @@ __all__ = [
     'create_input_geometry',
     'create_buffered_geometry',
     'create_feature_collection',
-    'create_feature',
     'transform_geometry',
     'get_coordinate_transformation',
     'length_to_degrees',

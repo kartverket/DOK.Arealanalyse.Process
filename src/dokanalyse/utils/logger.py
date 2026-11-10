@@ -6,33 +6,45 @@ from pathlib import Path
 from functools import partial
 from logging.handlers import TimedRotatingFileHandler
 from typing import Literal
-from ..constants import APP_FILES_DIR, LOG_LEVEL
+from ..constants import APP_FILES_DIR, LOG_LEVEL, LOG_TO_FILE
+
+_configured = False
 
 
 def setup() -> None:
-    filename = Path(APP_FILES_DIR).joinpath('logs/dokanalyse.log')
-    filename.parent.mkdir(parents=True, exist_ok=True)
+    global _configured
+
+    if _configured:
+        return
+
+    _configured = True
 
     log_format = \
         '[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s'
-
-    file_handler = TimedRotatingFileHandler(
-        filename, when='midnight', backupCount=30)
-
-    file_handler.setFormatter(logging.Formatter(log_format))
-    file_handler.namer = lambda name: name.replace('.log', '') + '.log'
 
     if logging.root.handlers:
         console_handler = logging.root.handlers[0]
     else:
         console_handler = logging.StreamHandler(sys.stdout)
+        logging.root.addHandler(console_handler)
 
     console_handler.setFormatter(logging.Formatter(log_format))
     console_handler.setLevel(_get_log_level())
-
     logging.root.setLevel(_get_log_level())
-    logging.root.addHandler(console_handler)
-    logging.root.addHandler(file_handler)
+
+    # Note: the rotating file handler is not safe when several worker
+    # processes write to the same file. Disable it with
+    # DOKANALYSE_LOG_TO_FILE=false and log to stdout instead.
+    if LOG_TO_FILE:
+        filename = Path(APP_FILES_DIR).joinpath('logs/dokanalyse.log')
+        filename.parent.mkdir(parents=True, exist_ok=True)
+
+        file_handler = TimedRotatingFileHandler(
+            filename, when='midnight', backupCount=30, encoding='utf-8')
+
+        file_handler.setFormatter(logging.Formatter(log_format))
+        file_handler.namer = lambda name: name.replace('.log', '') + '.log'
+        logging.root.addHandler(file_handler)
 
     logger = logging.getLogger('azure')
     logger.setLevel(logging.WARNING)
@@ -61,7 +73,7 @@ def setup() -> None:
 
 
 def _get_log_level() -> Literal[10, 20, 30, 40, 50]:
-    match LOG_LEVEL:
+    match LOG_LEVEL.upper():
         case 'DEBUG':
             return logging.DEBUG
         case 'INFO':

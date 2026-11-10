@@ -7,7 +7,7 @@ import asyncio
 from socketio import SimpleClient
 from osgeo import ogr
 from pydash import kebab_case
-from .dataset import get_config_ids, get_dataset_type
+from .dataset import get_config_ids
 from .fact_sheet import create_fact_sheet
 from .municipality import get_municipality
 from .config import get_dataset_config, get_not_implemented_dataset_configs
@@ -18,8 +18,7 @@ from ..services.file_storage import FileStorage, AzureBlobStorage, LocalFileShar
 from ..utils.helpers.geometry import create_input_geometry, get_epsg_from_geojson
 from ..models.progress_emitter import ProgressEmitter, ProgressStatus
 from ..models.config import DatasetConfig
-from ..models import (Analysis, ArcGisAnalysis, OgcApiAnalysis,
-                      WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus, FactSheet)
+from ..models import Analysis, EmptyAnalysis, AnalysisResponse, ResultStatus, FactSheet
 from ..utils.correlation import get_correlation_id
 from ..utils.async_executor import run_in_render_thread
 from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
@@ -64,8 +63,14 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     emitter.send_message(ProgressStatus.STARTING_UP, True)
 
     tasks: List[asyncio.Task[Analysis | None]] = []
+    fact_sheet_task: asyncio.Task[FactSheet | None] | None = None
 
     async with asyncio.TaskGroup() as tg:
+        # The fact sheet is independent of the analyses and is created
+        # concurrently. Progress is still reported after the analyses.
+        if include_facts:
+            fact_sheet_task = tg.create_task(_create_fact_sheet(geometry, orig_epsg, buffer))
+
         for config_id, should_analyze in datasets.items():
             task = tg.create_task(_run_analysis(
                 config_id, should_analyze, geometry, DEFAULT_EPSG, orig_epsg, buffer,
@@ -82,9 +87,9 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     emitter.send_message(ProgressStatus.ANALYZING_DATASETS, True)
     fact_sheet = None
 
-    if include_facts:
+    if fact_sheet_task:
         emitter.send_message(ProgressStatus.CREATING_FACT_SHEET)
-        fact_sheet = await _create_fact_sheet(geometry, orig_epsg, buffer)
+        fact_sheet = fact_sheet_task.result()
         emitter.send_message(ProgressStatus.CREATING_FACT_SHEET, True)
 
     response = AnalysisResponse.create(
@@ -146,12 +151,11 @@ async def _run_analysis(
 
     start = time.time()
 
-    analysis = _create_analysis(
-        config_id, config, geometry, epsg, orig_epsg, buffer)
-
-    if analysis is None:
+    if config.service_type is None:
         _logger.error('Unsupported dataset type', config_id=str(config_id), dataset=config.name)
         return None
+
+    analysis = Analysis(config_id, config, geometry, epsg, orig_epsg, buffer)
 
     try:
         await run_single_analysis(analysis, context, include_guidance, include_quality_measurement)
@@ -200,27 +204,6 @@ async def _run_not_implemented_analysis(config: DatasetConfig) -> Analysis | Non
         return None
 
     return analysis
-
-
-def _create_analysis(
-    config_id: UUID,
-    config: DatasetConfig,
-    geometry: ogr.Geometry,
-    epsg: int,
-    orig_epsg: int | None,
-    buffer: int
-) -> Analysis | None:
-    dataset_type = get_dataset_type(config)
-
-    match dataset_type:
-        case 'arcgis':
-            return ArcGisAnalysis(config_id, config, geometry, epsg, orig_epsg, buffer)
-        case 'ogc_api':
-            return OgcApiAnalysis(config_id, config, geometry, epsg, orig_epsg, buffer)
-        case 'wfs':
-            return WfsAnalysis(config_id, config, geometry, epsg, orig_epsg, buffer)
-        case _:
-            return None
 
 
 async def _upload_images(
@@ -291,7 +274,7 @@ def _get_file_storage() -> FileStorage | None:
 
 
 def _get_datasets_to_analyze_count(datasets: Dict[UUID, bool]) -> int:
-    return len({key: value for (key, value) in datasets.items() if value == True})
+    return sum(1 for should_analyze in datasets.values() if should_analyze)
 
 
 def _find_analysis(analyses: List[Analysis], config_id: str) -> Analysis | None:

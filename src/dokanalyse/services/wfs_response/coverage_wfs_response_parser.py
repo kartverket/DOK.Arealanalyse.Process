@@ -39,7 +39,7 @@ class CoverageWfsResponseParser(WfsResponseParserBase):
         source = BytesIO(response)
         context = ET.iterparse(
             source, events=['end'], tag='{*}' + self._layer, huge_tree=True)
-    
+
         for _, elem in context:
             value = elem.findtext(prop_path)
 
@@ -59,7 +59,7 @@ class CoverageWfsResponseParser(WfsResponseParserBase):
 
                 if feature_geom:
                     feature_geoms.append(feature_geom)
-                    
+
             try:
                 if self._properties:
                     self._remove_geom_element(geom_elem)
@@ -73,4 +73,4 @@ class CoverageWfsResponseParser(WfsResponseParserBase):
 
         del context
 
-        return values, feature_geoms, data 
+        return values, feature_geoms, data

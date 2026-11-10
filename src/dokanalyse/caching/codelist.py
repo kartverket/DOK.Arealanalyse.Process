@@ -8,7 +8,6 @@ from ..constants import CACHE_DIR
 _CACHE_DAYS = 14
 
 _codelists_cache_dir = Path(CACHE_DIR).joinpath('codelists')
-_codelists_cache_dir.mkdir(parents=True, exist_ok=True)
 
 
 async def get_or_create_codelist(
@@ -24,11 +23,11 @@ async def get_or_create_codelist(
         return _map_data(data)
 
     return await get_or_create_file(
-        url, 
-        path, 
-        session, 
-        with_lock, 
-        mapper=mapper, 
+        url,
+        path,
+        session,
+        with_lock,
+        mapper=mapper,
         semaphore=semaphore,
         cache=(_CACHE_DAYS, CacheUnit.DAYS)
     )

@@ -9,7 +9,6 @@ _API_BASE_URL = 'https://register.geonorge.no/api/det-offentlige-kartgrunnlaget-
 _CACHE_DAYS = 7
 
 _dok_datasets_cache_dir = Path(CACHE_DIR).joinpath('dok-datasets')
-_dok_datasets_cache_dir.mkdir(parents=True, exist_ok=True)
 
 
 async def get_or_create_kartgrunnlag(
@@ -25,11 +24,11 @@ async def get_or_create_kartgrunnlag(
         return _map_data(data)
 
     return await get_or_create_file(
-        url, 
-        path, 
-        session, 
+        url,
+        path,
+        session,
         with_lock,
-        mapper=mapper, 
+        mapper=mapper,
         semaphore=semaphore,
         cache=(_CACHE_DAYS, CacheUnit.DAYS)
     )

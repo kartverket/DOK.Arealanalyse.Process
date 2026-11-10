@@ -137,7 +137,7 @@ PROCESS_METADATA = {
                 'type': 'number'
             },
             'minOccurs': 1,
-            'maxOccurs': 1            
+            'maxOccurs': 1
         },
         'municipalityNumber': {
             'title': 'Kommunenummer',
@@ -154,7 +154,7 @@ PROCESS_METADATA = {
             },
             'minOccurs': 1,
             'maxOccurs': 1
-        }        
+        }
     },
     'example': {
         'inputs': {

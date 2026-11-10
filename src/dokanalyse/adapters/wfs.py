@@ -29,9 +29,9 @@ async def query_wfs(
 
 
 def _create_wfs_request_xml(
-    layer: str, 
-    geom_field: str, 
-    gml_str: str, 
+    layer: str,
+    geom_field: str,
+    gml_str: str,
     epsg: int
 ) -> bytes:
     with _wfs_request_xml_path.open() as file:
@@ -48,7 +48,7 @@ async def _query_wfs(
 ) -> Tuple[int, bytes | None]:
     url = f'{base_url}?service=WFS&version=2.0.0'
     auth_params = get_auth(auth)
-    
+
     try:
         async with get_session().post(url, data=xml_body, **auth_params) as response:
             if response.status == 200:

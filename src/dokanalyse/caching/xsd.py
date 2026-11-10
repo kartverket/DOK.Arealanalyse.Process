@@ -27,7 +27,6 @@ async def get_or_create_xml_schema(
 ) -> Path:
     xsd_url = f'{url}?service=WFS&version=2.0.0&request=DescribeFeatureType'
     filename = f'{hash_url(url)}.xsd'
-    XSD_CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = XSD_CACHE_DIR.joinpath(filename)
 
     return await get_or_create_file(

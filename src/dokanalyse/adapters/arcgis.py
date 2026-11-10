@@ -39,9 +39,9 @@ async def query_arcgis(
 
 
 async def _query_arcgis(
-    url: str, 
-    auth: Auth | None, 
-    data: Dict, 
+    url: str,
+    auth: Auth | None,
+    data: Dict,
     dataset_config: DatasetConfig | None
 ) -> Tuple[int, Dict | None]:
     auth_params = get_auth(auth)

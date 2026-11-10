@@ -1,6 +1,6 @@
 from uuid import UUID
 import pytest
-from dokanalyse.models import ArcGisAnalysis, ResultStatus
+from dokanalyse.models import Analysis, ResultStatus
 from dokanalyse.services import analysis_runner
 from dokanalyse.services.config import get_dataset_config
 
@@ -73,9 +73,9 @@ def fake_services(monkeypatch) -> FakeServices:
     return FakeServices(monkeypatch)
 
 
-async def _create_analysis(geometry, buffer: int = 0) -> ArcGisAnalysis:
+async def _create_analysis(geometry, buffer: int = 0) -> Analysis:
     config = await get_dataset_config(ARCGIS_ID)
-    return ArcGisAnalysis(ARCGIS_ID, config, geometry, 25833, 25833, buffer)
+    return Analysis(ARCGIS_ID, config, geometry, 25833, 25833, buffer)
 
 
 async def test_hit_in_first_layer(fake_services, geometry_25833):

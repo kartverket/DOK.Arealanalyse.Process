@@ -8,7 +8,7 @@ from .layer import Layer
 
 class DatasetConfig(BaseModel):
     config_id: UUID
-    name: str    
+    name: str
     comment: str | None = None
     disabled: bool | None = False
     title: str | None = None
@@ -29,6 +29,19 @@ class DatasetConfig(BaseModel):
         'arbitrary_types_allowed': True
     }
 
+    @property
+    def service_type(self) -> Literal['wfs', 'arcgis', 'ogc_api'] | None:
+        if self.wfs is not None:
+            return 'wfs'
+
+        if self.arcgis is not None:
+            return 'arcgis'
+
+        if self.ogc_api is not None:
+            return 'ogc_api'
+
+        return None
+
     def get_feature_service_url(self) -> str:
         service = self.wfs or self.arcgis or self.ogc_api
 
@@ -40,7 +53,7 @@ class DatasetConfig(BaseModel):
     @model_validator(mode='before')
     @classmethod
     def check_service_type(cls, values: Dict) -> Dict:
-        if not 'wfs' in values and not 'arcgis' in values and not 'ogc_api' in values:
+        if 'wfs' not in values and 'arcgis' not in values and 'ogc_api' not in values:
             raise ValueError(
                 'The dataset must have either the "wfs", "arcgis" or "ogc_api" property set')
 

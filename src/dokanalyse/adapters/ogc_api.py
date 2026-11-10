@@ -27,10 +27,10 @@ async def query_ogc_api(
     epsg: int,
     dataset_config: DatasetConfig | None = None
 ) -> Tuple[int, List[Dict[str, Any]] | None]:
-    url, auth = get_service_credentials(ogc_api)    
+    url, auth = get_service_credentials(ogc_api)
     request_url = _create_request_url(
         url, layer, geom_field, geometry, filter, epsg)
-    status, response = await _query_ogc_api(request_url, auth, dataset_config) 
+    status, response = await _query_ogc_api(request_url, auth, dataset_config)
 
     if response is None:
         return status, response
@@ -60,8 +60,8 @@ async def query_ogc_api(
 
 
 async def _query_ogc_api(
-    url: str, 
-    auth: Auth | None, 
+    url: str,
+    auth: Auth | None,
     dataset_config: DatasetConfig | None
 ) -> Tuple[int, Dict[str, Any] | None]:
     auth_params = get_auth(auth)

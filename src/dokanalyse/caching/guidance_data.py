@@ -21,11 +21,11 @@ async def get_or_create_guidance_data(
         return _map_data(data)
 
     return await get_or_create_file(
-        _API_URL, 
-        path, 
-        session, 
+        _API_URL,
+        path,
+        session,
         with_lock,
-        mapper=mapper, 
+        mapper=mapper,
         semaphore=semaphore,
         cache=(_CACHE_DAYS, CacheUnit.DAYS)
     )

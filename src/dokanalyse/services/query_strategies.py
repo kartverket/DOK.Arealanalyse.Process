@@ -8,9 +8,6 @@ from ..adapters.wfs import query_wfs
 from ..adapters.arcgis import query_arcgis
 from ..adapters.ogc_api import query_ogc_api
 from ..models.analysis import Analysis
-from ..models.wfs_analysis import WfsAnalysis
-from ..models.arcgis_analysis import ArcGisAnalysis
-from ..models.ogc_api_analysis import OgcApiAnalysis
 from ..models.config.dataset_config import DatasetConfig
 from ..models.config.layer import Layer
 from ..utils.helpers.geometry import geometry_from_json
@@ -123,15 +120,17 @@ class OgcApiQueryStrategy:
         return geometries
 
 
-_strategies: Dict[type, QueryStrategy] = {
-    WfsAnalysis: WfsQueryStrategy(),
-    ArcGisAnalysis: ArcGisQueryStrategy(),
-    OgcApiAnalysis: OgcApiQueryStrategy(),
+_strategies: Dict[str, QueryStrategy] = {
+    'wfs': WfsQueryStrategy(),
+    'arcgis': ArcGisQueryStrategy(),
+    'ogc_api': OgcApiQueryStrategy(),
 }
 
 
 def get_query_strategy(analysis: Analysis) -> QueryStrategy | None:
-    return _strategies.get(type(analysis))
+    service_type = analysis.config.service_type
+
+    return _strategies.get(service_type) if service_type else None
 
 
 def _map_properties(

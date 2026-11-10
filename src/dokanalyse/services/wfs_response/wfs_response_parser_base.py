@@ -62,7 +62,7 @@ class WfsResponseParserBase(ABC):
     def _create_geometry(self, elem: ET._Element | None) -> ogr.Geometry | None:
         if elem is None:
             return None
-        
+
         gml_str = ET.tostring(elem, encoding='unicode')
         geometry = geometry_from_gml(gml_str)
 
@@ -85,7 +85,7 @@ class WfsResponseParserBase(ABC):
     def _remove_geom_element(self, elem: ET._Element) -> None:
         if elem is None:
             return
-        
+
         parent = elem.getparent()
 
         if parent is None:

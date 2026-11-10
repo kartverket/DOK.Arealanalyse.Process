@@ -36,11 +36,11 @@ async def get_or_create_dok_status(
         return _map_data(data)
 
     return await get_or_create_file(
-        _API_URL, 
-        path, 
-        session, 
-        with_lock, 
-        mapper=mapper, 
+        _API_URL,
+        path,
+        session,
+        with_lock,
+        mapper=mapper,
         semaphore=semaphore,
         cache=(_CACHE_DAYS, CacheUnit.DAYS)
     )
