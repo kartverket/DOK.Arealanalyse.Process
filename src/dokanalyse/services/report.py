@@ -7,8 +7,11 @@ from io import BytesIO
 from pathlib import Path
 from types import ModuleType
 from typing import List, Tuple, Any
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
+from weasyprint.urls import URLFetcher, URLFetcherResponse
 from ..models.analysis_response import AnalysisResponse
 from ..constants import PDF_TEMPLATES_DIR
 
@@ -28,7 +31,8 @@ def create_pdf(analysis_response: AnalysisResponse) -> bytes:
     output = template.render(data=analysis_response.to_dict())
 
     buffer = BytesIO()
-    html = HTML(string=output, base_url=templates_path)
+    html = HTML(string=output, base_url=templates_path,
+                url_fetcher=_ReportURLFetcher(templates_path))
     html.write_pdf(buffer)
 
     return buffer.getvalue()
@@ -45,7 +49,10 @@ def _get_environment(templates_path: str) -> Environment:
 
 
 def _create_environment(templates_path: str) -> Environment:
-    env = Environment(loader=FileSystemLoader(templates_path))
+    # Values from external sources (guidance texts, WFS properties) end up in
+    # the HTML, so everything is escaped. Helpers that return HTML must
+    # return markupsafe.Markup.
+    env = Environment(loader=FileSystemLoader(templates_path), autoescape=True)
 
     for name, func in _get_helper_functions(Path(templates_path, 'functions')):
         env.globals[name] = func
@@ -98,6 +105,26 @@ def _get_templates_path() -> str:
         return PDF_TEMPLATES_DIR
 
     return str(Path(__file__).parents[1].joinpath('pdf_templates'))
+
+
+class _ReportURLFetcher(URLFetcher):
+    """Only fetches images over HTTP(S), data URIs and local files inside
+    the templates directory (stylesheets, fonts, icons)."""
+
+    def __init__(self, templates_path: str) -> None:
+        super().__init__(timeout=10, allowed_protocols=('http', 'https', 'data', 'file'))
+        self.__templates_path = Path(templates_path).resolve()
+
+    def fetch(self, url: str, headers: Any = None) -> URLFetcherResponse:
+        parsed = urlparse(url)
+
+        if parsed.scheme == 'file':
+            path = Path(url2pathname(parsed.path)).resolve()
+
+            if not path.is_relative_to(self.__templates_path):
+                raise ValueError(f'File outside the templates directory: {url}')
+
+        return super().fetch(url, headers)
 
 
 __all__ = ['create_pdf']

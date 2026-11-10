@@ -1,13 +1,16 @@
 from datetime import datetime
 import babel.numbers
 import markdown as md
+from markupsafe import Markup
 
 
-def markdown(value: str) -> str:
+def markdown(value: str | None) -> Markup:
+    # The texts come from the guidance registry (Geolett) and are trusted
+    # to contain HTML
     if not value:
-        return ''
+        return Markup('')
 
-    return md.markdown(value)
+    return Markup(md.markdown(value))
 
 
 def format_number(value: int | float | None) -> str:

@@ -25,7 +25,7 @@ dependencies = [
     "pyproj",
     "contextily",
     "Pillow",
-    "weasyprint",
+    "weasyprint>=68.1",
     "Markdown",
     "python-socketio[client]",
     "azure-storage-blob",

@@ -753,7 +753,7 @@ requires-dist = [
     { name = "structlog", specifier = ">=25.5.0" },
     { name = "typer", specifier = ">=0.24.1" },
     { name = "types-lxml" },
-    { name = "weasyprint" },
+    { name = "weasyprint", specifier = ">=68.1" },
     { name = "xmlschema", specifier = ">=4.3.1" },
     { name = "xmltodict", specifier = ">=1.0.4" },
 ]

@@ -1,5 +1,6 @@
 from typing import Any, List, Dict
 import babel.numbers
+from markupsafe import Markup, escape
 
 _MAX_DISTANCE = 20_000
 
@@ -29,32 +30,32 @@ def get_not_relevant_dataset_titles(response: Dict) -> List[str]:
     return sorted(title for title in titles if title)
 
 
-def get_result_title(result: Dict) -> str:
+def get_result_title(result: Dict) -> Markup:
     dataset = result.get('runOnDataset')
 
     if dataset and dataset.get('title'):
-        dataset_title = f"«{dataset['title']}»"
+        dataset_title = Markup('«{}»').format(dataset['title'])
 
         if result['title']:
-            dataset_title += f"<div>({result['title']})</div>"
+            dataset_title += Markup('<div>({})</div>').format(result['title'])
     else:
-        dataset_title = result['title'] or ''
+        dataset_title = escape(result['title'] or '')
 
     match result['resultStatus']:
         case 'NO-HIT-GREEN':
-            return f'Området er utenfor {dataset_title}'
+            return Markup('Området er utenfor {}').format(dataset_title)
         case 'NO-HIT-YELLOW':
-            return f'Området har ikke treff for {dataset_title}'
+            return Markup('Området har ikke treff for {}').format(dataset_title)
         case 'HIT-YELLOW':
-            return f'Området har treff i {dataset_title}'
+            return Markup('Området har treff i {}').format(dataset_title)
         case 'HIT-RED':
-            return f'Området er i konflikt med {dataset_title}'
+            return Markup('Området er i konflikt med {}').format(dataset_title)
         case 'TIMEOUT':
-            return f'Tidsavbrudd: {dataset_title}'
+            return Markup('Tidsavbrudd: {}').format(dataset_title)
         case 'ERROR':
-            return f'En feil har oppstått: {dataset_title}'
+            return Markup('En feil har oppstått: {}').format(dataset_title)
         case _:
-            return ''
+            return Markup('')
 
 
 def get_distance(result: Dict) -> str:

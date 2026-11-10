@@ -106,3 +106,9 @@ def test_pie_chart(charts):
 
 def test_pie_chart_without_data(charts):
     assert charts.create_pie_chart([], 'BUILDINGS') == ('', None)
+
+
+def test_result_title_escapes_titles(helpers):
+    title = helpers.get_result_title(_result(title='<img src="x">', runOnDataset={'title': 'A & B'}))
+
+    assert title == 'Området er i konflikt med «A &amp; B»<div>(&lt;img src=&#34;x&#34;&gt;)</div>'
