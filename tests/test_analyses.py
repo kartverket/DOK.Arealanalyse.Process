@@ -1,4 +1,5 @@
 import pytest
+from dokanalyse.models import AnalysisInput
 from dokanalyse.services import analyses
 from conftest import read_fixture
 from test_analysis_flow import FakeServices
@@ -47,7 +48,7 @@ async def test_failing_dataset_does_not_fail_request(fake_request_services, poly
         'createBinaries': False
     }
 
-    response = await analyses.run(data, None)
+    response = await analyses.run(AnalysisInput.model_validate(data), None)
 
     statuses = {result['themes'][0]: result['resultStatus'] for result in response['resultList']}
 

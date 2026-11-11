@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import Any, Dict, List
+from typing import Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
 from .config import get_dataset_configs
@@ -12,11 +12,14 @@ from ..constants import NATIONAL_DATASETS
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-async def get_config_ids(data: Dict[str, Any], municipality_number: str) -> Dict[UUID, bool]:
-    include_chosen_dok: bool = data.get('includeFilterChosenDOK', True)
+async def get_config_ids(
+        municipality_number: str,
+        theme: str | None,
+        include_chosen_dok: bool
+) -> Dict[UUID, bool]:
     kartgrunnlag = await _get_kartgrunnlag(municipality_number) if include_chosen_dok else []
     national_dataset_ids = _get_national_dataset_ids()
-    configs = await _get_datasets_by_theme(data.get('theme'))
+    configs = await _get_datasets_by_theme(theme)
 
     datasets: Dict[UUID, bool] = {}
 

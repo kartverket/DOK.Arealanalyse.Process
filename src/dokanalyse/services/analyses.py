@@ -18,7 +18,7 @@ from ..services.file_storage import FileStorage, AzureBlobStorage, LocalFileShar
 from ..utils.helpers.geometry import create_input_geometry, get_epsg_from_geojson
 from ..models.progress_emitter import ProgressEmitter, ProgressStatus
 from ..models.config import DatasetConfig
-from ..models import Analysis, EmptyAnalysis, AnalysisResponse, ResultStatus, FactSheet
+from ..models import Analysis, AnalysisInput, EmptyAnalysis, AnalysisResponse, ResultStatus, FactSheet
 from ..utils.correlation import get_correlation_id
 from ..utils.async_executor import run_in_render_thread
 from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR, AZURE_BLOB_STORAGE_CONTAINER,
@@ -27,16 +27,15 @@ from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR, AZURE_BLOB_S
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
-    geojson = data['inputGeometry']
-    buffer: int = data.get('requestedBuffer', 0)
-    context: str = data.get('context') or ''
-    include_guidance: bool = data.get('includeGuidance', False)
-    include_quality_measurement: bool = data.get(
-        'includeQualityMeasurement', False)
-    include_facts: bool = data.get('includeFacts', True)
-    include_chosen_dok: bool = data.get('includeFilterChosenDOK', True)
-    create_binaries: bool = data.get('createBinaries', True)
+async def run(analysis_input: AnalysisInput, sio_client: SimpleClient | None) -> Dict[str, Any]:
+    geojson = analysis_input.input_geometry
+    buffer = analysis_input.requested_buffer
+    context = analysis_input.context or ''
+    include_guidance = analysis_input.include_guidance
+    include_quality_measurement = analysis_input.include_quality_measurement
+    include_facts = analysis_input.include_facts
+    include_chosen_dok = analysis_input.include_filter_chosen_dok
+    create_binaries = analysis_input.create_binaries
 
     correlation_id = get_correlation_id()
     file_storage = _get_file_storage()
@@ -58,7 +57,7 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
         raise ValueError('Could not determine the municipality of the input geometry')
 
     municipality_number, municipality_name = municipality
-    datasets = await _get_datasets(data, municipality_number)
+    datasets = await _get_datasets(municipality_number, analysis_input.theme, include_chosen_dok)
     emitter.analyses_total = _get_datasets_to_analyze_count(datasets)
     emitter.send_message(ProgressStatus.STARTING_UP, True)
 
@@ -251,9 +250,13 @@ async def _upload_report(report: bytes, dirname: str, file_storage: FileStorage)
     return pdf_url
 
 
-async def _get_datasets(data: Dict, municipality_number: str) -> Dict[UUID, bool]:
+async def _get_datasets(
+        municipality_number: str,
+        theme: str | None,
+        include_chosen_dok: bool
+) -> Dict[UUID, bool]:
     if not DATASETS:
-        return await get_config_ids(data, municipality_number)
+        return await get_config_ids(municipality_number, theme, include_chosen_dok)
 
     datasets: Dict[UUID, bool] = {}
 

@@ -15,7 +15,6 @@ dependencies = [
     "aiofiles",
     "async-lru",
     "pydantic>=2.0",
-    "jsonschema",
     "pydash",
     "geopandas",
     "matplotlib",

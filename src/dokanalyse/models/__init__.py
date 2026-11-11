@@ -1,5 +1,6 @@
 from .analysis_response import AnalysisResponse # noqa: F401
 from .analysis import Analysis # noqa: F401
+from .analysis_input import AnalysisInput # noqa: F401
 from .empty_analysis import EmptyAnalysis # noqa: F401
 from .fact_part import FactPart # noqa: F401
 from .fact_sheet import FactSheet # noqa: F401

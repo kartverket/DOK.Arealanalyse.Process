@@ -19,7 +19,7 @@ The tests never make network calls: everything network-dependent is monkeypatche
 
 ## Architecture
 
-- `processor.py`: `DokanalyseProcessor.execute()` is the pygeoapi entry point. It validates the input against `resources/no.geonorge.dokanalyse.v1.input.schema.json` and runs the async pipeline on a dedicated event loop (`utils/async_executor.py`).
+- `processor.py`: `DokanalyseProcessor.execute()` is the pygeoapi entry point. It validates the input into an `AnalysisInput` (`models/analysis_input.py`) and runs the async pipeline on a dedicated event loop (`utils/async_executor.py`).
 - `services/analyses.py`: orchestrates one request. Steps: municipality lookup, dataset selection (`services/dataset.py`), one analysis per dataset in parallel (the fact sheet runs concurrently), then map images, PDF and upload.
 - `services/analysis_runner.py`: a single dataset analysis. It runs the coverage check, then the layer queries in order (the first layer with a hit decides the status), distance to the nearest object, hit area, guidance and quality.
 - `services/query_strategies.py`: one strategy per service type (WFS, ArcGIS REST, OGC API Features), selected by `DatasetConfig.service_type`. They are built on `adapters/`.
