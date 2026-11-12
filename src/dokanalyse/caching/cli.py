@@ -11,6 +11,7 @@ from .dok_status import get_or_create_dok_status
 from .geofile import get_or_create_geofile
 from .guidance_data import get_or_create_guidance_data
 from .kartkatalog import get_or_create_kartkatalog_metadata
+from .wmts import get_or_create_wmts_capabilities
 from .xsd import get_or_create_xml_schema, cache_base_xml_schemas
 from ..utils.logger import setup as setup_logger
 from ..utils.helpers.common import get_config_file_paths
@@ -62,6 +63,9 @@ async def _cache_resources() -> None:
 
             tasks.append(tg.create_task(_run_task(
                 get_or_create_guidance_data, session, with_lock=False, semaphore=semaphore)))
+
+            tasks.append(tg.create_task(_run_task(
+                get_or_create_wmts_capabilities, session, with_lock=False, semaphore=semaphore)))
 
             for url in geojson_and_gpkg_urls:
                 task = tg.create_task(_run_task(

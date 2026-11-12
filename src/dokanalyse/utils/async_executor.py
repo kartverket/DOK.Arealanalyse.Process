@@ -54,7 +54,7 @@ class AsyncExecutor:
 
 _async_exec = AsyncExecutor()
 
-# Map images (cartopy/matplotlib) and PDF reports (WeasyPrint) are rendered
+# Map images (matplotlib) and PDF reports (WeasyPrint) are rendered
 # one at a time in a single worker thread, off the event loop. These
 # libraries are not reliably thread-safe, and rendering is CPU-bound anyway.
 _render_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='render')
