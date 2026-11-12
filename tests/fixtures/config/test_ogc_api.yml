@@ -1,0 +1,22 @@
+---
+type: dataset
+config_id: 33333333-3333-4333-8333-333333333333
+name: test_kulturminner
+
+metadata_id: cccccccc-cccc-4ccc-8ccc-cccccccccccc
+features:
+  type: ogc_api
+  url: https://api.example.com/kulturminner
+wms: https://wms.example.com/kulturminner
+layers:
+  - feature: enkeltminner
+    wms:
+      - Enkeltminner
+    filter: vernetype = 'AUT'
+    result_status: HIT-RED
+geom_field: område
+properties: '*'
+skip_properties:
+  - intern_id
+themes:
+  - Kulturminner

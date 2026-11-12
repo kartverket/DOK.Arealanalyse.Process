@@ -1,24 +1,34 @@
 from enum import Enum
 from typing import Dict
+import structlog
+from structlog.stdlib import BoundLogger
 from socketio import SimpleClient
 
+_logger: BoundLogger = structlog.get_logger(__name__)
 
-class ProgressStatus(str, Enum):
+
+class ProgressStatus(Enum):
     STARTING_UP = 1
     ANALYZING_DATASETS = 2
     CREATING_FACT_SHEET = 3
     CREATING_MAP_IMAGES = 4
-    CREATING_REPORT = 5,
+    CREATING_REPORT = 5
     NONE = -1
 
 
-class TaskStatus(str, Enum):
-    NOT_STARTED = 1,
-    IN_PROGRESS = 2,
+class TaskStatus(Enum):
+    NOT_STARTED = 1
+    IN_PROGRESS = 2
     DONE = 3
 
 
 class ProgressEmitter:
+    """Sends progress updates to the Socket.IO server.
+
+    Progress reporting is best effort: a failing Socket.IO connection must
+    never affect the analysis itself.
+    """
+
     def __init__(
         self,
         correlation_id: str | None,
@@ -50,10 +60,14 @@ class ProgressEmitter:
             'mapImagesTotal': self.map_images_total,
             'mapImageCount': self.__map_image_count,
             'recipient': self.__correlation_id,
-            'tasks': self.__tasks
+            'tasks': dict(self.__tasks)
         }
 
-        self.__sio_client.emit('state_updated_api', data)
+        try:
+            if self.__sio_client.connected:
+                self.__sio_client.emit('state_updated_api', data)
+        except Exception as err:
+            _logger.warning('Sending progress update failed', error=str(err))
 
     def __create_tasks(self) -> Dict[str, str]:
         tasks = {
@@ -74,14 +88,8 @@ class ProgressEmitter:
         self.__status = status
 
         if status == ProgressStatus.ANALYZING_DATASETS and not task_done:
-            self.__increase_analysis_count()
+            self.__analysis_count += 1
         elif status == ProgressStatus.CREATING_MAP_IMAGES and not task_done:
-            self.__increase_map_image_count()
+            self.__map_image_count += 1
 
         self.__tasks[status.name] = TaskStatus.DONE.name if task_done else TaskStatus.IN_PROGRESS.name
-
-    def __increase_analysis_count(self) -> None:
-        self.__analysis_count += 1
-
-    def __increase_map_image_count(self) -> None:
-        self.__map_image_count += 1

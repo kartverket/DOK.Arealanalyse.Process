@@ -10,7 +10,7 @@ from ...utils.http_context import get_session
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-async def create_legend(urls: List[str]) -> str:
+async def create_legend(urls: List[str]) -> str | None:
     tasks: List[asyncio.Task[bytes | None]] = []
 
     async with asyncio.TaskGroup() as tg:
@@ -25,7 +25,14 @@ async def create_legend(urls: List[str]) -> str:
         if result:
             img_data.append(result)
 
-    return _merge_images(img_data)
+    if not img_data:
+        return None
+
+    try:
+        return await asyncio.to_thread(_merge_images, img_data)
+    except Exception as err:
+        _logger.error('Merging legend images failed', error=str(err))
+        return None
 
 
 def _merge_images(img_data: List[bytes]) -> str:

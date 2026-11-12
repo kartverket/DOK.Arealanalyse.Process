@@ -39,9 +39,9 @@ async def query_arcgis(
 
 
 async def _query_arcgis(
-    url: str, 
-    auth: Auth | None, 
-    data: Dict, 
+    url: str,
+    auth: Auth | None,
+    data: Dict,
     dataset_config: DatasetConfig | None
 ) -> Tuple[int, Dict | None]:
     auth_params = get_auth(auth)
@@ -53,11 +53,13 @@ async def _query_arcgis(
                     _RESOURCE, url, response.status, dataset=dataset_config)
                 return response.status, None
 
-            json = await response.json()
+            # ArcGIS Server does not always return f=geojson with a JSON content type
+            json = await response.json(content_type=None)
 
-            if 'error' in json:
+            if not isinstance(json, dict) or 'error' in json:
+                error = json.get('error') if isinstance(json, dict) else None
                 log_http_error(_RESOURCE, url, 400,
-                               dataset=dataset_config)
+                               dataset=dataset_config, arcgis_error=error)
                 return 400, None
 
             return 200, json

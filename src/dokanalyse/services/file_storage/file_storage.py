@@ -9,5 +9,6 @@ class FileStorage(ABC):
     @abstractmethod
     async def create_dir(self, dirname: str) -> str | None:
         pass
-    
-    
+
+    async def close(self) -> None:  # noqa: B027 - optional hook, no-op by default
+        return None

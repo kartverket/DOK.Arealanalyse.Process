@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Dict, List, Literal, Tuple, cast
 from osgeo import ogr
 from pydash import get as pydash_get
@@ -10,8 +11,8 @@ from ..utils.helpers.common import objectify_properties
 
 
 async def get_values_from_wfs(
-    config: CoverageWfs, 
-    geometry: ogr.Geometry, 
+    config: CoverageWfs,
+    geometry: ogr.Geometry,
     epsg: int
 ) -> Tuple[List[str], float, List[Dict]]:
     _, response = await query_wfs(config.url, config.layer, cast(str, config.geom_field), geometry, epsg)
@@ -20,18 +21,18 @@ async def get_values_from_wfs(
         return [], 0, []
 
     parser = CoverageWfsResponseParser(config)
-    values, feature_geoms, data = parser.parse(response)
+    values, feature_geoms, data = await asyncio.to_thread(parser.parse, response)
 
-    hit_area_percent = _get_hit_area_percent(
-        geometry, feature_geoms) if feature_geoms else 0
+    hit_area_percent = await asyncio.to_thread(
+        _get_hit_area_percent, geometry, feature_geoms) if feature_geoms else 0
     distinct_values = list(set(values))
 
     return distinct_values, hit_area_percent, data
 
 
 async def get_values_from_arcgis(
-    config: CoverageService, 
-    geometry: ogr.Geometry, 
+    config: CoverageService,
+    geometry: ogr.Geometry,
     epsg: int
 ) -> Tuple[List[str], float, List[Dict]]:
     _, response = await query_arcgis(config.url, config.layer, None, geometry, epsg)
@@ -103,7 +104,7 @@ async def get_values_from_geofile(
             data.append(props)
 
     if len(feature_geoms) > 0:
-        hit_area_percent = _get_hit_area_percent(geometry, feature_geoms)
+        hit_area_percent = await asyncio.to_thread(_get_hit_area_percent, geometry, feature_geoms)
 
     distinct_values = list(set(values))
 
@@ -113,6 +114,9 @@ async def get_values_from_geofile(
 def _get_hit_area_percent(geometry: ogr.Geometry, feature_geometries: List[ogr.Geometry]) -> float:
     geom_area: float = geometry.GetArea()
     hit_area: float = 0
+
+    if geom_area == 0:
+        return 0
 
     for geom in feature_geometries:
         intersection: ogr.Geometry = geom.Intersection(geometry)

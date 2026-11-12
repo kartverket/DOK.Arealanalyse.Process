@@ -1,28 +1,11 @@
-import json
-from pathlib import Path
-import structlog
-from structlog.stdlib import BoundLogger
-from jsonschema import validate
+from pydantic import ValidationError
 
 
-_FILENAME = 'no.geonorge.dokanalyse.v1.input.schema.json'
+def get_validation_error_message(err: ValidationError) -> str:
+    error = err.errors()[0]
+    path = '/'.join(str(part) for part in error['loc'])
 
-_filepath = Path(__file__).parent.parent.parent.joinpath(
-    'resources').joinpath(_FILENAME).resolve()
-
-_logger: BoundLogger = structlog.get_logger(__name__)
-
-
-def request_is_valid(data) -> bool:
-    with _filepath.open() as file:
-        schema = json.load(file)
-
-    try:
-        validate(instance=data, schema=schema)
-        return True
-    except Exception as err:
-        _logger.error('Invalid request', error=str(err))
-        return False
+    return f'{path}: {error["msg"]}' if path else error['msg']
 
 
-__all__ = ['request_is_valid']
+__all__ = ['get_validation_error_message']

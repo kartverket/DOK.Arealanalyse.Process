@@ -43,25 +43,23 @@ class Analysis:
         self.quality_measurement: List[QualityMeasurement] = []
         self.quality_warning: List[str] = []
         self.buffer = buffer or 0
-        self.input_geometry_area: ogr.Geometry | None = None
+        self.input_geometry_area: float | None = None
         self.run_on_input_geometry_json: Dict[str, Any] | None = None
         self.hit_area: float | None = None
         self.distance_to_object: int = 0
         self.raster_result_map: str | None = None
         self.raster_result_image: str | None = None
-        self.raster_result_image_bytes: bytes | None = None
         self.cartography: str | None = None
         self.data: List[Dict] = []
         self.themes: List[str] | None = None
         self.run_on_dataset: Metadata | None = None
         self.run_algorithm: List[str] = []
         self.result_status: ResultStatus = ResultStatus.NO_HIT_GREEN
-        self.coverage_statuses: List[str] = []
         self.has_coverage: bool = True
         self.is_relevant = True
         self.status_code: int = 200
         self.duration: float = 0
-        self.log: str | None = None        
+        self.log: str | None = None
 
     def set_input_geometry(self) -> None:
         self.run_algorithm.append('set input_geometry')

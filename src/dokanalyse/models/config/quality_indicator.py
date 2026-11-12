@@ -1,7 +1,7 @@
-from typing import Callable, Dict
-from pydantic import BaseModel, model_validator
+from typing import Annotated, Callable, Dict
+from pydantic import BaseModel, Field, model_validator
 from .quality_indicator_type import QualityIndicatorType
-from . import CoverageService, CoverageWfs, CoverageGeoJson, CoverageGeoPackage
+from . import CoverageArcGis, CoverageWfs, CoverageGeoJson, CoverageGeoPackage
 
 
 class QualityIndicator(BaseModel):
@@ -12,10 +12,8 @@ class QualityIndicator(BaseModel):
     warning_threshold: str | None = None
     property: str | None = None
     input_filter: str | None = None
-    wfs: CoverageWfs | None = None
-    arcgis: CoverageService | None = None
-    geojson: CoverageGeoJson | None = None
-    gpkg: CoverageGeoPackage | None = None
+    features: Annotated[CoverageWfs | CoverageArcGis | CoverageGeoJson | CoverageGeoPackage,
+                        Field(discriminator='type')] | None = None
     disabled: bool | None = False
     input_filter_func: Callable[[Dict], bool] | None = None
 
@@ -28,8 +26,8 @@ class QualityIndicator(BaseModel):
     def check_coverage(cls, values: Dict) -> Dict:
         type = values.get('type')
 
-        if type == QualityIndicatorType.COVERAGE and not 'wfs' in values and not 'arcgis' in values and not 'geojson' in values and not 'gpkg' in values:
+        if type == QualityIndicatorType.COVERAGE and 'features' not in values:
             raise ValueError(
-                'If the quality indicator type is "coverage", either the properties "wfs", "arcgis", "geojson" or "gpkg" must be set')
+                'If the quality indicator type is "coverage", the property "features" must be set')
 
         return values

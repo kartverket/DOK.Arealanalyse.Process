@@ -1,4 +1,5 @@
 import time
+import asyncio
 from io import BytesIO
 from uuid import UUID
 from collections import Counter
@@ -47,19 +48,23 @@ async def _get_data(geometry: ogr.Geometry, epsg: int) -> List[Dict[str, Any]]:
 
     if response is None:
         return []
-    
+
+    return await asyncio.to_thread(_count_building_categories, response)
+
+
+def _count_building_categories(response: bytes) -> List[Dict[str, Any]]:
     source = BytesIO(response)
     context = ET.iterparse(
-        source, events=['end'], tag='{*}Bygning', huge_tree=True)        
+        source, events=['end'], tag='{*}Bygning', huge_tree=True)
     categories = []
 
-    for _, elem in context:        
+    for _, elem in context:
         building_type = elem.findtext('./{*}bygningstype')
 
-        if not building_type:
+        if not building_type or not building_type.strip().isdigit():
             elem.clear()
             continue
-    
+
         category = _get_building_category(int(building_type))
 
         if category:

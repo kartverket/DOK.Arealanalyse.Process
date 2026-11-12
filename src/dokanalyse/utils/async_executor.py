@@ -1,59 +1,86 @@
+import contextvars
+import functools
 import threading
-from typing import Any, Coroutine, Dict
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable, Coroutine, TypeVar
 import asyncio
-from asyncio import AbstractEventLoop
+
+T = TypeVar('T')
 
 
 class AsyncExecutor:
-    def __init__(self):
-        self._loop: AbstractEventLoop
-        self._thread = None
-        self._ready = threading.Event()
+    """Runs coroutines on a dedicated event loop in a background thread.
 
-    def _start(self) -> None:
-        if self._thread:
-            return
+    All requests share this loop, so caches and locks bound to an event loop
+    (asyncio.Lock, alru_cache etc.) always see the same loop. The loop of the
+    web server (e.g. uvicorn when pygeoapi runs on Starlette) is never used,
+    so analyses can never block the web server itself.
+    """
 
-        self._thread = threading.Thread(
-            target=self._run, name='async-executor', daemon=True)
-        self._thread.start()
-        self._ready.wait()
+    def __init__(self) -> None:
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._lock = threading.Lock()
 
-    def _run(self) -> None:
-        self._loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._loop)
-        self._ready.set()
-        self._loop.run_forever()
+    def run(self, coro: Coroutine[Any, Any, T], timeout: float | None = None) -> T:
+        loop = self._get_loop()
 
-    def run(self, coro: Coroutine[Any, Any, Dict[str, Any]]) -> Dict[str, Any]:
-        if not self._thread:
-            self._start()
+        if _get_running_loop() is loop:
+            coro.close()
+            raise RuntimeError('exec_async cannot be called from the executor loop itself')
 
-        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        future = asyncio.run_coroutine_threadsafe(coro, loop)
 
-        return future.result()
+        return future.result(timeout)
+
+    def is_running(self) -> bool:
+        return self._loop is not None and self._loop.is_running()
+
+    def _get_loop(self) -> asyncio.AbstractEventLoop:
+        with self._lock:
+            if self._loop is None:
+                # Coroutines submitted before the loop runs are queued
+                loop = asyncio.new_event_loop()
+                thread = threading.Thread(
+                    target=self._run, args=(loop,), name='async-executor', daemon=True)
+                thread.start()
+                self._loop = loop
+
+            return self._loop
+
+    def _run(self, loop: asyncio.AbstractEventLoop) -> None:
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
 
 
 _async_exec = AsyncExecutor()
 
-
-def exec_async(coro: Coroutine[Any, Any, Any]) -> Any:
-    event_loop = _get_running_event_loop()
-
-    if event_loop:
-        future = asyncio.run_coroutine_threadsafe(coro, event_loop)
-        return future.result()
-
-    return _async_exec.run(coro)
+# Map images (matplotlib) and PDF reports (WeasyPrint) are rendered
+# one at a time in a single worker thread, off the event loop. These
+# libraries are not reliably thread-safe, and rendering is CPU-bound anyway.
+_render_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='render')
 
 
-def _get_running_event_loop() -> AbstractEventLoop | None:
+def exec_async(coro: Coroutine[Any, Any, T], timeout: float | None = None) -> T:
+    return _async_exec.run(coro, timeout)
+
+
+def is_running() -> bool:
+    return _async_exec.is_running()
+
+
+async def run_in_render_thread(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    loop = asyncio.get_running_loop()
+    ctx = contextvars.copy_context()
+    call = functools.partial(ctx.run, func, *args, **kwargs)
+
+    return await loop.run_in_executor(_render_executor, call)
+
+
+def _get_running_loop() -> asyncio.AbstractEventLoop | None:
     try:
-        loop = asyncio.get_event_loop()
+        return asyncio.get_running_loop()
     except RuntimeError:
         return None
 
-    return loop if loop.is_running() else None
 
-
-__all__ = ['exec_async']
+__all__ = ['exec_async', 'is_running', 'run_in_render_thread']

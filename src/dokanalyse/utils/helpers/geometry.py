@@ -80,10 +80,20 @@ def envelope_to_polygon(envelope: Tuple[float, float, float, float]) -> ogr.Geom
 def create_input_geometry(geojson: Dict[str, Any]) -> ogr.Geometry:
     epsg = get_epsg_from_geojson(geojson)
     json_str = json.dumps(geojson)
-    geometry = ogr.CreateGeometryFromJson(json_str)
+
+    try:
+        geometry: ogr.Geometry | None = ogr.CreateGeometryFromJson(json_str)
+    except Exception as err:
+        raise ValueError(f'Invalid input geometry: {err}') from err
+
+    if geometry is None or geometry.IsEmpty():
+        raise ValueError('The input geometry is empty')
 
     if epsg != DEFAULT_EPSG:
-        return transform_geometry(geometry, epsg, DEFAULT_EPSG)
+        geometry = transform_geometry(geometry, epsg, DEFAULT_EPSG)
+
+    if not geometry.IsValid():
+        geometry = _make_valid_polygon(geometry)
 
     return geometry
 
@@ -106,36 +116,46 @@ def create_feature_collection(features: List[Dict[str, Any]], epsg: int | None =
     return feature_collection
 
 
-def create_feature(geometry: ogr.Geometry, properties: Dict[str, Any] = {}) -> Dict:
-    json_str = geometry.ExportToJson()
+def transform_geometry(
+    geometry: ogr.Geometry,
+    src_epsg: int | None,
+    dest_epsg: int | None,
+    traditional_axis_order: bool = True
+) -> ogr.Geometry:
+    """Transforms a geometry between two EPSG codes (None means WGS84).
 
-    return {
-        'type': 'Feature',
-        'geometry': json.loads(json_str),
-        'properties': properties
-    }
-
-
-def transform_geometry(geometry: ogr.Geometry, src_epsg: int | None, dest_epsg: int | None) -> ogr.Geometry:
-    transform = get_coordinate_transformation(src_epsg or 4326, dest_epsg or 4326)
+    With `traditional_axis_order`, coordinates are always x/y (lon/lat), as
+    in GeoJSON, ArcGIS JSON and data read by GDAL drivers. Without it, the
+    axis order defined by the EPSG authority is used (e.g. lat/lon for
+    EPSG:4326), as in GML with URN-style srsName.
+    """
+    transform = get_coordinate_transformation(
+        src_epsg or WGS84_EPSG, dest_epsg or WGS84_EPSG, traditional_axis_order)
     clone: ogr.Geometry = geometry.Clone()
-
-    if src_epsg is None:
-        clone.SwapXY()
-
     clone.Transform(transform)
 
     return clone
 
 
-def get_coordinate_transformation(src_epsg: int, target_epsg: int) -> osr.CoordinateTransformation:
-    source: osr.SpatialReference = osr.SpatialReference()
-    source.ImportFromEPSG(src_epsg)
-
-    target: osr.SpatialReference = osr.SpatialReference()
-    target.ImportFromEPSG(target_epsg)
+def get_coordinate_transformation(
+    src_epsg: int,
+    target_epsg: int,
+    traditional_axis_order: bool = True
+) -> osr.CoordinateTransformation:
+    source = create_spatial_reference(src_epsg, traditional_axis_order)
+    target = create_spatial_reference(target_epsg, traditional_axis_order)
 
     return osr.CoordinateTransformation(source, target)
+
+
+def create_spatial_reference(epsg: int, traditional_axis_order: bool = True) -> osr.SpatialReference:
+    sr = osr.SpatialReference()
+    sr.ImportFromEPSG(epsg)
+
+    if traditional_axis_order:
+        sr.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
+    return sr
 
 
 def length_to_degrees(distance: float) -> float:
@@ -146,21 +166,30 @@ def length_to_degrees(distance: float) -> float:
 
 
 def create_run_on_input_geometry_json(geometry: ogr.Geometry, epsg: int, orig_epsg: int | None) -> Dict[str, Any]:
+    """Returns the geometry as GeoJSON in the CRS of the input geometry.
+
+    `orig_epsg` is None when the input had no crs member (WGS84), in which
+    case no crs member is added either.
+    """
     geom = geometry
 
     if epsg != orig_epsg:
         geom = transform_geometry(geometry, epsg, orig_epsg)
 
-    options = ['COORDINATE_PRECISION=2'] if orig_epsg != None else []
+    options = ['COORDINATE_PRECISION=2'] if _is_projected(orig_epsg) else []
     geojson = json.loads(geom.ExportToJson(options))
 
-    add_geojson_crs(geojson, epsg)
+    add_geojson_crs(geojson, orig_epsg)
 
     return geojson
 
 
 def get_epsg_from_geometry(geometry: ogr.Geometry) -> int | None:
-    sr: osr.SpatialReference = geometry.GetSpatialReference()
+    sr: osr.SpatialReference | None = geometry.GetSpatialReference()
+
+    if sr is None:
+        return None
+
     code = sr.GetAuthorityCode(None)
 
     return int(code) if code else None
@@ -200,6 +229,44 @@ def add_geojson_crs(geojson: Dict[str, Any], epsg: int | None) -> None:
     }
 
 
+def _make_valid_polygon(geometry: ogr.Geometry) -> ogr.Geometry:
+    """Repairs an invalid (e.g. self-intersecting) polygon, keeping only
+    polygonal parts. Invalid geometries make GEOS operations fail."""
+    valid: ogr.Geometry = geometry.MakeValid()
+    sr = geometry.GetSpatialReference()
+
+    if valid.GetGeometryType() not in (ogr.wkbPolygon, ogr.wkbMultiPolygon):
+        multi = ogr.Geometry(ogr.wkbMultiPolygon)
+
+        for i in range(valid.GetGeometryCount()):
+            part: ogr.Geometry = valid.GetGeometryRef(i)
+
+            if part.GetGeometryType() == ogr.wkbPolygon:
+                multi.AddGeometry(part)
+            elif part.GetGeometryType() == ogr.wkbMultiPolygon:
+                for j in range(part.GetGeometryCount()):
+                    multi.AddGeometry(part.GetGeometryRef(j))
+
+        valid = multi
+
+    if valid.IsEmpty():
+        raise ValueError('The input geometry is invalid and could not be repaired')
+
+    if sr is not None:
+        valid.AssignSpatialReference(sr)
+
+    _logger.warning('Invalid input geometry was repaired')
+
+    return valid
+
+
+def _is_projected(epsg: int | None) -> bool:
+    if epsg is None:
+        return False
+
+    return bool(create_spatial_reference(epsg).IsProjected())
+
+
 __all__ = [
     'geometry_from_gml',
     'geometry_from_json',
@@ -209,7 +276,6 @@ __all__ = [
     'create_input_geometry',
     'create_buffered_geometry',
     'create_feature_collection',
-    'create_feature',
     'transform_geometry',
     'get_coordinate_transformation',
     'length_to_degrees',

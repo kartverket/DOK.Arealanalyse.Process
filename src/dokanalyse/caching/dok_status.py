@@ -36,11 +36,11 @@ async def get_or_create_dok_status(
         return _map_data(data)
 
     return await get_or_create_file(
-        _API_URL, 
-        path, 
-        session, 
-        with_lock, 
-        mapper=mapper, 
+        _API_URL,
+        path,
+        session,
+        with_lock,
+        mapper=mapper,
         semaphore=semaphore,
         cache=(_CACHE_DAYS, CacheUnit.DAYS)
     )
@@ -52,6 +52,9 @@ def _map_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     for item in contained_items:
         dataset_id = _get_dataset_id(item)
+
+        if not dataset_id:
+            continue
         theme: str = item.get('theme', '')
         categories = _get_relevant_categories(item)
         suitability = []
@@ -71,6 +74,7 @@ def _map_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:
 
         datasets.append({
             'dataset_id': dataset_id,
+            'name': item.get('seoname') or dataset_id,
             'theme': theme,
             'suitability': suitability
         })
@@ -78,15 +82,14 @@ def _map_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     return datasets
 
 
-def _get_dataset_id(item: Dict[str, Any]) -> str:
-    metadata_url: str = item['MetadataUrl']
-    dataset_id = metadata_url.split('/')[-1]
+def _get_dataset_id(item: Dict[str, Any]) -> str | None:
+    metadata_url: str | None = item.get('MetadataUrl')
 
-    return dataset_id
+    return metadata_url.rstrip('/').split('/')[-1] if metadata_url else None
 
 
 def _get_relevant_categories(item: Dict[str, Any]) -> List[Tuple[str, int]]:
-    suitability: Dict[str, int] = item['Suitability']
+    suitability: Dict[str, int] = item.get('Suitability') or {}
     categories = [(key, value) for key, value in suitability.items()
                   if key in _dokstatus_category_mappings.keys()]
 

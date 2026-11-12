@@ -1,6 +1,6 @@
 from uuid import UUID
-from typing import Dict, List, Literal
-from pydantic import BaseModel, HttpUrl, model_validator
+from typing import List, Literal
+from pydantic import BaseModel, HttpUrl
 from xmlschema import XMLSchema
 from .feature_service import FeatureService
 from .layer import Layer
@@ -8,14 +8,12 @@ from .layer import Layer
 
 class DatasetConfig(BaseModel):
     config_id: UUID
-    name: str    
+    name: str
     comment: str | None = None
     disabled: bool | None = False
     title: str | None = None
     metadata_id: UUID | None = None
-    wfs: HttpUrl | FeatureService | None = None
-    arcgis: HttpUrl | FeatureService | None = None
-    ogc_api: HttpUrl | FeatureService | None = None
+    features: FeatureService
     wms: HttpUrl
     layers: List[Layer] = []
     geom_field: str | None = None
@@ -29,19 +27,9 @@ class DatasetConfig(BaseModel):
         'arbitrary_types_allowed': True
     }
 
+    @property
+    def service_type(self) -> Literal['wfs', 'arcgis', 'ogc_api']:
+        return self.features.type
+
     def get_feature_service_url(self) -> str:
-        service = self.wfs or self.arcgis or self.ogc_api
-
-        if isinstance(service, FeatureService):
-            return str(service.url)
-
-        return str(service)
-
-    @model_validator(mode='before')
-    @classmethod
-    def check_service_type(cls, values: Dict) -> Dict:
-        if not 'wfs' in values and not 'arcgis' in values and not 'ogc_api' in values:
-            raise ValueError(
-                'The dataset must have either the "wfs", "arcgis" or "ogc_api" property set')
-
-        return values
+        return str(self.features.url)

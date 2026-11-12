@@ -6,32 +6,13 @@ from ...models.config import (QualityIndicator, QualityIndicatorType,
 
 
 def get_coverage_indicator(quality_indicators: List[QualityIndicator]) -> QualityIndicator | None:
-    if len(quality_indicators) == 0:
-        return None
-
-    coverage_indicators = [
-        indicator for indicator in quality_indicators if indicator.type == QualityIndicatorType.COVERAGE]
-
-    if len(coverage_indicators) == 0:
-        return None
-    elif len(coverage_indicators) > 1:
-        raise Exception(
-            'A dataset can only have one coverage quality indicator')
-
-    return coverage_indicators[0]
+    # QualityConfig ensures there is at most one coverage indicator per dataset
+    return next((indicator for indicator in quality_indicators
+                 if indicator.type == QualityIndicatorType.COVERAGE), None)
 
 
 def get_coverage_service_config_data(coverage_indicator: QualityIndicator) -> Dict[str, Any] | None:
-    coverage_svc: CoverageBaseService | None = None
-
-    if coverage_indicator.wfs:
-        coverage_svc = coverage_indicator.wfs
-    elif coverage_indicator.arcgis:
-        coverage_svc = coverage_indicator.arcgis
-    elif coverage_indicator.geojson:
-        coverage_svc = coverage_indicator.geojson
-    elif coverage_indicator.gpkg:
-        coverage_svc = coverage_indicator.gpkg
+    coverage_svc: CoverageBaseService | None = coverage_indicator.features
 
     if not coverage_svc:
         return None

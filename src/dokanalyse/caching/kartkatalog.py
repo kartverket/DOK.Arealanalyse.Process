@@ -9,7 +9,6 @@ _API_BASE_URL = 'https://kartkatalog.geonorge.no/api/getdata'
 _CACHE_DAYS = 2
 
 _kartkatalog_cache_dir = Path(CACHE_DIR).joinpath('kartkatalog')
-_kartkatalog_cache_dir.mkdir(parents=True, exist_ok=True)
 
 
 async def get_or_create_kartkatalog_metadata(
@@ -25,11 +24,11 @@ async def get_or_create_kartkatalog_metadata(
         return _map_data(data, metadata_id)
 
     return await get_or_create_file(
-        url, 
-        path, 
-        session, 
-        with_lock, 
-        mapper=mapper, 
+        url,
+        path,
+        session,
+        with_lock,
+        mapper=mapper,
         semaphore=semaphore,
         cache=(_CACHE_DAYS, CacheUnit.DAYS)
     )
@@ -38,7 +37,7 @@ async def get_or_create_kartkatalog_metadata(
 def _map_data(data: Dict[str, Any], metadata_id: str) -> Dict[str, Any]:
     title = data.get('NorwegianTitle')
     description = data.get('Abstract')
-    contact_owner: Dict[str, Any] = data.get('ContactOwner', {})
+    contact_owner: Dict[str, Any] = data.get('ContactOwner') or {}
     owner = contact_owner.get('Organization')
     updated = data.get('DateUpdated')
     dataset_description_uri = f'https://kartkatalog.geonorge.no/metadata/{metadata_id}'

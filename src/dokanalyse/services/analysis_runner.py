@@ -1,5 +1,10 @@
 import sys
+import asyncio
 from uuid import UUID
+from typing import List
+from osgeo import ogr
+import structlog
+from structlog.stdlib import BoundLogger
 from .config import get_quality_indicator_configs
 from .kartkatalog import get_kartkatalog_metadata
 from .quality.coverage_quality import get_coverage_quality
@@ -13,6 +18,8 @@ from ..models.config import Layer
 from ..models.result_status import ResultStatus
 from ..utils.helpers.geometry import create_buffered_geometry, create_run_on_input_geometry_json
 from ..utils.helpers.quality import get_coverage_indicator, get_coverage_service_config_data
+
+_logger: BoundLogger = structlog.get_logger(__name__)
 
 
 async def run_analysis(
@@ -39,7 +46,7 @@ async def run_analysis(
     if analysis.result_status in [ResultStatus.NO_HIT_GREEN, ResultStatus.NO_HIT_YELLOW] and analysis.is_relevant:
         await _set_distance_to_object(analysis)
 
-    analysis.calculate_geometry_areas()
+    await asyncio.to_thread(analysis.calculate_geometry_areas)
 
     analysis.run_algorithm.append('deliver result')
 
@@ -52,7 +59,11 @@ async def run_analysis(
         _apply_guidance(analysis)
 
     if include_quality_measurement:
-        await _evaluate_quality(analysis, context)
+        try:
+            await _evaluate_quality(analysis, context)
+        except Exception as err:
+            _logger.error('Quality evaluation failed', config_id=str(analysis.config_id),
+                          dataset=analysis.config.name, error=str(err))
 
 
 async def set_defaults(analysis: Analysis) -> None:
@@ -93,8 +104,8 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
             break
 
         if api_response:
-            parsed = strategy.parse_response(
-                api_response, analysis.config, layer)
+            parsed = await asyncio.to_thread(
+                strategy.parse_response, api_response, analysis.config, layer)
 
             if len(parsed['properties']) > 0:
                 analysis.run_algorithm.append(
@@ -107,8 +118,7 @@ async def _run_queries(analysis: Analysis, context: str) -> None:
                 analysis.geometries = parsed['geometries']
                 analysis.raster_result_map = get_wms_url(
                     str(analysis.config.wms), layer.wms)
-                analysis.cartography = await get_cartography_url(
-                    str(analysis.config.wms), layer.wms, analysis.run_on_input_geometry)
+                analysis.cartography = await _get_cartography(analysis, layer)
                 analysis.result_status = layer.result_status
                 break
 
@@ -135,20 +145,29 @@ async def _set_distance_to_object(analysis: Analysis) -> None:
         analysis.distance_to_object = sys.maxsize
         return
 
-    geometries = strategy.extract_geometries(response, analysis.config, layer)
-    distances = []
+    geometries = await asyncio.to_thread(
+        strategy.extract_geometries, response, analysis.config, layer)
+    distance = await asyncio.to_thread(
+        _get_shortest_distance, analysis.run_on_input_geometry, geometries)
 
-    for geom in geometries:
-        distance = round(analysis.run_on_input_geometry.Distance(geom))
-        distances.append(distance)
-
-    distances.sort()
     analysis.run_algorithm.append('get distance to nearest object')
+    analysis.distance_to_object = distance
 
-    if len(distances) == 0:
-        analysis.distance_to_object = sys.maxsize
-    else:
-        analysis.distance_to_object = distances[0]
+
+def _get_shortest_distance(geometry: ogr.Geometry, geometries: List[ogr.Geometry]) -> int:
+    distances = [round(geometry.Distance(geom)) for geom in geometries if geom is not None]
+
+    return min(distances) if distances else sys.maxsize
+
+
+async def _get_cartography(analysis: Analysis, layer: Layer) -> str | None:
+    try:
+        return await get_cartography_url(
+            str(analysis.config.wms), layer.wms, analysis.run_on_input_geometry)
+    except Exception as err:
+        _logger.error('Creating cartography failed', config_id=str(analysis.config_id),
+                      dataset=analysis.config.name, error=str(err))
+        return None
 
 
 async def _run_coverage_analysis(analysis: Analysis, context: str) -> None:

@@ -7,7 +7,7 @@ import asyncio
 from socketio import SimpleClient
 from osgeo import ogr
 from pydash import kebab_case
-from .dataset import get_config_ids, get_dataset_type
+from .dataset import get_config_ids
 from .fact_sheet import create_fact_sheet
 from .municipality import get_municipality
 from .config import get_dataset_config, get_not_implemented_dataset_configs
@@ -18,25 +18,24 @@ from ..services.file_storage import FileStorage, AzureBlobStorage, LocalFileShar
 from ..utils.helpers.geometry import create_input_geometry, get_epsg_from_geojson
 from ..models.progress_emitter import ProgressEmitter, ProgressStatus
 from ..models.config import DatasetConfig
-from ..models import (Analysis, ArcGisAnalysis, OgcApiAnalysis,
-                      WfsAnalysis, EmptyAnalysis, AnalysisResponse, ResultStatus)
+from ..models import Analysis, AnalysisInput, EmptyAnalysis, AnalysisResponse, ResultStatus, FactSheet
 from ..utils.correlation import get_correlation_id
-from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR,
+from ..utils.async_executor import run_in_render_thread
+from ..constants import (DEFAULT_EPSG, AZURE_BLOB_STORAGE_CONN_STR, AZURE_BLOB_STORAGE_CONTAINER,
                          LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL, DATASETS)
 
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
-    geojson = data['inputGeometry']
-    buffer: int = data.get('requestedBuffer', 0)
-    context: str = data.get('context') or ''
-    include_guidance: bool = data.get('includeGuidance', False)
-    include_quality_measurement: bool = data.get(
-        'includeQualityMeasurement', False)
-    include_facts: bool = data.get('includeFacts', True)
-    include_chosen_dok: bool = data.get('includeFilterChosenDOK', True)
-    create_binaries: bool = data.get('createBinaries', True)
+async def run(analysis_input: AnalysisInput, sio_client: SimpleClient | None) -> Dict[str, Any]:
+    geojson = analysis_input.input_geometry
+    buffer = analysis_input.requested_buffer
+    context = analysis_input.context or ''
+    include_guidance = analysis_input.include_guidance
+    include_quality_measurement = analysis_input.include_quality_measurement
+    include_facts = analysis_input.include_facts
+    include_chosen_dok = analysis_input.include_filter_chosen_dok
+    create_binaries = analysis_input.create_binaries
 
     correlation_id = get_correlation_id()
     file_storage = _get_file_storage()
@@ -55,16 +54,22 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     municipality = await get_municipality(geometry, DEFAULT_EPSG)
 
     if municipality is None:
-        raise Exception('Could not get municipality from geometry')
+        raise ValueError('Could not determine the municipality of the input geometry')
 
     municipality_number, municipality_name = municipality
-    datasets = await _get_datasets(data, municipality_number)
+    datasets = await _get_datasets(municipality_number, analysis_input.theme, include_chosen_dok)
     emitter.analyses_total = _get_datasets_to_analyze_count(datasets)
     emitter.send_message(ProgressStatus.STARTING_UP, True)
 
     tasks: List[asyncio.Task[Analysis | None]] = []
+    fact_sheet_task: asyncio.Task[FactSheet | None] | None = None
 
     async with asyncio.TaskGroup() as tg:
+        # The fact sheet is independent of the analyses and is created
+        # concurrently. Progress is still reported after the analyses.
+        if include_facts:
+            fact_sheet_task = tg.create_task(_create_fact_sheet(geometry, orig_epsg, buffer))
+
         for config_id, should_analyze in datasets.items():
             task = tg.create_task(_run_analysis(
                 config_id, should_analyze, geometry, DEFAULT_EPSG, orig_epsg, buffer,
@@ -81,9 +86,9 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     emitter.send_message(ProgressStatus.ANALYZING_DATASETS, True)
     fact_sheet = None
 
-    if include_facts:
+    if fact_sheet_task:
         emitter.send_message(ProgressStatus.CREATING_FACT_SHEET)
-        fact_sheet = await create_fact_sheet(geometry, orig_epsg, buffer)
+        fact_sheet = fact_sheet_task.result()
         emitter.send_message(ProgressStatus.CREATING_FACT_SHEET, True)
 
     response = AnalysisResponse.create(
@@ -101,15 +106,21 @@ async def run(data: Dict, sio_client: SimpleClient | None) -> Dict[str, Any]:
     dirname = str(uuid4())
 
     if create_binaries and file_storage:
-        map_images = await generate_map_images(
-            analyses_with_map_image, fact_sheet, emitter)
-        await _upload_images(response, map_images, dirname, file_storage)
-        emitter.send_message(ProgressStatus.CREATING_MAP_IMAGES, True)
+        try:
+            map_images = await generate_map_images(
+                analyses_with_map_image, fact_sheet, emitter)
+            await _upload_images(response, map_images, dirname, file_storage)
+            emitter.send_message(ProgressStatus.CREATING_MAP_IMAGES, True)
 
-        emitter.send_message(ProgressStatus.CREATING_REPORT)
-        report = create_pdf(response)
-        response.report = await _upload_report(report, dirname, file_storage)
-        emitter.send_message(ProgressStatus.CREATING_REPORT, True)
+            emitter.send_message(ProgressStatus.CREATING_REPORT)
+            report = await _create_report(response)
+
+            if report:
+                response.report = await _upload_report(report, dirname, file_storage)
+
+            emitter.send_message(ProgressStatus.CREATING_REPORT, True)
+        finally:
+            await file_storage.close()
 
     return response.to_dict()
 
@@ -139,11 +150,7 @@ async def _run_analysis(
 
     start = time.time()
 
-    analysis = _create_analysis(
-        config_id, config, geometry, epsg, orig_epsg, buffer)
-
-    if analysis is None:
-        raise Exception('Could not create analysis')
+    analysis = Analysis(config_id, config, geometry, epsg, orig_epsg, buffer)
 
     try:
         await run_single_analysis(analysis, context, include_guidance, include_quality_measurement)
@@ -154,8 +161,8 @@ async def _run_analysis(
         analysis.status_code = 500
         analysis.duration = duration
 
-        _logger.error('Analysis failed', config_id=str(
-            config_id), dataset=config.name, duration=duration, error=err)
+        _logger.exception('Analysis failed', config_id=str(
+            config_id), dataset=config.name, duration=duration, error=str(err))
     else:
         duration = round(time.time() - start, 2)
         analysis.duration = duration
@@ -167,6 +174,22 @@ async def _run_analysis(
     return analysis
 
 
+async def _create_fact_sheet(geometry: ogr.Geometry, orig_epsg: int | None, buffer: int) -> FactSheet | None:
+    try:
+        return await create_fact_sheet(geometry, orig_epsg, buffer)
+    except Exception as err:
+        _logger.exception('Creating fact sheet failed', error=str(err))
+        return None
+
+
+async def _create_report(response: AnalysisResponse) -> bytes | None:
+    try:
+        return await run_in_render_thread(create_pdf, response)
+    except Exception as err:
+        _logger.exception('Creating PDF report failed', error=str(err))
+        return None
+
+
 async def _run_not_implemented_analysis(config: DatasetConfig) -> Analysis | None:
     analysis = EmptyAnalysis(config.config_id, config,
                              ResultStatus.NOT_IMPLEMENTED)
@@ -176,27 +199,6 @@ async def _run_not_implemented_analysis(config: DatasetConfig) -> Analysis | Non
         return None
 
     return analysis
-
-
-def _create_analysis(
-    config_id: UUID,
-    config: DatasetConfig,
-    geometry: ogr.Geometry,
-    epsg: int,
-    orig_epsg: int | None,
-    buffer: int
-) -> Analysis | None:
-    dataset_type = get_dataset_type(config)
-
-    match dataset_type:
-        case 'arcgis':
-            return ArcGisAnalysis(config_id, config, geometry, epsg, orig_epsg, buffer)
-        case 'ogc_api':
-            return OgcApiAnalysis(config_id, config, geometry, epsg, orig_epsg, buffer)
-        case 'wfs':
-            return WfsAnalysis(config_id, config, geometry, epsg, orig_epsg, buffer)
-        case _:
-            return None
 
 
 async def _upload_images(
@@ -244,9 +246,13 @@ async def _upload_report(report: bytes, dirname: str, file_storage: FileStorage)
     return pdf_url
 
 
-async def _get_datasets(data: Dict, municipality_number: str) -> Dict[UUID, bool]:
+async def _get_datasets(
+        municipality_number: str,
+        theme: str | None,
+        include_chosen_dok: bool
+) -> Dict[UUID, bool]:
     if not DATASETS:
-        return await get_config_ids(data, municipality_number)
+        return await get_config_ids(municipality_number, theme, include_chosen_dok)
 
     datasets: Dict[UUID, bool] = {}
 
@@ -258,7 +264,7 @@ async def _get_datasets(data: Dict, municipality_number: str) -> Dict[UUID, bool
 
 def _get_file_storage() -> FileStorage | None:
     if AZURE_BLOB_STORAGE_CONN_STR:
-        return AzureBlobStorage(AZURE_BLOB_STORAGE_CONN_STR)
+        return AzureBlobStorage(AZURE_BLOB_STORAGE_CONN_STR, AZURE_BLOB_STORAGE_CONTAINER)
 
     if LOCAL_FILE_SHARE_DIR and LOCAL_FILE_SHARE_BASE_URL:
         return LocalFileShare(LOCAL_FILE_SHARE_DIR, LOCAL_FILE_SHARE_BASE_URL)
@@ -267,7 +273,7 @@ def _get_file_storage() -> FileStorage | None:
 
 
 def _get_datasets_to_analyze_count(datasets: Dict[UUID, bool]) -> int:
-    return len({key: value for (key, value) in datasets.items() if value == True})
+    return sum(1 for should_analyze in datasets.values() if should_analyze)
 
 
 def _find_analysis(analyses: List[Analysis], config_id: str) -> Analysis | None:

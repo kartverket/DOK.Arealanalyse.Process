@@ -34,33 +34,35 @@ class WfsResponseParserBase(ABC):
         pass
 
     def _map_properties(self, feature: ET._Element) -> Dict[str, Any]:
+        return self._select_properties(self._get_all_properties(feature))
+
+    def _get_all_properties(self, feature: ET._Element) -> Dict[str, Any]:
         if self.__xml_schema:
             properties = self.__xml_schema.decode(
                 feature, validation='skip')
         else:
             properties = self.__convert_xml_to_dict(feature)
 
-        cleaned = self.__clean_properties(properties)
+        return self.__clean_properties(properties)
 
+    def _select_properties(self, all_properties: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(self._properties, str):
-            return cleaned
+            return all_properties
 
         props: Dict[str, Any] = {}
 
         for prop_name in self._properties:
-            prop = get(cleaned, prop_name)
+            prop = get(all_properties, prop_name)
 
-            if prop:
+            if prop is not None:
                 props[prop_name] = prop
 
-        props = objectify_properties(props)
-
-        return props
+        return objectify_properties(props)
 
     def _create_geometry(self, elem: ET._Element | None) -> ogr.Geometry | None:
         if elem is None:
             return None
-        
+
         gml_str = ET.tostring(elem, encoding='unicode')
         geometry = geometry_from_gml(gml_str)
 
@@ -75,14 +77,15 @@ class WfsResponseParserBase(ABC):
         epsg = get_epsg_from_crs(srs_name)
 
         if epsg is not None and epsg != DEFAULT_EPSG:
-            return transform_geometry(geometry, epsg, DEFAULT_EPSG)
+            # GML coordinates follow the axis order of the srsName
+            return transform_geometry(geometry, epsg, DEFAULT_EPSG, traditional_axis_order=False)
 
         return geometry
 
     def _remove_geom_element(self, elem: ET._Element) -> None:
         if elem is None:
             return
-        
+
         parent = elem.getparent()
 
         if parent is None:

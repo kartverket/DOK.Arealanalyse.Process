@@ -1,10 +1,10 @@
-import json
 from uuid import UUID
 from typing import Any, Dict
 import structlog
 from structlog.stdlib import BoundLogger
 from ..models.metadata import Metadata
 from ..caching.kartkatalog import get_or_create_kartkatalog_metadata
+from ..caching.json_cache import read_json
 from ..utils.http_context import get_session
 
 _logger: BoundLogger = structlog.get_logger(__name__)
@@ -26,8 +26,7 @@ async def _get_kartkatalog_metadata(metadata_id: UUID) -> Dict[str, Any] | None:
     try:
         path = await get_or_create_kartkatalog_metadata(str(metadata_id), get_session())
 
-        with path.open() as file:
-            return json.load(file)
+        return read_json(path)
     except Exception as err:
         _logger.error('Kartkatalog metadata download failed',
                       metadata_id=str(metadata_id), error=str(err))

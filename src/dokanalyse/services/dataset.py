@@ -1,10 +1,10 @@
-import json
 from uuid import UUID
-from typing import Any, Dict, List, Literal
+from typing import Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
 from .config import get_dataset_configs
 from ..caching.kartgrunnlag import get_or_create_kartgrunnlag
+from ..caching.json_cache import read_json
 from ..utils.http_context import get_session
 from ..models.config import DatasetConfig
 from ..constants import NATIONAL_DATASETS
@@ -12,22 +12,14 @@ from ..constants import NATIONAL_DATASETS
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
-def get_dataset_type(config: DatasetConfig) -> Literal['wfs', 'arcgis', 'ogc_api'] | None:
-    if config.wfs is not None:
-        return 'wfs'
-    elif config.arcgis is not None:
-        return 'arcgis'
-    elif config.ogc_api is not None:
-        return 'ogc_api'
-
-    return None
-
-
-async def get_config_ids(data: Dict[str, Any], municipality_number: str) -> Dict[UUID, bool]:
-    include_chosen_dok: bool = data.get('includeFilterChosenDOK', True)
+async def get_config_ids(
+        municipality_number: str,
+        theme: str | None,
+        include_chosen_dok: bool
+) -> Dict[UUID, bool]:
     kartgrunnlag = await _get_kartgrunnlag(municipality_number) if include_chosen_dok else []
     national_dataset_ids = _get_national_dataset_ids()
-    configs = await _get_datasets_by_theme(data.get('theme'))
+    configs = await _get_datasets_by_theme(theme)
 
     datasets: Dict[UUID, bool] = {}
 
@@ -62,8 +54,7 @@ async def _get_kartgrunnlag(municipality_number: str | None) -> List[str]:
     try:
         path = await get_or_create_kartgrunnlag(municipality_number, get_session())
 
-        with path.open() as file:
-            return json.load(file)
+        return read_json(path)
     except Exception as err:
         _logger.error('Kartgrunnlag download failed',
                       municipality_number=municipality_number, error=str(err))
@@ -77,4 +68,4 @@ def _get_national_dataset_ids() -> List[str]:
     return [dataset_id.strip() for dataset_id in NATIONAL_DATASETS.split(',')]
 
 
-__all__ = ['get_dataset_type', 'get_config_ids']
+__all__ = ['get_config_ids']

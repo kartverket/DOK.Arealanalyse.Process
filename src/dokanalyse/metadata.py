@@ -12,6 +12,10 @@ PROCESS_METADATA = {
         'DOK'
     ],
     'links': [],
+    # Asynchronous execution (Prefer: respond-async) also requires an
+    # async-capable pygeoapi process manager (TinyDB, PostgreSQL or MongoDB)
+    'jobControlOptions': ['sync-execute', 'async-execute'],
+    'outputTransmission': ['value'],
     'inputs': {
         'inputGeometry': {
             'title': 'Område',
@@ -27,7 +31,7 @@ PROCESS_METADATA = {
             'title': 'Ønsket buffer',
             'description': 'Antall meter som legges på inputGeometry som buffer i analysen. Kan utelates og avgjøres av analysen hva som er fornuftig buffer.',
             'schema': {
-                'type': 'number'
+                'type': 'integer'
             },
             'minOccurs': 0,
             'maxOccurs': 1
@@ -76,7 +80,7 @@ PROCESS_METADATA = {
             'minOccurs': 0,
             'maxOccurs': 1
         },
-        'includeFactSheet': {
+        'includeFacts': {
             'title': 'Inkluder faktainformasjon',
             'schema': {
                 'type': 'boolean'
@@ -137,7 +141,7 @@ PROCESS_METADATA = {
                 'type': 'number'
             },
             'minOccurs': 1,
-            'maxOccurs': 1            
+            'maxOccurs': 1
         },
         'municipalityNumber': {
             'title': 'Kommunenummer',
@@ -154,7 +158,7 @@ PROCESS_METADATA = {
             },
             'minOccurs': 1,
             'maxOccurs': 1
-        }        
+        }
     },
     'example': {
         'inputs': {
@@ -197,7 +201,7 @@ PROCESS_METADATA = {
             'includeGuidance': True,
             'includeQualityMeasurement': True,
             'includeFilterChosenDOK': True,
-            'includeFactSheet': True,
+            'includeFacts': True,
             'createBinaries': True,
             'correlationId': '42054ecd-90eb-4b97-a271-07281a78d98f'
         }

@@ -1,3 +1,5 @@
+import contextlib
+import time
 from enum import Enum
 import shutil
 import json
@@ -15,7 +17,10 @@ import aiofiles
 _CACHED_MARKER = '.cache_complete'
 _LOCK_FILE = '.cache.lock'
 
+_REFRESH_RETRY_SECONDS = 300
+
 _inproc_locks: Dict[Path, asyncio.Lock] = {}
+_failed_refreshes: Dict[Path, float] = {}
 _logger: BoundLogger = structlog.get_logger(__name__)
 
 
@@ -37,26 +42,44 @@ async def get_or_create_file(
     timeout: int | None = None,
     cache: Tuple[int, CacheUnit] | None = None
 ) -> Path:
+    """Returns the path of a cached copy of the resource at `url`.
+
+    If the cache has expired but refreshing it fails (e.g. the remote service
+    is down), the stale copy is returned and no new refresh is attempted for
+    the next `_REFRESH_RETRY_SECONDS` seconds.
+    """
     path = path.resolve()
 
-    if _is_cache_valid(path, cache):
+    if _is_cache_valid(path, cache) or _is_refresh_suspended(path):
         return path
 
-    if not with_lock:
-        return await _get_or_create_file(url, path, session, mapper, semaphore, timeout)
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    lock_path = path.with_name(path.name + '.lock')
-    inproc_lock = _get_inproc_lock(path)
-
-    async with inproc_lock:
-        if _is_cache_valid(path, cache):
-            return path
-
-        async with AsyncFileLock(lock_path, is_singleton=True):
-            if _is_cache_valid(path, cache):
-                return path
-    
+    try:
+        if not with_lock:
             return await _get_or_create_file(url, path, session, mapper, semaphore, timeout)
+
+        lock_path = path.with_name(path.name + '.lock')
+        inproc_lock = _get_inproc_lock(path)
+
+        async with inproc_lock:
+            if _is_cache_valid(path, cache) or _is_refresh_suspended(path):
+                return path
+
+            async with AsyncFileLock(lock_path, is_singleton=True):
+                if _is_cache_valid(path, cache):
+                    return path
+
+                return await _get_or_create_file(url, path, session, mapper, semaphore, timeout)
+    except Exception as err:
+        if not path.exists():
+            raise
+
+        _failed_refreshes[path] = time.monotonic()
+        _logger.warning('Cache refresh failed, using stale file',
+                        url=url, path=str(path), error=str(err) or type(err).__name__)
+
+        return path
 
 
 def cache_dir(
@@ -139,18 +162,11 @@ async def _get_or_create_file(
     semaphore: asyncio.Semaphore | None,
     timeout: int | None
 ) -> Path:
-    if mapper:
-        if semaphore:
-            async with semaphore:
-                return await _download_and_create_file_with_mapper(url, path, session, mapper, timeout)
+    async with semaphore or contextlib.nullcontext():
+        if mapper:
+            return await _download_and_create_file_with_mapper(url, path, session, mapper, timeout)
 
-        return await _download_and_create_file_with_mapper(url, path, session, mapper, timeout)
-
-    if semaphore:
-        async with semaphore:
-            return await _download_and_create_file(url, path, session, timeout)
-
-    return await _download_and_create_file(url, path, session, timeout)
+        return await _download_and_create_file(url, path, session, timeout)
 
 
 async def _download_and_create_file_with_mapper(
@@ -165,7 +181,7 @@ async def _download_and_create_file_with_mapper(
 
     async with session.get(url, **request_args) as response:
         response.raise_for_status()
-        data: Dict[str, Any] = await response.json()
+        data: Dict[str, Any] = await response.json(content_type=None)
 
     mapped = await mapper(data)
     json_str = json.dumps(mapped, indent=2, ensure_ascii=False)
@@ -211,6 +227,20 @@ def _is_cache_valid(path: Path, cache: Tuple[int, CacheUnit] | None) -> bool:
         return True
 
     return not should_refresh_cache(path, *cache)
+
+
+def _is_refresh_suspended(path: Path) -> bool:
+    failed_at = _failed_refreshes.get(path)
+
+    if failed_at is None:
+        return False
+
+    if time.monotonic() - failed_at < _REFRESH_RETRY_SECONDS:
+        return path.exists()
+
+    del _failed_refreshes[path]
+
+    return False
 
 
 def _get_inproc_lock(path: Path) -> asyncio.Lock:

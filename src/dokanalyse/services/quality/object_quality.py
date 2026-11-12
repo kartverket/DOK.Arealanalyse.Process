@@ -55,14 +55,13 @@ def _get_object_quality_data(
 
         for entry in data:
             values.append({
-                'value': entry[prop],
+                'value': entry.get(prop),
                 'comment': None
             })
 
         distinct = list({value['value']: value for value in values}.values())
 
-        should_warn = any(value['value'] for value in distinct if any(
-            t_value for t_value in threshold_values if t_value == value['value']))
+        should_warn = any(value['value'] in threshold_values for value in distinct)
 
         measurements.append({
             'id': oi.quality_dimension_id,

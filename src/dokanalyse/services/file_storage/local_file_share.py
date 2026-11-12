@@ -13,11 +13,11 @@ class LocalFileShare(FileStorage):
         self.__base_url = base_url
 
     async def upload_binary(self, data: bytes, dirname: str, filename: str, **kwargs) -> str | None:
-        dirpath = Path(self.__files_dir).joinpath(dirname)       
+        dirpath = Path(self.__files_dir).joinpath(dirname)
 
         try:
             if not dirpath.exists():
-                dirpath.mkdir(parents=True)
+                dirpath.mkdir(parents=True, exist_ok=True)
 
             filepath = dirpath.joinpath(filename)
 
@@ -34,7 +34,7 @@ class LocalFileShare(FileStorage):
 
         try:
             if not dirpath.exists():
-                dirpath.mkdir(parents=True)
+                dirpath.mkdir(parents=True, exist_ok=True)
 
             return str(dirpath)
         except Exception as err:

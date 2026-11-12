@@ -1,9 +1,10 @@
 import time
+import asyncio
 from uuid import UUID
 from typing import Any, Dict, List
 import structlog
 from structlog.stdlib import BoundLogger
-from osgeo import gdal, ogr
+from osgeo import ogr
 from ..codelist import get_codelist
 from ..kartkatalog import get_kartkatalog_metadata
 from ...models.fact_part import FactPart
@@ -22,7 +23,13 @@ async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int | Non
 
     start = time.time()
     dataset = await get_kartkatalog_metadata(_metadata_id)
-    data = await _get_data(geometry)
+    area_types = await asyncio.to_thread(_get_area_types, geometry, AR5_FGDB_PATH)
+
+    data = {
+        'inputArea': round(geometry.GetArea(), 2),
+        'areaTypes': await _map_area_types(area_types)
+    }
+
     end = time.time()
 
     _logger.info('Fact sheet: Got area types from FKB AR5', duration=round(end - start, 2))
@@ -30,31 +37,38 @@ async def get_area_types(geometry: ogr.Geometry, epsg: int, orig_epsg: int | Non
     return FactPart(geometry, epsg, orig_epsg, buffer, dataset, [f'intersect {_LAYER_NAME}'], data)
 
 
-async def _get_data(geometry: ogr.Geometry) -> Dict[str, Any]:
-    driver: gdal.Driver = ogr.GetDriverByName('OpenFileGDB')
-    dataset: gdal.Dataset = driver.Open(AR5_FGDB_PATH)
-    layer: ogr.Layer = dataset.GetLayerByName(_LAYER_NAME)
-    layer.SetSpatialFilter(0, geometry)
+def _get_area_types(geometry: ogr.Geometry, fgdb_path: str) -> Dict[str, float]:
+    """Sums the intersecting area per AR5 area type. Blocking."""
+    driver: ogr.Driver = ogr.GetDriverByName('OpenFileGDB')
+    dataset: ogr.DataSource | None = driver.Open(fgdb_path)
 
-    input_area = geometry.GetArea()
-    area_types = {}
+    if dataset is None:
+        raise ValueError(f'Could not open AR5 file geodatabase: {fgdb_path}')
+
+    layer: ogr.Layer | None = dataset.GetLayerByName(_LAYER_NAME)
+
+    if layer is None:
+        raise ValueError(f'Layer "{_LAYER_NAME}" not found in AR5 file geodatabase')
+
+    layer.SetSpatialFilter(0, geometry)
+    area_types: Dict[str, float] = {}
 
     feature: ogr.Feature
     for feature in layer:
-        area_type = feature.GetField('arealtype')
-        geom: ogr.Geometry = feature.GetGeometryRef()
-        intersection: ogr.Geometry = geometry.Intersection(geom)
-        geom_area: float = intersection.GetArea()
+        geom: ogr.Geometry | None = feature.GetGeometryRef()
 
-        if area_type in area_types:
-            area_types[area_type] += geom_area
-        else:
-            area_types[area_type] = geom_area
+        if geom is None:
+            continue
 
-    return {
-        'inputArea': round(input_area, 2),
-        'areaTypes': await _map_area_types(area_types)
-    }
+        intersection: ogr.Geometry | None = geometry.Intersection(geom)
+
+        if intersection is None:
+            continue
+
+        area_type = feature.GetFieldAsString('arealtype')
+        area_types[area_type] = area_types.get(area_type, 0) + intersection.GetArea()
+
+    return area_types
 
 
 async def _map_area_types(area_types: Dict[str, Any]) -> List[Dict[str, Any]]:

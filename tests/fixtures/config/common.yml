@@ -1,0 +1,17 @@
+---
+type: quality
+
+indicators:
+  - type: dataset
+    quality_dimension_id: egnethet_reguleringsplan
+    quality_dimension_name: Reguleringsplan
+    quality_warning_text: Datasettet er lite egnet for reguleringsplan
+    warning_threshold: 1 OR 2
+    input_filter: context = 'Reguleringsplan'
+
+  - type: dataset
+    quality_dimension_id: egnethet_byggesak
+    quality_dimension_name: Byggesak
+    quality_warning_text: Datasettet er lite egnet for byggesak
+    warning_threshold: 1 OR 2
+    input_filter: context = 'Byggesak'

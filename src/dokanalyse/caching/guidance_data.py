@@ -21,11 +21,11 @@ async def get_or_create_guidance_data(
         return _map_data(data)
 
     return await get_or_create_file(
-        _API_URL, 
-        path, 
-        session, 
+        _API_URL,
+        path,
+        session,
         with_lock,
-        mapper=mapper, 
+        mapper=mapper,
         semaphore=semaphore,
         cache=(_CACHE_DAYS, CacheUnit.DAYS)
     )
@@ -35,23 +35,27 @@ def _map_data(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     output: List[Dict[str, Any]] = []
 
     for item in data:
+        if not item.get('id'):
+            continue
+
         mapped = {
             'id': item['id'],
-            'title': item['tittel'],
-            'description': item['forklarendeTekst'],
-            'guidance_text': item['dialogtekst']
+            'title': item.get('tittel'),
+            'description': item.get('forklarendeTekst'),
+            'guidance_text': item.get('dialogtekst')
         }
 
         guidance_uri = []
 
-        for link in item.get('lenker', []):
-            guidance_uri.append({
-                'href': link['href'],
-                'title': link['tittel']
-            })
+        for link in item.get('lenker') or []:
+            if link.get('href'):
+                guidance_uri.append({
+                    'href': link['href'],
+                    'title': link.get('tittel')
+                })
 
         mapped['guidance_uri'] = guidance_uri
-        possible_actions_str: str = item.get('muligeTiltak', '')
+        possible_actions_str: str = item.get('muligeTiltak') or ''
         possible_actions = []
 
         for line in possible_actions_str.splitlines():
