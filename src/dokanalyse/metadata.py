@@ -12,6 +12,10 @@ PROCESS_METADATA = {
         'DOK'
     ],
     'links': [],
+    # Asynchronous execution (Prefer: respond-async) also requires an
+    # async-capable pygeoapi process manager (TinyDB, PostgreSQL or MongoDB)
+    'jobControlOptions': ['sync-execute', 'async-execute'],
+    'outputTransmission': ['value'],
     'inputs': {
         'inputGeometry': {
             'title': 'Område',

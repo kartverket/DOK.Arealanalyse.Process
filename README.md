@@ -45,6 +45,10 @@ export DOKANALYSE_CLIENT_TIMEOUT=30
 # Bruk XML-skjema (DescribeFeatureType) til typing av WFS-egenskaper (valgfri, standard: false)
 export DOKANALYSE_USE_XML_SCHEMAS=false
 
+# Maks antall analyser som kjøres samtidig per prosess, synkrone og asynkrone til sammen
+# (valgfri, standard: 10). Analyser utover dette venter i kø.
+export DOKANALYSE_MAX_CONCURRENT_ANALYSES=10
+
 # Loggnivå: DEBUG, INFO, WARNING, ERROR eller FATAL (valgfri, standard: INFO)
 export DOKANALYSE_LOG_LEVEL=INFO
 
@@ -52,6 +56,21 @@ export DOKANALYSE_LOG_LEVEL=INFO
 # Bør være false når flere worker-prosesser kjører, og logging skjer til stdout.
 export DOKANALYSE_LOG_TO_FILE=true
 ```
+
+#### Asynkron prosessering
+Prosessen støtter både synkron og asynkron kjøring (`jobControlOptions: [sync-execute, async-execute]`). Med headeren `Prefer: respond-async` svarer pygeoapi med `201 Created` og en `Location`-header til jobben (`/jobs/{jobId}`). Resultatet hentes fra `/jobs/{jobId}/results` når jobben har status `successful`.
+
+Asynkron kjøring krever at pygeoapi er konfigurert med en process manager som støtter det (TinyDB, PostgreSQL eller MongoDB), og med `output_dir` slik at resultatet kan lagres. Med standardmanageren (`Dummy`) kjøres prosessen alltid synkront, også når klienten ber om asynkron kjøring.
+
+```yaml
+server:
+  manager:
+    name: TinyDB
+    connection: /path/to/dokanalyse/jobs.db
+    output_dir: /path/to/dokanalyse/job-results
+```
+
+Merk at TinyDB lagrer jobbene i en lokal fil. Hvis flere instanser av tjenesten kjører bak en lastbalanserer, må jobbdatabasen og `output_dir` være delt mellom dem (f.eks. PostgreSQL).
 
 #### Utvikling
 ```bash

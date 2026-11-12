@@ -32,5 +32,7 @@ LOG_TO_FILE: bool = (
     getenv('DOKANALYSE_LOG_TO_FILE', 'True').lower() == 'true')
 USE_XML_SCHEMAS: bool = (
     getenv('DOKANALYSE_USE_XML_SCHEMAS', 'False').lower() == 'true')
+MAX_CONCURRENT_ANALYSES: int = max(
+    1, int(getenv('DOKANALYSE_MAX_CONCURRENT_ANALYSES', 10)))
 DEFAULT_EPSG: int = 25833
 WGS84_EPSG: int = 4326
