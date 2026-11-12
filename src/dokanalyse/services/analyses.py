@@ -150,10 +150,6 @@ async def _run_analysis(
 
     start = time.time()
 
-    if config.service_type is None:
-        _logger.error('Unsupported dataset type', config_id=str(config_id), dataset=config.name)
-        return None
-
     analysis = Analysis(config_id, config, geometry, epsg, orig_epsg, buffer)
 
     try:

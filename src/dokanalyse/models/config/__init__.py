@@ -1,6 +1,7 @@
 from .coverage_geojson import CoverageGeoJson # noqa: F401
 from .coverage_gpkg import CoverageGeoPackage # noqa: F401
 from .coverage_wfs import CoverageWfs # noqa: F401
+from .coverage_arcgis import CoverageArcGis # noqa: F401
 from .coverage_service import CoverageService # noqa: F401
 from .coverage_base_service import CoverageBaseService # noqa: F401
 from .dataset_config import DatasetConfig # noqa: F401

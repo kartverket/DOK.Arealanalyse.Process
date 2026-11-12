@@ -68,7 +68,7 @@ def test_is_relevant():
 def test_coverage_warning_text_with_partial_hit_area():
     indicator = _indicator(type='coverage', warning_threshold='ikkeKartlagt',
                            quality_warning_text='Området er ikke kartlagt',
-                           arcgis={'url': 'https://example.com', 'layer': '0', 'property': 'p'})
+                           features={'type': 'arcgis', 'url': 'https://example.com', 'layer': '0', 'property': 'p'})
 
     assert _get_warning_text(indicator, ['ikkeKartlagt'], 40.5) == '40,5 % av området er ikke kartlagt'
     assert _get_warning_text(indicator, ['ikkeKartlagt'], 100) == 'Området er ikke kartlagt'

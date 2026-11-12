@@ -1,13 +1,11 @@
 from uuid import UUID
-from pydantic import BaseModel, model_validator, field_validator
+from pydantic import BaseModel, field_validator
 from typing import List, Dict, Callable
 from ..result_status import ResultStatus
 
 
 class Layer(BaseModel):
-    wfs: str | None = None
-    arcgis: str | None = None
-    ogc_api: str | None = None
+    feature: str
     wms: List[str]
     filter: str | None = None
     filter_func: Callable[[Dict], bool] | None = None
@@ -34,12 +32,3 @@ class Layer(BaseModel):
                              ', '.join(list(map(lambda status: status.value, valid_statuses))))
 
         return value
-
-    @model_validator(mode='before')
-    @classmethod
-    def check_layer_type(cls, values: Dict) -> Dict:
-        if 'wfs' not in values and 'arcgis' not in values and 'ogc_api' not in values:
-            raise ValueError(
-               'The layer must have either the "wfs", "arcgis" or "ogc_api" property set')
-
-        return values

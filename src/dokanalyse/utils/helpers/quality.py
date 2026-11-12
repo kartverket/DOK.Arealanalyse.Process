@@ -12,16 +12,7 @@ def get_coverage_indicator(quality_indicators: List[QualityIndicator]) -> Qualit
 
 
 def get_coverage_service_config_data(coverage_indicator: QualityIndicator) -> Dict[str, Any] | None:
-    coverage_svc: CoverageBaseService | None = None
-
-    if coverage_indicator.wfs:
-        coverage_svc = coverage_indicator.wfs
-    elif coverage_indicator.arcgis:
-        coverage_svc = coverage_indicator.arcgis
-    elif coverage_indicator.geojson:
-        coverage_svc = coverage_indicator.geojson
-    elif coverage_indicator.gpkg:
-        coverage_svc = coverage_indicator.gpkg
+    coverage_svc: CoverageBaseService | None = coverage_indicator.features
 
     if not coverage_svc:
         return None

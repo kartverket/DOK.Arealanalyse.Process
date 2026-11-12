@@ -4,16 +4,18 @@ config_id: 22222222-2222-4222-8222-222222222222
 name: test_naturtyper
 
 metadata_id: bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
-arcgis: https://arcgis.example.com/arcgis/rest/services/naturtyper/MapServer
+features:
+  type: arcgis
+  url: https://arcgis.example.com/arcgis/rest/services/naturtyper/MapServer
 wms: https://arcgis.example.com/arcgis/services/naturtyper/MapServer/WMSServer
 layers:
-  - arcgis: '0'
+  - feature: '0'
     wms:
       - svært_stor_verdi
     filter: Verdikategori = 'Svært stor verdi'
     result_status: HIT-RED
     planning_guidance_id: 0d000000-0000-4000-8000-000000000003
-  - arcgis: '1'
+  - feature: '1'
     wms:
       - stor_verdi
     result_status: HIT-YELLOW
@@ -32,7 +34,8 @@ indicators:
     quality_dimension_name: Fullstendighetsdekning
     quality_warning_text: Området er ikke kartlagt for naturtyper
     warning_threshold: null
-    arcgis:
+    features:
+      type: arcgis
       url: https://arcgis.example.com/arcgis/rest/services/naturtyper_nin/MapServer
       layer: '1'
       property: Dekningskartverdi

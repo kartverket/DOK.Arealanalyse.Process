@@ -4,10 +4,12 @@ config_id: 33333333-3333-4333-8333-333333333333
 name: test_kulturminner
 
 metadata_id: cccccccc-cccc-4ccc-8ccc-cccccccccccc
-ogc_api: https://api.example.com/kulturminner
+features:
+  type: ogc_api
+  url: https://api.example.com/kulturminner
 wms: https://wms.example.com/kulturminner
 layers:
-  - ogc_api: enkeltminner
+  - feature: enkeltminner
     wms:
       - Enkeltminner
     filter: vernetype = 'AUT'

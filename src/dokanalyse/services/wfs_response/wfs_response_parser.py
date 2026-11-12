@@ -20,7 +20,7 @@ class WfsResponseParser(WfsResponseParserBase):
     ) -> None:
         super().__init__(
             cast(str, config.geom_field),
-            cast(str, layer.wfs),
+            layer.feature,
             config.properties,
             config.skip_properties,
             config.xml_schema,

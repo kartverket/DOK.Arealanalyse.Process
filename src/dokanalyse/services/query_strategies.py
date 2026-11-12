@@ -31,14 +31,14 @@ class QueryStrategy(Protocol):
 
 class WfsQueryStrategy:
     def get_service_url(self, config: DatasetConfig) -> str:
-        return get_service_url(_require(config.wfs, 'wfs'))
+        return get_service_url(config.features)
 
     def get_layer_name(self, layer: Layer) -> str:
-        return _require(layer.wfs, 'layers.wfs')
+        return layer.feature
 
     async def query(self, config: DatasetConfig, layer: Layer, geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]:
         return await query_wfs(
-            _require(config.wfs, 'wfs'), self.get_layer_name(layer),
+            config.features, layer.feature,
             _require(config.geom_field, 'geom_field'), geometry, epsg, config)
 
     def parse_response(self, response: Any, config: DatasetConfig, layer: Layer) -> Dict[str, list]:
@@ -52,14 +52,14 @@ class WfsQueryStrategy:
 
 class ArcGisQueryStrategy:
     def get_service_url(self, config: DatasetConfig) -> str:
-        return get_service_url(_require(config.arcgis, 'arcgis'))
+        return get_service_url(config.features)
 
     def get_layer_name(self, layer: Layer) -> str:
-        return _require(layer.arcgis, 'layers.arcgis')
+        return layer.feature
 
     async def query(self, config: DatasetConfig, layer: Layer, geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]:
         return await query_arcgis(
-            _require(config.arcgis, 'arcgis'), self.get_layer_name(layer), layer.filter, geometry, epsg, config)
+            config.features, layer.feature, layer.filter, geometry, epsg, config)
 
     def parse_response(self, response: Any, config: DatasetConfig, layer: Layer) -> Dict[str, list]:
         data = {
@@ -90,14 +90,14 @@ class ArcGisQueryStrategy:
 
 class OgcApiQueryStrategy:
     def get_service_url(self, config: DatasetConfig) -> str:
-        return get_service_url(_require(config.ogc_api, 'ogc_api'))
+        return get_service_url(config.features)
 
     def get_layer_name(self, layer: Layer) -> str:
-        return _require(layer.ogc_api, 'layers.ogc_api')
+        return layer.feature
 
     async def query(self, config: DatasetConfig, layer: Layer, geometry: ogr.Geometry, epsg: int) -> Tuple[int, Any]:
         return await query_ogc_api(
-            _require(config.ogc_api, 'ogc_api'), self.get_layer_name(layer),
+            config.features, layer.feature,
             _require(config.geom_field, 'geom_field'), geometry, layer.filter, epsg, config)
 
     def parse_response(self, response: List[Dict[str, Any]], config: DatasetConfig, layer: Layer) -> Dict[str, list]:
@@ -135,9 +135,7 @@ _strategies: Dict[str, QueryStrategy] = {
 
 
 def get_query_strategy(analysis: Analysis) -> QueryStrategy | None:
-    service_type = analysis.config.service_type
-
-    return _strategies.get(service_type) if service_type else None
+    return _strategies.get(analysis.config.service_type)
 
 
 def _map_properties(

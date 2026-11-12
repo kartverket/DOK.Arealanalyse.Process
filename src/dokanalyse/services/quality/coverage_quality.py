@@ -6,6 +6,7 @@ from ..codelist import get_codelist
 from ...models.coverage_quality_response import CoverageQualityResponse
 from ...models.quality_measurement import QualityMeasurement
 from ...models.config.quality_indicator import QualityIndicator
+from ...models.config import CoverageWfs, CoverageArcGis, CoverageGeoJson, CoverageGeoPackage
 
 
 async def get_coverage_quality(
@@ -86,17 +87,16 @@ async def _get_values_from_web_service(
     geometry: ogr.Geometry,
     epsg: int
 ) -> Tuple[List[str], float, List[Dict]]:
-    if quality_indicator.wfs:
-        return await get_values_from_wfs(quality_indicator.wfs, geometry, epsg)
+    features = quality_indicator.features
 
-    if quality_indicator.arcgis:
-        return await get_values_from_arcgis(quality_indicator.arcgis, geometry, epsg)
+    if isinstance(features, CoverageWfs):
+        return await get_values_from_wfs(features, geometry, epsg)
 
-    if quality_indicator.geojson:
-        return await get_values_from_geofile(quality_indicator.geojson, geometry, epsg)
+    if isinstance(features, CoverageArcGis):
+        return await get_values_from_arcgis(features, geometry, epsg)
 
-    if quality_indicator.gpkg:
-        return await get_values_from_geofile(quality_indicator.gpkg, geometry, epsg)
+    if isinstance(features, (CoverageGeoJson, CoverageGeoPackage)):
+        return await get_values_from_geofile(features, geometry, epsg)
 
     # TODO: Add support for OGC Features API
 

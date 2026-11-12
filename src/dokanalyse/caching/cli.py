@@ -128,26 +128,27 @@ def _get_config_data() -> Tuple[List[str], List[str]]:
 
 
 def _get_wfs_url_from_dataset(dataset: Dict[str, Any]) -> str | None:
-    wfs: str | Dict[str, Any] | None = dataset.get('wfs')
+    features: Dict[str, Any] | None = dataset.get('features')
 
-    if isinstance(wfs, str) and _is_http_url(wfs):
-        return wfs
+    if not isinstance(features, dict) or features.get('type') != 'wfs':
+        return None
 
-    if isinstance(wfs, dict):
-        url = wfs.get('url')
+    url = features.get('url')
 
-        if isinstance(url, str) and _is_http_url(url):
-            return url
+    if isinstance(url, str) and _is_http_url(url):
+        return url
 
     return None
 
 
 def _get_url_from_indicator(indicator: Dict[str, Any]) -> str | None:
-    service: Dict[str, Any] | None = indicator.get(
-        'geojson') or indicator.get('gpkg')
+    features: Dict[str, Any] | None = indicator.get('features')
 
-    if service and _is_http_url(service['url']):
-        return service['url']
+    if not isinstance(features, dict) or features.get('type') not in ('geojson', 'gpkg'):
+        return None
+
+    if _is_http_url(features['url']):
+        return features['url']
 
     return None
 

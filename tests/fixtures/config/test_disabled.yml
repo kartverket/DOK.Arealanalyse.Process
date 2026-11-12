@@ -3,7 +3,9 @@ type: dataset
 config_id: 44444444-4444-4444-8444-444444444444
 name: test_disabled
 disabled: true
-wfs: TODO
+features:
+  type: wfs
+  url: TODO
 wms: TODO
 layers: []
 themes:

@@ -11,7 +11,7 @@ from xmlschema import XMLSchema
 from .xml_schema import compile_xml_schema
 from .dok_status import get_dok_status
 from ..caching.xsd import hash_url
-from ..models.config import DatasetConfig, QualityConfig, QualityIndicator
+from ..models.config import DatasetConfig, QualityConfig, QualityIndicator, CoverageWfs
 from ..utils.helpers.common import get_config_file_paths
 from ..utils.helpers.filter import compile_cql_filter
 from ..constants import USE_XML_SCHEMAS
@@ -163,7 +163,7 @@ async def _create_dataset_config(path: Path, data: Dict[str, Any]) -> DatasetCon
     try:
         config = DatasetConfig(**data)
 
-        if config.wfs:
+        if config.service_type == 'wfs':
             for layer in config.layers:
                 if layer.filter:
                     layer.filter_func = compile_cql_filter(layer.filter)
@@ -185,9 +185,9 @@ async def _create_quality_config(path: Path, data: Dict[str, Any]) -> QualityCon
         config = QualityConfig(**data)
 
         for indicator in config.indicators:
-            if indicator.wfs and USE_XML_SCHEMAS:
-                indicator.wfs.xml_schema = await _compile_wfs_xml_schema(
-                    str(indicator.wfs.url))
+            if isinstance(indicator.features, CoverageWfs) and USE_XML_SCHEMAS:
+                indicator.features.xml_schema = await _compile_wfs_xml_schema(
+                    str(indicator.features.url))
 
             if indicator.input_filter:
                 indicator.input_filter_func = compile_cql_filter(

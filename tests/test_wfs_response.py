@@ -27,7 +27,7 @@ async def test_layer_filter_matches_numeric_values():
 
 def test_coverage_parser_collects_values():
     config = CoverageWfs.model_validate({
-        'url': 'https://wfs.example.com', 'layer': 'FlomAreal', 'geom_field': 'område',
+        'type': 'wfs', 'url': 'https://wfs.example.com', 'layer': 'FlomAreal', 'geom_field': 'område',
         'property': 'nøyaktighetsklasse', 'properties': ['gjentaksintervall']})
 
     values, geoms, data = CoverageWfsResponseParser(config).parse(read_fixture('wfs_flomareal.xml'))

@@ -45,11 +45,19 @@ def test_dataset_config_requires_service():
         DatasetConfig.model_validate({'config_id': WFS_ID, 'name': 'x', 'wms': 'https://example.com', 'themes': []})
 
 
+def test_dataset_config_rejects_unknown_service_type():
+    with pytest.raises(ValidationError):
+        DatasetConfig.model_validate({
+            'config_id': WFS_ID, 'name': 'x', 'features': {'type': 'wms', 'url': 'https://example.com'},
+            'wms': 'https://example.com', 'themes': []})
+
+
 def test_layer_rejects_invalid_result_status():
     with pytest.raises(ValidationError):
         DatasetConfig.model_validate({
-            'config_id': WFS_ID, 'name': 'x', 'wfs': 'https://example.com', 'wms': 'https://example.com',
-            'themes': [], 'layers': [{'wfs': 'a', 'wms': [], 'result_status': 'ERROR'}]})
+            'config_id': WFS_ID, 'name': 'x', 'features': {'type': 'wfs', 'url': 'https://example.com'},
+            'wms': 'https://example.com', 'themes': [],
+            'layers': [{'feature': 'a', 'wms': [], 'result_status': 'ERROR'}]})
 
 
 @pytest.fixture
@@ -69,10 +77,12 @@ _DATASET_YML = '''
 type: dataset
 config_id: {config_id}
 name: {name}
-wfs: https://wfs.example.com
+features:
+  type: wfs
+  url: https://wfs.example.com
 wms: https://wms.example.com
 layers:
-  - wfs: Layer
+  - feature: Layer
     wms: [layer]
     result_status: HIT-RED
 geom_field: område
@@ -109,7 +119,7 @@ def test_quality_config_allows_only_one_coverage_indicator():
     from dokanalyse.models.config import QualityConfig
 
     coverage = {'type': 'coverage', 'quality_dimension_id': 'x', 'quality_dimension_name': 'X',
-                'arcgis': {'url': 'https://example.com', 'layer': '0', 'property': 'p'}}
+                'features': {'type': 'arcgis', 'url': 'https://example.com', 'layer': '0', 'property': 'p'}}
 
     with pytest.raises(ValidationError):
         QualityConfig.model_validate({'indicators': [coverage, coverage]})
